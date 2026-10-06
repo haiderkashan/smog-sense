@@ -34,3 +34,20 @@ def frozen_issuance() -> datetime:
 @pytest.fixture(autouse=True)
 def _offline_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SMOGSENSE_MODE", "fixtures")
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-network", action="store_true", default=False, help="run tests that require real network"
+    )
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "network: mark test as requiring network access")
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--run-network"):
+        # --run-network given in cli: do not skip network tests
+        return
+    skip_network = pytest.mark.skip(reason="need --run-network option to run")
+    for item in items:
+        if "network" in item.keywords:
+            item.add_marker(skip_network)

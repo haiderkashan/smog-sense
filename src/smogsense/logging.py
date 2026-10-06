@@ -1,4 +1,7 @@
-"""smogsense.logging - JSON logging with secret redaction."""
+"""smogsense.logging - JSON logging with secret redaction.
+
+Specification: docs/deployment-and-ops.md -> 'Observability'
+"""
 
 import os
 import structlog

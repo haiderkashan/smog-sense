@@ -1,4 +1,7 @@
-"""smogsense.utils.io - I/O utilities including Pandera validation wrappers."""
+"""smogsense.utils.io - I/O utilities including Pandera validation wrappers.
+
+Specification: docs/data-engineering.md -> 'Data contracts'
+"""
 
 import pandas as pd
 import pandera as pa

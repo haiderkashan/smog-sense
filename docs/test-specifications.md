@@ -14,5 +14,5 @@ Contract tests to implement for Phase 0 and Phase 1.
 - **Config cross-consistency.** As above (steps equality, partitions, 10 methods, γ in the grid).
 - **i18n.** 73-key parity; the 6 new keys' placeholders match.
 - **Workflow structure.** Daily, scoring, keep-alive and the watchdog share the concurrency group; every downstream step is guarded by the skip flag.
-- **Docs.** No reference to the git-ignored files; anchors resolve; hours reconcile (a local-only test that skips when `roadmap.md` is absent).
+- **Docs.** No reference to the internal files; anchors resolve; hours reconcile.
 - **Pending experiments (protocols only).** Latent-shift and stacker-frame test; in-sample vs out-of-sample latents; pinball vs quantile-Huber with and without clipping; RH-mask audit; peak-RSS loop; state-branch growth and compaction/rebase exercise; API-vs-archive diff; backfill pilot; ACI γ backtest.

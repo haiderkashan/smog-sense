@@ -1,4 +1,7 @@
-"""smogsense.config - Typed settings: YAML configuration plus environment-provided secrets."""
+"""smogsense.config - Typed settings: YAML configuration plus environment-provided secrets.
+
+Specification: configs/*.yaml and docs/system-architecture.md
+"""
 
 import hashlib
 import json

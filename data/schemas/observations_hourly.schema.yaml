@@ -91,19 +91,19 @@ columns:
     dtype: datetime64[ns, UTC]
     coerce: true
   colocated_group_id:
-    type: str
+    dtype: string[python]
     nullable: true
+    coerce: true
   n_revisions:
-    type: int
-    nullable: false
-    checks:
-    - '>= 1'
+    dtype: int32
+    coerce: true
+    greater_than_or_equal_to: 1
   last_revised_utc:
-    type: datetime
-    nullable: false
+    dtype: datetime64[ns, UTC]
+    coerce: true
   available_at_utc:
-    type: datetime
-    nullable: false
+    dtype: datetime64[ns, UTC]
+    coerce: true
 coerce: true
 strict: true
 name: observations_hourly

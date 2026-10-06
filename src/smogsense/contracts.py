@@ -1,4 +1,7 @@
-"""smogsense.contracts - Shared value objects."""
+"""smogsense.contracts - Shared value objects.
+
+Specification: docs/ml-architecture.md -> 'Problem formulation'
+"""
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 

@@ -260,7 +260,7 @@ def test_configs_are_consistent_with_each_other(repo_root: Path) -> None:
     assert model["target"]["min_valid_hours"] == feats["targets"]["min_valid_hours"] == 18
     lowers = [c["lower"] for c in bulletin["aqi"]["categories"]]
     assert lowers == sorted(lowers) and lowers[0] == 0.0
-    assert evaluation["methods"][0] == "m0_persistence" and len(evaluation["methods"]) == 9
+    assert evaluation["methods"][0] == "m0_persistence" and len(evaluation["methods"]) == 10
 
 
 # ----------------------------------------------------------------------------- documentation integrity (anchors, spec references)

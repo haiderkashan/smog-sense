@@ -73,6 +73,10 @@ def _observations() -> pd.DataFrame:
             "provider": ["x", "x"],
             "source": ["openaq_api"] * 2,
             "ingested_at_utc": [T0 + pd.Timedelta(hours=2)] * 2,
+            "colocated_group_id": [None, None],
+            "n_revisions": np.array([1, 1], dtype="int32"),
+            "last_revised_utc": [T0, T0],
+            "available_at_utc": [T0, T0],
         }
     )
 
@@ -110,6 +114,7 @@ def test_pandera_duplicate_index_pitfall_is_still_present(
 
 def _forecast_row() -> pd.DataFrame:
     row: dict[str, Any] = {
+        "run_id": "test_run",
         "issuance_utc": T0,
         "generated_at_utc": T0 + pd.Timedelta(minutes=25),
         "domain": "lahore",
@@ -150,6 +155,7 @@ def test_feature_store_regex_columns_and_strictness(schemas: dict[str, pa.DataFr
             "domain": ["delhi"],
             "location_id": [5],
             "issuance_utc": [T0],
+            "source_split": ["train"],
             "feature_set_version": ["fs1"],
             "config_hash": ["h"],
             "y_h24": [210.0],

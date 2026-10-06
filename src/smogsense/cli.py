@@ -1,4 +1,7 @@
-"""smogsense.cli - Typer command-line entry point."""
+"""smogsense.cli - Typer command-line entry point.
+
+Specification: docs/system-architecture.md -> 'Component responsibilities and CLI contract'
+"""
 
 import sys
 import typer

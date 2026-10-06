@@ -14,8 +14,8 @@
 
 **Pre-registered hypotheses** (thresholds mirror `configs/evaluation.yaml`; "CRPSS" = $1-\mathrm{CRPS}_{\rm model}/\mathrm{CRPS}_{\rm ref}$):
 
-| ID | Statement | Metric · setting | Pass condition |
-|---|---|---|---|
+| ID | Statement | Tier | Window | Pass condition |
+|---|---|---|---|---|
 | H5 | meta vs supervised init (M7/M6) | 1, powered | Delhi season T, N∈{1,2}, ≥20 stations | CI upper bound < 1 and point ≤ 0.97 |
 | H1 | HM vs M2 at 24 h | 1, indicative | Lahore confirmatory window, leave-stations-out, N_H = min(5, eligible−3) | CRPSS lower 95 % bound > 0 and point ≥ 0.15 |
 | H2 | HM vs M2 at 72 h | 1, indicative | same | CRPSS lower 95 % bound > 0 and point ≥ 0.10 |

@@ -40,9 +40,7 @@ index:
   type: datetime
 - name: pull_id
   type: str
-checks:
-- type: unique
-  columns:
-  - sensor_id
-  - ts_utc
-  - pull_id
+unique:
+- sensor_id
+- ts_utc
+- pull_id

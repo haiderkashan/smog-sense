@@ -1,4 +1,7 @@
-"""smogsense.errors - Exception taxonomy mapped to CLI exit codes."""
+"""smogsense.errors - Exception taxonomy mapped to CLI exit codes.
+
+Specification: docs/system-architecture.md -> 'Failure handling and degradation ladder'
+"""
 
 class SmogSenseError(Exception):
     """Base exception for all smogsense errors."""
