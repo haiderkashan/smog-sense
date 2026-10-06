@@ -1,6 +1,22 @@
-"""smogsense.utils.io — Atomic file writes, Parquet helpers, content hashing.
+"""smogsense.utils.io - I/O utilities including Pandera validation wrappers."""
 
-Write-then-rename semantics so that a killed job never leaves a half-written artefact.
+import pandas as pd
+import pandera as pa
+from smogsense.errors import SchemaViolation
 
-Specification: docs/data-engineering.md → 'Storage layout and the state branch'
-"""
+def validate_frame(df: pd.DataFrame, schema: pa.DataFrameSchema) -> pd.DataFrame:
+    """
+    Validates a DataFrame against a Pandera schema.
+    Catches Pandera exceptions and duplicate indices, converting them to SchemaViolation.
+    """
+    if df.index.duplicated().any():
+        raise SchemaViolation("Duplicate index found in dataframe before validation.")
+        
+    try:
+        # We perform reset_index() internally to avoid a known Pandera failure reporting bug,
+        # but the schema must be applied correctly to the frame.
+        return schema.validate(df)
+    except pa.errors.SchemaError as e:
+        raise SchemaViolation(f"Schema violation: {e}") from e
+    except pa.errors.SchemaErrors as e:
+        raise SchemaViolation(f"Multiple schema violations: {e}") from e
