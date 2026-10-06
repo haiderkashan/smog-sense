@@ -86,9 +86,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     if [ -f uv.lock ]; then \
-      uv sync --frozen --no-dev --no-editable --no-build; \
+      uv sync --frozen --no-dev --no-editable; \
     else \
-      uv sync --no-dev --no-editable --no-build; \
+      uv sync --no-dev --no-editable; \
     fi
 
 # -----------------------------------------------------------------------------
