@@ -1,0 +1,107 @@
+schema_type: dataframe
+api: pandas
+columns:
+  domain:
+    description: Target domain id (features are target-centric).
+    dtype: string[python]
+    coerce: true
+    isin:
+    - lahore
+    - delhi
+    - amritsar
+    - ludhiana
+  ts_utc:
+    description: Hour the aggregate refers to, UTC.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  platforms_active:
+    description: Number of VIIRS/MODIS platforms with valid coverage that hour; used
+      to platform-normalise counts.
+    dtype: int32
+    coerce: true
+    in_range:
+      min_value: 0
+      max_value: 6
+      include_min: true
+      include_max: true
+  n_detections_total:
+    description: Detections inside the 600 km radius, all rings.
+    dtype: int32
+    coerce: true
+    greater_than_or_equal_to: 0
+  frp_sum_mw_total:
+    description: Sum of fire radiative power inside the radius, MW.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  fire_count_r0_50:
+    description: Platform-normalised detection count, ring 0-50 km.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  frp_mw_r0_50:
+    description: Platform-normalised FRP sum, ring 0-50 km, MW.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  fire_count_r50_150:
+    description: Platform-normalised detection count, ring 50-150 km.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  frp_mw_r50_150:
+    description: Platform-normalised FRP sum, ring 50-150 km, MW.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  fire_count_r150_300:
+    description: Platform-normalised detection count, ring 150-300 km.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  frp_mw_r150_300:
+    description: Platform-normalised FRP sum, ring 150-300 km, MW.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  fire_count_r300_600:
+    description: Platform-normalised detection count, ring 300-600 km.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  frp_mw_r300_600:
+    description: Platform-normalised FRP sum, ring 300-600 km, MW.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  exposure_e24:
+    description: Transport-weighted fire exposure E for forecast horizon 24 h (see
+      docs/ml-architecture.md, 'Fire transport exposure').
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  exposure_e48:
+    description: Transport-weighted fire exposure E for forecast horizon 48 h (see
+      docs/ml-architecture.md, 'Fire transport exposure').
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  exposure_e72:
+    description: Transport-weighted fire exposure E for forecast horizon 72 h (see
+      docs/ml-architecture.md, 'Fire transport exposure').
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  coverage_complete:
+    description: False when a FIRMS query for this hour failed or a platform feed
+      was delayed; exposure is then flagged as lower-bound.
+    dtype: bool
+    coerce: true
+coerce: true
+strict: true
+name: fire_exposure
+unique:
+- domain
+- ts_utc
+description: Hourly, target-centric fire aggregates and transport-weighted exposure
+  indices.

@@ -1,0 +1,13 @@
+{# AQI category chip.
+
+Context contract (every variable is validated before rendering):
+  category: {id, bg, fg}
+  label: str (already translated)
+
+Regions:
+  - <span> with data-category, background/foreground from tokens; text label ALWAYS present (colour is never the only cue)
+
+Rules:
+  - Add a non-colour cue (shape or pattern) for the three red-ish categories
+
+Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}

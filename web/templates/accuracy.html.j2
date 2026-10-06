@@ -1,0 +1,18 @@
+{# Public scorecard of the shadow run (rolling 30-day CRPS vs CAMS-BC, coverage of the 80% interval).
+
+Context contract (every variable is validated before rendering):
+  lang: 'en' | 'ur'          dir: 'ltr' | 'rtl' (from t('meta.dir'))
+  t(key, **placeholders) -> str   catalogue lookup; a missing key raises at build time
+  site: {base_url, build_id, generated_at_utc, asset(path) -> fingerprinted URL}
+  page: {title, canonical_url, og_image_url, alternate_lang_url}
+  scorecard: dict from the score_log summary
+
+Regions:
+  - headline skill vs CAMS-BC per horizon
+  - reliability diagram as inline SVG
+  - coverage table
+
+Rules:
+  - Always show the sample size; never show a skill number without it
+
+Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}

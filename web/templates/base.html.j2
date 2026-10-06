@@ -1,0 +1,17 @@
+{# Base layout shared by every page.
+
+Context contract (every variable is validated before rendering):
+  lang: 'en' | 'ur'          dir: 'ltr' | 'rtl' (from t('meta.dir'))
+  t(key, **placeholders) -> str   catalogue lookup; a missing key raises at build time
+  site: {base_url, build_id, generated_at_utc, asset(path) -> fingerprinted URL}
+  page: {title, canonical_url, og_image_url, alternate_lang_url}
+
+Regions:
+  - <head>: charset, viewport, CSP <meta>, canonical + hreflang alternates, Open Graph/Twitter tags, preload of the one Urdu font weight
+  - skip link (t('a11y.skip_to_forecast')), header with language switch, <main id='forecast'>, footer with t('attribution') and t('disclaimer')
+
+Rules:
+  - No inline <script> or <style> (CSP forbids it); no external hosts; <html lang dir> always set
+  - Urdu pages use --font-urdu and --lh-urdu; Latin digits and units inside Urdu text are wrapped in <bdi>
+
+Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}

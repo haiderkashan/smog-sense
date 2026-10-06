@@ -1,0 +1,9 @@
+/* Base layout and components (mobile-first). Implemented in Phase 4.
+   Contract:
+   - consumes ONLY the custom properties declared in tokens.css; no raw colour literals here
+   - layout: single column up to 40rem, two-column hero from 48rem; max measure var(--measure)
+   - components: .chip (AQI category), .card, .banner[role=status], .fan (SVG container), .skip-link
+   - focus: every interactive element shows outline: var(--focus); offset 2px
+   - motion: transitions use var(--motion); respect prefers-reduced-motion via the token
+   - budget: <= 25 KB uncompressed (configs/bulletin.yaml -> site.budgets.css_kb)
+   Specification: docs/dissemination-and-ui.md -> 'Design system (tokens)'. */

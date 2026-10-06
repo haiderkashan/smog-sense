@@ -1,0 +1,18 @@
+{# How it works (plain-language method, limitations, data sources).
+
+Context contract (every variable is validated before rendering):
+  lang: 'en' | 'ur'          dir: 'ltr' | 'rtl' (from t('meta.dir'))
+  t(key, **placeholders) -> str   catalogue lookup; a missing key raises at build time
+  site: {base_url, build_id, generated_at_utc, asset(path) -> fingerprinted URL}
+  page: {title, canonical_url, og_image_url, alternate_lang_url}
+
+Regions:
+  - short method summary t('methodology.short')
+  - what the numbers mean
+  - known limitations
+  - data sources and licences
+
+Rules:
+  - Reading level: ~ grade 8; no jargon without a gloss
+
+Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}

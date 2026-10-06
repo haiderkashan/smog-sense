@@ -1,0 +1,148 @@
+schema_type: dataframe
+api: pandas
+columns:
+  issuance_utc:
+    description: Forecast reference time T0 being verified.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  scored_at_utc:
+    description: When the score was computed.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  stage:
+    description: provisional = OpenAQ API; settled = OpenAQ archive.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - provisional
+    - settled
+  domain:
+    description: Domain id.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - lahore
+    - delhi
+    - amritsar
+    - ludhiana
+  point_id:
+    description: Verified point.
+    dtype: string[python]
+    coerce: true
+  horizon_h:
+    description: Horizon.
+    dtype: int32
+    coerce: true
+    isin:
+    - 24
+    - 48
+    - 72
+  method:
+    description: Model ladder id.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - m0_persistence
+    - m1_cams_raw
+    - m2_cams_bc
+    - m3_climatology_qr
+    - m4_lgbm_local
+    - m5_lgbm_source_zero_shot
+    - m6_finetune_transfer
+    - m7_hybrid_maml
+    - m8_hybrid_maml_calibrated
+  y_obs:
+    description: Observed block mean; null when the block is invalid.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  n_valid_hours:
+    description: Valid non-imputed hours in the block.
+    dtype: int32
+    coerce: true
+    in_range:
+      min_value: 0
+      max_value: 24
+      include_min: true
+      include_max: true
+  valid:
+    description: n_valid_hours >= 18.
+    dtype: bool
+    coerce: true
+  crps:
+    description: CRPS of the forecast quantile function, ug/m3. Null when invalid.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  pinball_q10:
+    description: Pinball loss at tau=0.10.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  pinball_q50:
+    description: Pinball loss at tau=0.50.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  pinball_q90:
+    description: Pinball loss at tau=0.90.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  interval_score_80:
+    description: Interval score for the [q10,q90] interval (alpha=0.2).
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  hit_below_q10:
+    description: y_obs <= q10 (for calibration curves).
+    dtype: bool
+    nullable: true
+    coerce: true
+  hit_below_q50:
+    description: y_obs <= q50.
+    dtype: bool
+    nullable: true
+    coerce: true
+  hit_below_q90:
+    description: y_obs <= q90.
+    dtype: bool
+    nullable: true
+    coerce: true
+  obs_category:
+    description: US EPA 2024 category of y_obs.
+    dtype: string[python]
+    nullable: true
+    coerce: true
+    isin:
+    - good
+    - moderate
+    - usg
+    - unhealthy
+    - very_unhealthy
+    - hazardous
+  forecast_run_id:
+    type: str
+    nullable: false
+  scoring_basis:
+    type: str
+    nullable: true
+  truth_basis:
+    type: str
+    nullable: true
+coerce: true
+strict: true
+name: score_log
+unique:
+- issuance_utc
+- point_id
+- horizon_h
+- method
+- stage
+description: Append-only verification ledger (one row per forecast x stage).

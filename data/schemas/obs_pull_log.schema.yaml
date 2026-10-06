@@ -1,0 +1,48 @@
+schema_type: dataframe
+columns:
+  sensor_id:
+    type: str
+    nullable: false
+  location_id:
+    type: str
+    nullable: false
+  domain:
+    type: str
+    nullable: false
+  ts_utc:
+    type: datetime
+    nullable: false
+  value_raw:
+    type: float
+    nullable: true
+  rh_pct:
+    type: float
+    nullable: true
+  temp_c:
+    type: float
+    nullable: true
+  provider:
+    type: str
+    nullable: false
+  source:
+    type: str
+    nullable: false
+  pull_id:
+    type: str
+    nullable: false
+  ingested_at_utc:
+    type: datetime
+    nullable: false
+index:
+- name: sensor_id
+  type: str
+- name: ts_utc
+  type: datetime
+- name: pull_id
+  type: str
+checks:
+- type: unique
+  columns:
+  - sensor_id
+  - ts_utc
+  - pull_id

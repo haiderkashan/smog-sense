@@ -1,0 +1,13 @@
+{# Degraded-mode banner.
+
+Context contract (every variable is validated before rendering):
+  bulletin.mode
+  t
+
+Regions:
+  - role='status' banner with t('mode_banner.<mode>')
+
+Rules:
+  - Not rendered when mode == 'full'
+
+Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}

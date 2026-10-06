@@ -1,0 +1,61 @@
+version: 1
+qc:
+  hard_range_ugm3:
+    min: 0.0
+    max: 1500.0
+  negative_clip:
+    floor_ugm3: -5.0
+  high_range_flag_ugm3: 500.0
+  flatline:
+    min_consecutive_hours: 6
+    ignore_value_leq_ugm3: 0.0
+  spike:
+    window_hours: 7
+    k_mad: 8.0
+    floor_ugm3: 100.0
+  spatial_outlier:
+    radius_km: 15.0
+    min_neighbors: 3
+    k_mad: 6.0
+    floor_ugm3: 80.0
+  humidity:
+    flag_above_pct: 90.0
+  coverage:
+    min_fraction_subhourly: 0.75
+  drift:
+    window_days: 7
+    min_overlap_hours: 72
+    slope_bounds:
+    - 0.5
+    - 2.0
+    reference: neighbours_median
+completeness:
+  block_hours: 24
+  min_valid_hours: 18
+  count_imputed_hours: false
+imputation:
+  short_gap:
+    max_hours: 3
+    method: pchip_log1p
+    edge_policy: leave_missing
+  long_gap:
+    policy: mask
+lowcost_correction:
+  enabled: false
+  form: pm25_corrected = a * pm25_raw + b * rh_pct + c
+  fit:
+    reference: reference_monitors
+    max_distance_km: 8.0
+    min_pairs: 500
+    window_days: 60
+    loss: huber
+    group_by:
+    - sensor_model
+  apply_when:
+    rh_available: true
+station_eligibility:
+  min_history_days: 30
+colocation:
+  radius_m: 50
+  rule: reference_else_median_corrected_lowcost
+  record_basis: true

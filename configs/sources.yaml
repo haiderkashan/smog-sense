@@ -1,0 +1,161 @@
+version: 1
+openaq:
+  base_url: https://api.openaq.org/v3
+  auth:
+    header: X-API-Key
+    env: OPENAQ_API_KEY
+  limits:
+    partitions:
+      operations: 0.6
+      backfill: 0.2
+      adhoc: 0.1
+  rate_limit_headers:
+  - x-ratelimit-used
+  - x-ratelimit-reset
+  - x-ratelimit-limit
+  - x-ratelimit-remaining
+  page_limit: 1000
+  endpoints:
+    locations: /locations
+    sensor_hours: /sensors/{sensor_id}/hours
+  retry:
+    max_attempts: 6
+    backoff:
+      base_s: 2.0
+      max_s: 120.0
+      jitter: full
+    retry_on_status:
+    - 408
+    - 429
+    - 500
+    - 502
+    - 503
+    - 504
+    honour_retry_after: true
+  circuit_breaker:
+    consecutive_429_to_open: 3
+    open_seconds: 900
+  timeouts:
+    connect_s: 10
+    read_s: 60
+  latency_model:
+    api:
+      assumed_h: 3.0
+      measure:
+        min_days: 14
+        quantile: 0.95
+openaq_archive:
+  publication:
+    grouping: local_day
+    lag_after_local_day_end_h: 72
+ads:
+  url: https://ads.atmosphere.copernicus.eu/api
+  key_env: ADS_API_KEY
+  dataset: cams-global-atmospheric-composition-forecasts
+  licence: "CC-BY 4.0 \u2014 must be accepted once on the dataset page (HTTP 403 otherwise)"
+  grid_resolution_deg: 0.4
+  base_times_utc:
+  - 00:00
+  - '12:00'
+  availability_lag_hours: 10
+  max_lead_hours: 120
+  temporal_coverage_from: '2015-01-01'
+  request:
+    data_format: grib
+    type:
+    - forecast
+    single_level_variables:
+    - particulate_matter_2.5um
+    - particulate_matter_10um
+    - total_aerosol_optical_depth_550nm
+    - boundary_layer_height
+    - 10m_u_component_of_wind
+    - 10m_v_component_of_wind
+    - 2m_temperature
+    - 2m_dewpoint_temperature
+    - surface_pressure
+    - total_precipitation
+    - total_cloud_cover
+    - surface_solar_radiation_downwards
+    pressure_level_variables:
+    - temperature
+    pressure_levels_hpa:
+    - 925
+    - 850
+  queue:
+    poll_interval_s: 30
+    max_wall_minutes_operational: 20
+    max_concurrent_requests: 1
+  note: ADS is not an operational service; publication delays happen (e.g. after model
+    upgrades). See the degradation ladder.
+cds:
+  url: https://cds.climate.copernicus.eu/api
+  key_env: CDS_API_KEY
+  role: hindcast_only
+  era5:
+    dataset: reanalysis-era5-single-levels
+    grid_resolution_deg: 0.25
+    latency_days: 5
+    chunk: month
+    variables:
+    - boundary_layer_height
+    - 10m_u_component_of_wind
+    - 10m_v_component_of_wind
+    - 2m_temperature
+    - 2m_dewpoint_temperature
+    - surface_pressure
+    - total_precipitation
+    - surface_solar_radiation_downwards
+    - total_cloud_cover
+  era5_timeseries:
+    dataset: reanalysis-era5-single-levels-timeseries
+    status: experimental
+    use: station_point_hindcast_extraction
+    fallback: era5
+firms:
+  base_url: https://firms.modaps.eosdis.nasa.gov/api/area/csv
+  key_env: FIRMS_MAP_KEY
+  limits:
+    transactions_per_10min: 5000
+    safety_margin: 0.5
+  max_day_range: 10
+  format: csv
+  availability: dynamic
+  viirs_confidence_keep:
+  - n
+  - h
+  platforms:
+  - id: VIIRS_NOAA21_NRT
+    role: operational_primary
+  - id: VIIRS_NOAA20_NRT
+    role: operational_secondary
+  - id: VIIRS_NOAA20_SP
+    role: historical
+  - id: VIIRS_SNPP_SP
+    role: historical
+  - id: VIIRS_SNPP_NRT
+    role: legacy
+    end_utc: '2026-11-01T13:00:00Z'
+  - id: MODIS_SP
+    role: legacy_at_risk
+  - id: MODIS_NRT
+    role: legacy_at_risk
+maiac:
+  enabled: false
+  product: MCD19A2
+  collection: '061'
+  auth:
+    env: EARTHDATA_TOKEN
+  reason_disabled: MODIS Aqua/Terra end-of-mission planned 2026-27; orbits drifting.
+    Operational AOD = CAMS AOD at 550 nm.
+fallbacks:
+  open_meteo_air_quality:
+    enabled: false
+    terms: free for non-commercial use, attribution required, rate limited; CAMS global
+      data from Aug 2022, 3-hourly
+    use: stale_cams_emergency
+publication:
+  state_branch: state
+  pages_branch: gh-pages
+  data_release_tag: data-backfill
+  model_release_prefix: models-v

@@ -1,0 +1,237 @@
+schema_type: dataframe
+api: pandas
+columns:
+  issuance_utc:
+    description: Forecast reference time T0.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  generated_at_utc:
+    description: Wall-clock time the forecast was produced.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  domain:
+    description: Domain id.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - lahore
+    - delhi
+    - amritsar
+    - ludhiana
+  level:
+    description: station = per-sensor forecast; city = aggregate shown in the bulletin.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - station
+    - city
+  point_id:
+    description: '''station:<location_id>'' or ''city:<domain>''.'
+    dtype: string[python]
+    coerce: true
+  horizon_h:
+    description: 'Block end offset: the forecast is the mean over the 24 hours [T0+h-24h,
+      T0+h) (hour-start labels).'
+    dtype: int32
+    coerce: true
+    isin:
+    - 24
+    - 48
+    - 72
+  window_start_utc:
+    description: Start of the verification block (inclusive; hour-start labels, so
+      the block is the half-open interval [start, end)).
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  window_end_utc:
+    description: End of the verification block (exclusive). The block contains the
+      24 hours labelled start .. end-1h.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  method:
+    description: Model ladder id.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - m0_persistence
+    - m1_cams_raw
+    - m2_cams_bc
+    - m3_climatology_qr
+    - m4_lgbm_local
+    - m5_lgbm_source_zero_shot
+    - m6_finetune_transfer
+    - m7_hybrid_maml
+    - m8_hybrid_maml_calibrated
+  model_version:
+    description: Bundle tag (e.g. models-v0.2.0) or 'baseline'.
+    dtype: string[python]
+    coerce: true
+  mode:
+    description: Degradation-ladder mode in force.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - full
+    - stale_cams
+    - observations_only
+    - baseline_only
+  cams_base_time_utc:
+    description: CAMS run used (as-of rule).
+    dtype: datetime64[ns, UTC]
+    nullable: true
+    coerce: true
+  data_cutoff_utc:
+    description: Latest observation time that was knowable at generation.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  git_sha:
+    description: Code version.
+    dtype: string[python]
+    coerce: true
+  config_hash:
+    description: sha256 of the full effective configuration.
+    dtype: string[python]
+    coerce: true
+  calibrated:
+    description: True if the online recalibration layer (CQR+ACI) was applied.
+    dtype: bool
+    coerce: true
+  q05:
+    description: Forecast 05th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q10:
+    description: Forecast 10th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q15:
+    description: Forecast 15th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q20:
+    description: Forecast 20th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q25:
+    description: Forecast 25th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q30:
+    description: Forecast 30th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q35:
+    description: Forecast 35th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q40:
+    description: Forecast 40th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q45:
+    description: Forecast 45th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q50:
+    description: Forecast 50th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q55:
+    description: Forecast 55th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q60:
+    description: Forecast 60th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q65:
+    description: Forecast 65th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q70:
+    description: Forecast 70th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q75:
+    description: Forecast 75th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q80:
+    description: Forecast 80th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q85:
+    description: Forecast 85th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q90:
+    description: Forecast 90th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  q95:
+    description: Forecast 95th percentile of the block-mean PM2.5, ug/m3 (monotone
+      after rearrangement).
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  run_id:
+    type: str
+    nullable: false
+  is_rerun:
+    type: bool
+    nullable: false
+  adaptation_status:
+    type: str
+    nullable: true
+  cams_lead_offset_h:
+    type: float
+    nullable: true
+  n_available_stations:
+    type: int
+    nullable: true
+coerce: true
+strict: true
+name: forecast_log
+unique:
+- issuance_utc
+- point_id
+- horizon_h
+- method
+description: 'Append-only forecast ledger: 19 quantile levels per (issuance, point,
+  horizon, method).'

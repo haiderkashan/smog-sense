@@ -1,0 +1,106 @@
+# English message catalogue. Keys, nesting, list lengths and {placeholders} must match ur.yaml (CI enforces this).
+# Clinical and safety wording requires review by a qualified Pakistani health professional before public launch
+# (docs/dissemination-and-ui.md, "Expert review protocol").
+meta:
+  lang: en
+  dir: ltr
+  lang_name: English
+  site_title: SmogSense Lahore
+  tagline: Daily smog forecast, with the uncertainty stated honestly
+nav:
+  forecast: Forecast
+  methodology: How it works
+  archive: Archive
+  accuracy: Accuracy
+  switch_language: اردو
+status:
+  issued: "Issued {time} (Pakistan time)"
+  data_cutoff: "Latest sensor data: {time}"
+  next_update: "Next update: tomorrow morning"
+aqi:
+  good: Good
+  moderate: Moderate
+  usg: Unhealthy for sensitive groups
+  unhealthy: Unhealthy
+  very_unhealthy: Very unhealthy
+  hazardous: Hazardous
+horizon:
+  day1: Next 24 hours
+  day2: 24 to 48 hours ahead
+  day3: 48 to 72 hours ahead
+units:
+  ugm3: µg/m³
+uncertainty:
+  median_label: Most likely level
+  range_label: Likely range (8 days in 10)
+  upper_label: Bad case (1 day in 10 is worse)
+  chance_exceed: "Chance of exceeding {threshold} µg/m³: {pct}%"
+  explain_short: "This is a forecast, not a promise. Real levels fall inside the range on about 8 days out of 10, and rise above its upper end on about 1 day in 10."
+advice:
+  good:
+    headline: Air quality is good.
+    actions:
+      - Enjoy normal outdoor activities.
+  moderate:
+    headline: Air quality is acceptable. Unusually sensitive people may notice symptoms.
+    actions:
+      - "Unusually sensitive people: keep hard outdoor exertion short."
+  usg:
+    headline: Unhealthy for sensitive groups.
+    actions:
+      - "Children, older adults, pregnant women and people with asthma or heart or lung disease: limit prolonged outdoor exertion."
+      - Keep windows closed during the worst hours, usually early morning and evening.
+  unhealthy:
+    headline: Unhealthy for everyone.
+    actions:
+      - Avoid prolonged or heavy outdoor activity; move exercise indoors.
+      - If you must go out, wear a well-fitted N95, KN95 or FFP2 mask.
+      - "Sensitive groups: stay indoors as much as possible."
+  very_unhealthy:
+    headline: "Very unhealthy: health alert."
+    actions:
+      - Avoid outdoor activity.
+      - Keep windows and doors closed; use an air purifier or a sealed room if you have one.
+      - Children, older adults and people with heart or lung disease should stay indoors.
+      - If you must go out, wear a well-fitted N95, KN95 or FFP2 mask.
+  hazardous:
+    headline: "Hazardous: emergency conditions."
+    actions:
+      - Stay indoors with windows and doors closed.
+      - Avoid all outdoor exertion, including exercise and, where possible, travel by bicycle or motorbike.
+      - Seek medical help promptly for chest pain, severe shortness of breath or fainting.
+      - Check on elderly neighbours and relatives.
+notes:
+  mask_note: Cloth and surgical masks give little protection from fine particles; a well-fitted N95, KN95 or FFP2 respirator does much better.
+  indoor_air_note: Avoid anything that adds indoor smoke (smoking, incense, burning waste).
+  sensitive_note: Children, older adults, pregnant women, and people with asthma, heart or lung disease are most at risk.
+mode_banner:
+  stale_cams: "Reduced accuracy: the latest atmospheric model run was not yet available, so an earlier run was used."
+  observations_only: "Reduced accuracy: satellite and model inputs were unavailable; this forecast uses recent sensor readings only."
+  baseline_only: "Simplified forecast: the learning model was unavailable today, so a simpler method was used."
+methodology:
+  short: "SmogSense combines recent sensor readings, satellite fire detections and atmospheric model forecasts. A learning model, first trained on Delhi's dense monitoring network and then adapted to Lahore's few sensors, estimates a range of likely PM2.5 levels."
+disclaimer: "SmogSense is a research project, not an official forecast. Do not rely on it alone for medical or emergency decisions. Follow guidance from the official health and environmental authorities."
+attribution: "Air-quality observations: OpenAQ and its data providers. Atmospheric forecasts: Generated using Copernicus Atmosphere Monitoring Service information 2026. Fire detections: NASA FIRMS."
+card:
+  title: Lahore smog forecast
+  most_likely: Most likely
+  range: Likely range
+  bad_case: Bad case (1 in 10)
+  source_line: SmogSense · research forecast
+  share_cta: Share this forecast
+  whatsapp_text: "Lahore smog forecast {date}: most likely {category} ({median} µg/m³). Details: {url}"
+a11y:
+  skip_to_forecast: Skip to the forecast
+  chart_alt: "Forecast chart for the next three days. The line is the most likely level; the shaded bands show the likely range."
+
+horizon:
+  window: "{start} to {end}"
+status:
+  valid_until: "Valid until {time} (Pakistan time)"
+  expired_banner: "This forecast has expired. A new one is expected in the morning; do not rely on this one."
+uncertainty:
+  chance_exceed_low: "Chance of exceeding {threshold} µg/m³: under 5%"
+  chance_exceed_high: "Chance of exceeding {threshold} µg/m³: over 95%"
+methodology:
+  truth: "The numbers estimate what a reference-grade monitor would read: reference monitors are preferred, and low-cost sensors are used only after humidity correction. Foggy, humid conditions can make low-cost sensors read too high."

@@ -1,0 +1,114 @@
+schema_type: dataframe
+api: pandas
+columns:
+  location_id:
+    description: OpenAQ location id.
+    dtype: int64
+    coerce: true
+  sensor_id:
+    description: OpenAQ sensor id of the PM2.5 sensor at the location.
+    dtype: int64
+    coerce: true
+  domain:
+    description: Domain id from configs/domains.yaml.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - lahore
+    - delhi
+    - amritsar
+    - ludhiana
+  ts_utc:
+    description: Start of the hour, UTC (valid time).
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  pm25_ugm3:
+    description: Cleaned PM2.5, ug/m3. Null when rejected by QC or when the gap is
+      too long to impute.
+    dtype: float64
+    nullable: true
+    coerce: true
+    in_range:
+      min_value: 0
+      max_value: 1500
+      include_min: true
+      include_max: true
+  pm25_raw_ugm3:
+    description: Provider value before QC (audit trail). Never used as a model input.
+    dtype: float64
+    nullable: true
+    coerce: true
+  rh_pct:
+    description: Relative humidity %, from the same device when available.
+    dtype: float64
+    nullable: true
+    coerce: true
+    in_range:
+      min_value: 0
+      max_value: 100
+      include_min: true
+      include_max: true
+  temp_c:
+    description: Temperature in degC, from the same device when available.
+    dtype: float64
+    nullable: true
+    coerce: true
+    in_range:
+      min_value: -40
+      max_value: 60
+      include_min: true
+      include_max: true
+  qc_flags:
+    description: Bit mask. 1 RANGE_REJECT, 2 NEGATIVE_CLIPPED, 4 FLATLINE, 8 SPIKE,
+      16 SPATIAL_OUTLIER, 32 HIGH_RH (>90%), 64 LOW_COVERAGE (<75% sub-hourly), 128
+      HIGH_RANGE (>500 ug/m3, retained but uncertain), 256 DRIFT_SUSPECT, 512 IMPUTED.
+    dtype: int32
+    coerce: true
+    greater_than_or_equal_to: 0
+  imputed:
+    description: 'True when pm25_ugm3 was filled by short-gap PCHIP. Imputed hours
+      are inputs only: never targets, never counted toward completeness.'
+    dtype: bool
+    coerce: true
+  is_reference:
+    description: True for regulatory-grade monitors (OpenAQ isMonitor).
+    dtype: bool
+    coerce: true
+  provider:
+    description: Data provider name as reported by OpenAQ.
+    dtype: string[python]
+    coerce: true
+  source:
+    description: Which channel produced the row.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - openaq_api
+    - openaq_archive
+  ingested_at_utc:
+    description: 'Knowledge time: when SmogSense first received this value. Point-in-time
+      features must filter on ingested_at_utc <= issuance.'
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  colocated_group_id:
+    type: str
+    nullable: true
+  n_revisions:
+    type: int
+    nullable: false
+    checks:
+    - '>= 1'
+  last_revised_utc:
+    type: datetime
+    nullable: false
+  available_at_utc:
+    type: datetime
+    nullable: false
+coerce: true
+strict: true
+name: observations_hourly
+unique:
+- sensor_id
+- ts_utc
+description: 'Hourly, quality-controlled PM2.5 observations in long format (bitemporal:
+  ts_utc = valid time, ingested_at_utc = knowledge time).'

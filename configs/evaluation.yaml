@@ -1,0 +1,131 @@
+version: 1
+horizons_h:
+- 24
+- 48
+- 72
+methods:
+- m0_persistence
+- m1_cams_raw
+- m2_cams_bc
+- m3_climatology_qr
+- m4_lgbm_local
+- m5_lgbm_source_zero_shot
+- m6_finetune_transfer
+- m7_hybrid_maml
+- m8_hybrid_maml_calibrated
+- m3b_linear_qr
+references:
+  primary: m2_cams_bc
+  secondary: m1_cams_raw
+  naive: m0_persistence
+metrics:
+  primary: crps
+  secondary:
+  - pinball
+  - interval_score_80
+  - coverage_80
+  - coverage_below_median
+  - tw_crps_125_5
+  - brier_exceed_55_5
+  - brier_exceed_125_5
+  - brier_exceed_225_5
+  - category_accuracy_median
+  - peirce_skill_125_5
+thresholds_ugm3:
+  unhealthy: 55.5
+  very_unhealthy: 125.5
+  hazardous: 225.5
+splits:
+  embargo_hours: 72
+  scheme: blocked_time_series_with_spatial_holdout
+  require_adaptation_block_before_test_block: true
+sparsity:
+  n_grid:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 5
+  - 8
+  - 13
+  - 21
+  min_heldout_stations: 3
+  monte_carlo_draws: 30
+  support_days_grid:
+  - 7
+  - 14
+  - 30
+  - 60
+  scored_issuance_utc_hour: 0
+inference:
+  diebold_mariano:
+    loss: crps
+    hac_bandwidth_days: horizon_days_plus_2
+    harvey_small_sample_correction: true
+  bootstrap:
+    kind: stationary
+    mean_block_days: 7
+    replicates: 2000
+    ci: 0.95
+hypotheses:
+  H1:
+    statement: M7 beats CAMS-BC at 24 h with N=5 available stations
+    metric: crpss_vs_m2
+    horizon_h: 24
+    n_available: 5
+    min_value: 0.15
+  H2:
+    statement: M7 beats CAMS-BC at 72 h with N=5 available stations
+    metric: crpss_vs_m2
+    horizon_h: 72
+    n_available: 5
+    min_value: 0.1
+  H3:
+    statement: M7 beats raw CAMS at every horizon
+    metric: crpss_vs_m1
+    horizon_h: all
+    n_available: 5
+    min_value: 0.25
+  H4:
+    statement: Transfer alone (N=0) still adds skill over CAMS-BC; otherwise report
+      negative transfer
+    metric: crpss_vs_m2
+    horizon_h: 24
+    n_available: 0
+    min_value: 0.05
+  H5:
+    statement: Meta-learning adds value over plain fine-tuning at N in {1,2}
+    metric: crps_ratio_m7_over_m6
+    horizon_h: all
+    n_available:
+    - 1
+    - 2
+    max_value: 0.97
+  H6:
+    statement: 'Calibration: pooled coverage of [q10,q90] within +/-0.05 of 0.80;
+      P(y<=q50) within 0.07 of 0.50'
+    metric: coverage_80
+    horizon_h: all
+    target: 0.8
+    tolerance: 0.05
+shadow:
+  provisional:
+    source: openaq_api
+    delay_hours: 6
+  settled:
+    source: openaq_archive
+    delay_hours: 96
+  min_valid_hours: 18
+  replay_policy: Models developed after the season starts are scored by replaying
+    logged inputs (state/inputs); replay results are reported separately from live
+    shadow results.
+calendar:
+  history:
+    end: '2026-10-18'
+  dev:
+    start: '2026-10-19'
+    end: '2026-11-30'
+  freeze: '2026-12-04'
+  confirmatory:
+    start: '2026-12-07'
+    end: '2027-01-31'

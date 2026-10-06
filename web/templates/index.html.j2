@@ -1,0 +1,24 @@
+{# Forecast page (one per language).
+
+Context contract (every variable is validated before rendering):
+  lang: 'en' | 'ur'          dir: 'ltr' | 'rtl' (from t('meta.dir'))
+  t(key, **placeholders) -> str   catalogue lookup; a missing key raises at build time
+  site: {base_url, build_id, generated_at_utc, asset(path) -> fingerprinted URL}
+  page: {title, canonical_url, og_image_url, alternate_lang_url}
+  bulletin: dict validated against data/schemas/bulletin.schema.json
+  categories: list of {id, bg, fg, name} from configs/bulletin.yaml
+
+Regions:
+  - mode banner (only when bulletin.mode != 'full')
+  - hero: median category chip + median number + upper-tail sentence
+  - fan chart (server-rendered SVG, no JS needed)
+  - three horizon cards (24/48/72 h)
+  - advisory block (headline, actions, notes)
+  - uncertainty explainer (t('uncertainty.explain_short'))
+  - provenance footnote (sources + as-of times)
+
+Rules:
+  - Never show q90 as 'worst case'; label it with t('uncertainty.upper_label')
+  - Exceedance probabilities are shown as percentages; the 80% interval is always described as '8 days in 10'
+
+Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}

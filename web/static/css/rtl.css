@@ -1,0 +1,9 @@
+/* Right-to-left (Urdu Nastaliq) overrides. Implemented in Phase 4.
+   Contract:
+   - html[dir=rtl] { font-family: var(--font-urdu); line-height: var(--lh-urdu); }
+   - use CSS logical properties (margin-inline-*, padding-inline-*, inset-inline-*) in base.css so that
+     this file only needs typography changes, not mirrored layout rules
+   - numerals and units remain LTR islands: <bdi> or unicode-bidi: isolate
+   - never letter-space Urdu; never use italics or uppercase transforms; headings keep normal weight
+     with size increases instead of bold where Nastaliq strokes clog
+   Specification: docs/dissemination-and-ui.md -> 'Bilingual and RTL rules (Urdu Nastaliq)'. */

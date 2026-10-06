@@ -1,0 +1,14 @@
+{# Archive index of past bulletins (links to forecast/YYYY-MM-DD.json and cards).
+
+Context contract (every variable is validated before rendering):
+  lang: 'en' | 'ur'          dir: 'ltr' | 'rtl' (from t('meta.dir'))
+  t(key, **placeholders) -> str   catalogue lookup; a missing key raises at build time
+  site: {base_url, build_id, generated_at_utc, asset(path) -> fingerprinted URL}
+  page: {title, canonical_url, og_image_url, alternate_lang_url}
+  days: list of {date, median_category, median_ugm3, observed_ugm3 | None}
+
+Regions:
+  - table/list of days with category chip
+  - observed value appears once the settled score exists
+
+Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}

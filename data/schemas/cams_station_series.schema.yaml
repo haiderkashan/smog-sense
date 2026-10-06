@@ -1,0 +1,144 @@
+schema_type: dataframe
+api: pandas
+columns:
+  point_id:
+    description: '''station:<location_id>'' or ''domain:<id>'' for the city-centroid
+      series.'
+    dtype: string[python]
+    coerce: true
+  domain:
+    description: Domain id.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - lahore
+    - delhi
+    - amritsar
+    - ludhiana
+  base_time_utc:
+    description: CAMS forecast base time (00Z or 12Z).
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  valid_time_utc:
+    description: Time the value is valid for.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  lead_h:
+    description: valid_time - base_time in hours (0..120).
+    dtype: int32
+    coerce: true
+    in_range:
+      min_value: 0
+      max_value: 120
+      include_min: true
+      include_max: true
+  pm25_ugm3:
+    description: CAMS PM2.5 converted from kg m-3.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  pm10_ugm3:
+    description: CAMS PM10.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  aod550:
+    description: Total aerosol optical depth at 550 nm.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  blh_m:
+    description: Boundary layer height, m.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  u10_ms:
+    description: 10 m zonal wind, m/s.
+    dtype: float64
+    coerce: true
+  v10_ms:
+    description: 10 m meridional wind, m/s.
+    dtype: float64
+    coerce: true
+  t2m_c:
+    description: 2 m temperature, degC.
+    dtype: float64
+    coerce: true
+  d2m_c:
+    description: 2 m dewpoint, degC.
+    dtype: float64
+    coerce: true
+  rh_pct:
+    description: RH derived with the Magnus formula (Alduchov-Eskridge coefficients).
+    dtype: float64
+    coerce: true
+    in_range:
+      min_value: 0
+      max_value: 100
+      include_min: true
+      include_max: true
+  sp_hpa:
+    description: Surface pressure, hPa.
+    dtype: float64
+    nullable: true
+    coerce: true
+  tp_mm:
+    description: Total precipitation accumulated since base time, mm.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  tcc:
+    description: Total cloud cover, 0..1.
+    dtype: float64
+    nullable: true
+    coerce: true
+    in_range:
+      min_value: 0
+      max_value: 1
+      include_min: true
+      include_max: true
+  ssrd_jm2:
+    description: Surface solar radiation downwards, accumulated, J/m2.
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  t925_c:
+    description: Temperature at 925 hPa, degC (for lower-tropospheric stability).
+    dtype: float64
+    nullable: true
+    coerce: true
+  t850_c:
+    description: Temperature at 850 hPa, degC.
+    dtype: float64
+    nullable: true
+    coerce: true
+  grid_distance_km:
+    description: Distance from the point to the nearest grid node, km.
+    dtype: float64
+    coerce: true
+    greater_than_or_equal_to: 0
+  interpolation:
+    description: How the point value was obtained.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - bilinear
+    - nearest
+  cams_cycle:
+    description: IFS cycle label of the producing model (e.g. 50r1) when known; forecast
+      distributions shift at every upgrade.
+    dtype: string[python]
+    nullable: true
+    coerce: true
+coerce: true
+strict: true
+name: cams_station_series
+unique:
+- point_id
+- base_time_utc
+- valid_time_utc
+description: CAMS global forecast fields extracted at points (stations / city centroid).

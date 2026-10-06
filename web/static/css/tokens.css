@@ -1,0 +1,99 @@
+/* SmogSense design tokens (single source for the website; configs/bulletin.yaml mirrors the AQI pairs for the
+   Pillow card renderer and a test enforces parity). Rationale and contrast measurements: docs/dissemination-and-ui.md.
+
+   Concept: winter-dusk paper and ash neutrals, near-black blue ink, ONE accent (Ravi blue, after the river by
+   Lahore; no AQI category is blue). The six AQI category colours are the only saturated colours on the page so
+   that colour always means "air quality category" and never decoration. */
+:root {
+  /* haze neutrals */
+  --haze-50: #f4f1ec;
+  --haze-200: #d9d3ca;
+  --ash-600: #5b5650;
+  --ink-900: #1b1f2a;
+
+  /* the accent */
+  --ravi-700: #1a5270;
+  --ravi-300: #7fb6d1;
+
+  /* semantic aliases (light theme) */
+  --bg: var(--haze-50);
+  --fg: var(--ink-900);
+  --fg-muted: var(--ash-600);
+  --rule: var(--haze-200);
+  --accent: var(--ravi-700);
+  --accent-contrast: var(--haze-50);
+  --median: var(--ink-900);
+  --band-80: color-mix(in srgb, var(--ravi-700) 20%, transparent);
+  --band-50: color-mix(in srgb, var(--ravi-700) 36%, transparent);
+
+  /* AQI categories: US EPA identity colours; text colour chosen per WCAG contrast (measured: >= 5.25:1) */
+  --aqi-good-bg: #00e400;
+  --aqi-good-fg: #000000;
+  --aqi-moderate-bg: #ffff00;
+  --aqi-moderate-fg: #000000;
+  --aqi-usg-bg: #ff7e00;
+  --aqi-usg-fg: #000000;
+  --aqi-unhealthy-bg: #ff0000;
+  --aqi-unhealthy-fg: #000000;
+  --aqi-very-unhealthy-bg: #8f3f97;
+  --aqi-very-unhealthy-fg: #ffffff;
+  --aqi-hazardous-bg: #7e0023;
+  --aqi-hazardous-fg: #ffffff;
+
+  /* typography: one family per script, both OFL, both available in the container (fonts-noto-core) */
+  --font-latin: "Noto Sans", system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
+  --font-urdu: "Noto Nastaliq Urdu", "Noto Naskh Arabic", serif;
+  --lh-latin: 1.5;
+  --lh-urdu: 2.1; /* Nastaliq glyphs are tall; below 2.0 diacritics collide */
+  --fs-0: 1rem;
+  --fs-1: 1.125rem;
+  --fs-2: 1.375rem;
+  --fs-3: 1.75rem;
+  --fs-4: 2.5rem;
+  --fs-hero: clamp(3.25rem, 14vw, 6rem);
+
+  /* space and shape */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2.5rem;
+  --radius: 14px;
+  --measure: 62ch;
+  --focus: 3px solid var(--ravi-700);
+  --motion: 160ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14171f;
+    --fg: #ece8e1;
+    --fg-muted: #a8a29a;
+    --rule: #2c313d;
+    --accent: var(--ravi-300);
+    --accent-contrast: #14171f;
+    --median: #ece8e1;
+    --band-80: color-mix(in srgb, var(--ravi-300) 22%, transparent);
+    --band-50: color-mix(in srgb, var(--ravi-300) 40%, transparent);
+    --focus: 3px solid var(--ravi-300);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14171f;
+  --fg: #ece8e1;
+  --fg-muted: #a8a29a;
+  --rule: #2c313d;
+  --accent: var(--ravi-300);
+  --accent-contrast: #14171f;
+  --median: #ece8e1;
+  --band-80: color-mix(in srgb, var(--ravi-300) 22%, transparent);
+  --band-50: color-mix(in srgb, var(--ravi-300) 40%, transparent);
+  --focus: 3px solid var(--ravi-300);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms;
+  }
+}

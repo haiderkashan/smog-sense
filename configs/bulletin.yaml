@@ -1,0 +1,88 @@
+version: 1
+aqi:
+  scheme: us_epa_2024_pm25_24h
+  truncate_to_decimals: 1
+  categories:
+  - id: good
+    lower: 0.0
+    bg: '#00E400'
+    fg: '#000000'
+  - id: moderate
+    lower: 9.1
+    bg: '#FFFF00'
+    fg: '#000000'
+  - id: usg
+    lower: 35.5
+    bg: '#FF7E00'
+    fg: '#000000'
+  - id: unhealthy
+    lower: 55.5
+    bg: '#FF0000'
+    fg: '#000000'
+  - id: very_unhealthy
+    lower: 125.5
+    bg: '#8F3F97'
+    fg: '#FFFFFF'
+  - id: hazardous
+    lower: 225.5
+    bg: '#7E0023'
+    fg: '#FFFFFF'
+  never_report_index_above: 500
+advisory_policy:
+  basis: day1_median
+  escalate_if_probability_of_next_category_at_least: 0.35
+  max_escalation_levels: 1
+  never_downgrade_below_median: true
+languages:
+- en
+- ur
+default_language: en
+display_timezone: Asia/Karachi
+uncertainty_wording:
+  central_interval: 0.8
+  upper_tail_frequency: 1 in 10
+  use_percentages_only_for_exceedance: true
+cards:
+  renderer: pillow_raqm
+  supersample: 3
+  formats:
+    whatsapp_post:
+      width: 1080
+      height: 1350
+      max_kb: 400
+    open_graph:
+      width: 1200
+      height: 630
+      max_kb: 300
+    status_story:
+      width: 1080
+      height: 1920
+      max_kb: 450
+  fonts:
+    latin: /usr/share/fonts/truetype/noto/NotoSans-Regular.ttf
+    latin_bold: /usr/share/fonts/truetype/noto/NotoSans-Bold.ttf
+    urdu: /usr/share/fonts/truetype/noto/NotoNastaliqUrdu-Regular.ttf
+    urdu_bold: /usr/share/fonts/truetype/noto/NotoNastaliqUrdu-Bold.ttf
+  urdu_line_height_em: 2.1
+site:
+  budgets:
+    html_kb: 60
+    css_kb: 25
+    js_kb: 30
+    page_weight_kb_excluding_fonts: 500
+    urdu_font_woff2_kb: 160
+  font_subset_unicodes: U+0020-007E,U+00A0,U+060C,U+061B,U+061F,U+0600-06FF,U+200C-200F,U+2013,U+2014,U+2026,U+00B5,U+00B3
+  cache_seconds_html: 600
+  csp: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self';
+    font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+telegram:
+  enabled_if_env:
+  - TELEGRAM_BOT_TOKEN
+  - TELEGRAM_CHAT_ID
+  post: card_whatsapp_post_en_and_ur
+valid_until_hours: 30
+exceedance_display:
+  round_to: 0.05
+  clamp:
+  - 0.05
+  - 0.95

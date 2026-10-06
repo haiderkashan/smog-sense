@@ -1,0 +1,15 @@
+{# Fan chart: 3 days, 80% band (q10-q90), 50% band (q25-q75), median line, category threshold rules.
+
+Context contract (every variable is validated before rendering):
+  bulletin.horizons
+  geometry: output of visualization/fan_chart.py (pure data: points and paths)
+
+Regions:
+  - <svg role='img' aria-labelledby> with <title>/<desc> from t('a11y.chart_alt')
+  - threshold rules at 35.5, 55.5, 125.5, 225.5 labelled with category names
+
+Rules:
+  - Axis numerals are Latin digits in both languages
+  - Text inside the SVG is real text (browser shapes Urdu), never paths
+
+Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}

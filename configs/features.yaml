@@ -1,0 +1,135 @@
+version: 1
+feature_set_version: fs1
+lookback_hours: 72
+issuance_lattice_utc:
+  training:
+  - 0
+  - 6
+  - 12
+  - 18
+  operations:
+  - 0
+  evaluation:
+  - 0
+targets:
+  horizons_h:
+  - 24
+  - 48
+  - 72
+  block_hours: 24
+  min_valid_hours: 18
+sequence_channels:
+- pm25_log1p
+- cams_pm25_log1p
+- aod550
+- blh_log
+- u10_ms
+- v10_ms
+- vc10_log
+- rh_pct
+- t2m_c
+- fire_exposure_e24
+meteorology:
+  rh_formula: magnus_alduchov_eskridge
+  blh_floor_m: 50.0
+  vc_floor_m2s: 10.0
+  ventilation_variants:
+  - vc10
+  optional_variants:
+  - vc925
+  stagnation_thresholds_m2s:
+  - 1000
+  - 2000
+  - 4000
+  dilution_index:
+    aggregation: mean_inverse_vc
+    windows: horizon_blocks
+  stability:
+    lts: theta_925_minus_theta_2m
+    inversion_flag_min_k: 0.0
+fire:
+  center: target
+  radius_km: 600
+  rings_km:
+  - 0
+  - 50
+  - 150
+  - 300
+  - 600
+  sectors: 8
+  platform_normalisation: true
+  exposure:
+    tau_decay_h: 24.0
+    tau_age_h: 48.0
+    wind_min_ms: 0.5
+    wind_source: cams_10m
+    alignment: cosine_clipped
+    persistence: detections_of_last_24h_persist_over_horizon
+  feature_sets:
+    compact:
+    - fire_count_r0_50
+    - fire_count_r50_150
+    - fire_count_r150_300
+    - fire_count_r300_600
+    - frp_mw_r0_50
+    - frp_mw_r50_150
+    - frp_mw_r150_300
+    - frp_mw_r300_600
+    - exposure_e24
+    - exposure_e48
+    - exposure_e72
+    full: compact_plus_ring_x_sector_counts
+  geometry:
+    bearing: fire_to_target
+    wind: transport_toward
+    alignment: cosine_clipped
+aerosol:
+  cams_aod550: true
+  maiac:
+    enabled: false
+calendar:
+  local_time_features: true
+  event_flags:
+    diwali:
+      enabled: true
+      domains:
+      - delhi
+      - amritsar
+      - ludhiana
+      dates_file: data/external/static_covariates/diwali_dates.csv
+      window_days: 2
+      drop_on_adaptation: true
+static:
+  use:
+  - lat
+  - lon
+  - elevation_m
+  - dist_city_center_km
+  optional:
+  - builtup_fraction
+  - road_density
+sparse_network:
+  neighbour_history:
+    kind: idw
+    power: 2.0
+    max_radius_km: 25.0
+  available_n_sampler:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 5
+  - 8
+  modality_dropout: 0.3
+cams:
+  stitch: latest_cycle_not_after_valid_time_and_published_by_issuance
+  lead_offset_feature: true
+  stale_cycle_augmentation:
+    extra_offsets_h:
+    - 0
+    - 12
+    - 24
+    probs:
+    - 0.7
+    - 0.2
+    - 0.1

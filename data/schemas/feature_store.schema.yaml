@@ -1,0 +1,93 @@
+schema_type: dataframe
+api: pandas
+columns:
+  domain:
+    description: Domain id.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - lahore
+    - delhi
+    - amritsar
+    - ludhiana
+  location_id:
+    description: Target station (OpenAQ location id).
+    dtype: int64
+    coerce: true
+  issuance_utc:
+    description: Forecast reference time T on the 6-hourly training lattice (00/06/12/18
+      UTC).
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  feature_set_version:
+    description: Version of configs/features.yaml semantics.
+    dtype: string[python]
+    coerce: true
+  config_hash:
+    description: sha256 of the canonicalised feature configuration.
+    dtype: string[python]
+    coerce: true
+  y_h24:
+    description: Mean PM2.5 over the 24 hours [T, T+24h) (hour-start labels).
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  y_h48:
+    description: Mean PM2.5 over [T+24h, T+48h).
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  y_h72:
+    description: Mean PM2.5 over [T+48h, T+72h).
+    dtype: float64
+    nullable: true
+    coerce: true
+    greater_than_or_equal_to: 0
+  valid_h24:
+    description: Target completeness rule satisfied (>= 18 of 24 valid, non-imputed
+      hours).
+    dtype: bool
+    coerce: true
+  valid_h48:
+    description: As above for h=48.
+    dtype: bool
+    coerce: true
+  valid_h72:
+    description: As above for h=72.
+    dtype: bool
+    coerce: true
+  n_available_stations:
+    description: Simulated/actual number of available stations N supplying inputs
+      for this sample.
+    dtype: int32
+    coerce: true
+    greater_than_or_equal_to: 0
+  ^f_.*:
+    description: Engineered numeric feature (name = f_<group>_<name>). Group semantics
+      in configs/features.yaml.
+    dtype: float32
+    nullable: true
+    coerce: true
+    required: false
+    regex: true
+  ^m_.*:
+    description: Missingness mask for the feature of the same suffix.
+    dtype: bool
+    coerce: true
+    required: false
+    regex: true
+  source_split:
+    type: str
+    nullable: true
+coerce: true
+strict: true
+name: feature_store
+unique:
+- domain
+- location_id
+- issuance_utc
+- n_available_stations
+description: 'Model-ready feature table: one row per (target station, issuance). Feature
+  columns are matched by the f_ / m_ prefixes.'

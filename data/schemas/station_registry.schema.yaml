@@ -1,0 +1,110 @@
+schema_type: dataframe
+api: pandas
+columns:
+  location_id:
+    description: OpenAQ location id (primary key).
+    dtype: int64
+    coerce: true
+  domain:
+    description: Domain assignment from station_bbox containment.
+    dtype: string[python]
+    coerce: true
+    isin:
+    - lahore
+    - delhi
+    - amritsar
+    - ludhiana
+  name:
+    description: Location name from OpenAQ.
+    dtype: string[python]
+    coerce: true
+  provider:
+    description: Operator/provider, e.g. a government network or a community network.
+    dtype: string[python]
+    coerce: true
+  lat:
+    description: Latitude, WGS84.
+    dtype: float64
+    coerce: true
+    in_range:
+      min_value: -90
+      max_value: 90
+      include_min: true
+      include_max: true
+  lon:
+    description: Longitude, WGS84.
+    dtype: float64
+    coerce: true
+    in_range:
+      min_value: -180
+      max_value: 180
+      include_min: true
+      include_max: true
+  elevation_m:
+    description: Elevation above sea level, m (from DEM if OpenAQ lacks it).
+    dtype: float64
+    nullable: true
+    coerce: true
+  is_reference:
+    description: Regulatory-grade monitor.
+    dtype: bool
+    coerce: true
+  sensor_model:
+    description: Device model when known (e.g. an optical low-cost sensor).
+    dtype: string[python]
+    nullable: true
+    coerce: true
+  pm25_sensor_id:
+    description: OpenAQ sensor id for PM2.5.
+    dtype: int64
+    coerce: true
+  first_seen_utc:
+    description: Earliest observation seen.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  last_seen_utc:
+    description: Latest observation seen.
+    dtype: datetime64[ns, UTC]
+    coerce: true
+  uptime_90d:
+    description: Fraction of hours with a valid, non-imputed value in the trailing
+      90 days.
+    dtype: float64
+    coerce: true
+    in_range:
+      min_value: 0
+      max_value: 1
+      include_min: true
+      include_max: true
+  eligible:
+    description: Passes the eligibility rules in configs/preprocessing.yaml (uptime,
+      history length).
+    dtype: bool
+    coerce: true
+  exclusion_reason:
+    description: Why a station is ineligible; null when eligible.
+    dtype: string[python]
+    nullable: true
+    coerce: true
+  registry_version:
+    description: Snapshot identifier. Experiments must record it for reproducibility.
+    dtype: string[python]
+    coerce: true
+  colocated_group_id:
+    type: str
+    nullable: true
+  sensor_class:
+    type: str
+    nullable: true
+  license:
+    type: str
+    nullable: true
+  redistributable:
+    type: bool
+    nullable: false
+coerce: true
+strict: true
+name: station_registry
+unique:
+- location_id
+description: 'Versioned station registry: which sensors exist, where, how reliable.'

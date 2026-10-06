@@ -1,0 +1,56 @@
+# Spatial domains. WGS84 decimal degrees. Copernicus 'area' order is [north, west, south, east];
+# FIRMS 'area' order is west,south,east,north. Conversions are done in code, never by hand.
+version: 1
+
+domains:
+  lahore:
+    role: target
+    name: { en: Lahore, ur: لاہور }
+    centroid: { lat: 31.5204, lon: 74.3587 }
+    timezone: Asia/Karachi            # UTC+5, no DST (code must still not assume that)
+    station_bbox: { west: 74.10, south: 31.25, east: 74.60, north: 31.80 }
+    openaq:
+      countries_iso: [PK]
+      parameters: [pm25, pm10, relativehumidity, temperature]
+      min_uptime_90d: 0.50            # eligibility for training/evaluation; ineligible stations may still be displayed
+    enabled: true
+
+  delhi:
+    role: source
+    name: { en: Delhi, ur: دہلی }
+    centroid: { lat: 28.6139, lon: 77.2090 }
+    timezone: Asia/Kolkata            # UTC+5:30, no DST
+    station_bbox: { west: 76.80, south: 28.35, east: 77.50, north: 28.95 }
+    openaq:
+      countries_iso: [IN]
+      parameters: [pm25, pm10, relativehumidity, temperature]
+      min_uptime_90d: 0.60
+    enabled: true
+
+  # Optional extra source domains. Meta-learning benefits from task diversity; enable ONLY if the Delhi-only
+  # ladder shows negative transfer or high variance (docs/ml-architecture.md, "Model ladder and ablations").
+  # Both sit in Indian Punjab, i.e. in the burn belt adjacent to Lahore, so their fire-transport regime is
+  # closer to Lahore's than Delhi's is.
+  amritsar:
+    role: source_optional
+    name: { en: Amritsar, ur: امرتسر }
+    centroid: { lat: 31.6340, lon: 74.8723 }
+    timezone: Asia/Kolkata
+    station_bbox: { west: 74.70, south: 31.50, east: 75.05, north: 31.75 }
+    openaq: { countries_iso: [IN], parameters: [pm25, relativehumidity, temperature], min_uptime_90d: 0.60 }
+    enabled: false
+
+  ludhiana:
+    role: source_optional
+    name: { en: Ludhiana, ur: لدھیانہ }
+    centroid: { lat: 30.9010, lon: 75.8573 }
+    timezone: Asia/Kolkata
+    station_bbox: { west: 75.70, south: 30.80, east: 76.00, north: 31.00 }
+    openaq: { countries_iso: [IN], parameters: [pm25, relativehumidity, temperature], min_uptime_90d: 0.60 }
+    enabled: false
+
+regions:
+  # CAMS / ERA5 download box: contains Lahore, Delhi and the whole burn belt with a margin.
+  igp_gridded_subset: { north: 34.0, west: 70.0, south: 26.0, east: 80.0 }
+  # FIRMS query box (west,south,east,north): Pakistani Punjab, Indian Punjab, Haryana, Delhi, western UP.
+  fire_search_box: { west: 71.0, south: 27.0, east: 79.5, north: 34.0 }
