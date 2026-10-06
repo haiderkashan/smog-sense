@@ -26,6 +26,7 @@ EXPECTED = {
     "feature_store",
     "forecast_log",
     "score_log",
+    "obs_pull_log",
 }
 T0 = pd.Timestamp("2026-11-05T00:00:00Z")
 Q_NAMES = [f"q{round((0.05 * (i + 1)) * 100):02d}" for i in range(19)]
@@ -127,10 +128,14 @@ def _forecast_row() -> pd.DataFrame:
         "model_version": "models-v0.2.0",
         "mode": "full",
         "cams_base_time_utc": T0 - pd.Timedelta(hours=12),
+        "cams_lead_offset_h": np.int32(12),
         "data_cutoff_utc": T0 - pd.Timedelta(hours=2),
         "git_sha": "abc",
         "config_hash": "def",
         "calibrated": False,
+        "is_rerun": False,
+        "adaptation_status": "accepted",
+        "n_available_stations": np.int32(3),
     }
     row.update({q: 100.0 + 10 * i for i, q in enumerate(Q_NAMES)})
     return pd.DataFrame([row])

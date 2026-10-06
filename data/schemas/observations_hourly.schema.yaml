@@ -94,16 +94,20 @@ columns:
     dtype: string[python]
     nullable: true
     coerce: true
+    description: Colocated group ID
   n_revisions:
     dtype: int32
     coerce: true
     greater_than_or_equal_to: 1
+    description: Number of revisions
   last_revised_utc:
     dtype: datetime64[ns, UTC]
     coerce: true
+    description: Last revised UTC
   available_at_utc:
     dtype: datetime64[ns, UTC]
     coerce: true
+    description: Available at UTC
 coerce: true
 strict: true
 name: observations_hourly

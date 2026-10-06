@@ -3,36 +3,47 @@ columns:
   sensor_id:
     type: str
     nullable: false
+    description: Desc
   location_id:
     type: str
     nullable: false
+    description: Desc
   domain:
     type: str
     nullable: false
+    description: Desc
   ts_utc:
     type: datetime
     nullable: false
+    description: Desc
   value_raw:
     type: float
     nullable: true
+    description: Desc
   rh_pct:
     type: float
     nullable: true
+    description: Desc
   temp_c:
     type: float
     nullable: true
+    description: Desc
   provider:
     type: str
     nullable: false
+    description: Desc
   source:
     type: str
     nullable: false
+    description: Desc
   pull_id:
     type: str
     nullable: false
+    description: Desc
   ingested_at_utc:
     type: datetime
     nullable: false
+    description: Desc
 index:
 - name: sensor_id
   type: str

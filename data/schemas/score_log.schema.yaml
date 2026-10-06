@@ -130,12 +130,15 @@ columns:
   forecast_run_id:
     type: str
     nullable: false
+    description: Run ID of forecast
   scoring_basis:
     type: str
     nullable: true
+    description: Scoring basis
   truth_basis:
     type: str
     nullable: true
+    description: Truth basis
 coerce: true
 strict: true
 name: score_log

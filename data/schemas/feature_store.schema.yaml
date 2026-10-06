@@ -81,6 +81,7 @@ columns:
   source_split:
     type: str
     nullable: true
+    description: Train/val/test split.
 coerce: true
 strict: true
 name: feature_store

@@ -93,15 +93,19 @@ columns:
   colocated_group_id:
     type: str
     nullable: true
+    description: Colocated group ID
   sensor_class:
     type: str
     nullable: true
+    description: Sensor class
   license:
     type: str
     nullable: true
+    description: Data license
   redistributable:
     type: bool
     nullable: false
+    description: Redistributable flag
 coerce: true
 strict: true
 name: station_registry

@@ -213,18 +213,23 @@ columns:
   run_id:
     type: str
     nullable: false
+    description: Run ID
   is_rerun:
     type: bool
     nullable: false
+    description: Rerun flag
   adaptation_status:
     type: str
     nullable: true
+    description: Adaptation status
   cams_lead_offset_h:
     type: float
     nullable: true
+    description: CAMS lead offset
   n_available_stations:
     type: int
     nullable: true
+    description: Available stations
 coerce: true
 strict: true
 name: forecast_log
