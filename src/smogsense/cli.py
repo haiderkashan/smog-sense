@@ -4,8 +4,9 @@ Specification: docs/system-architecture.md -> 'Component responsibilities and CL
 """
 
 import sys
+
 import typer
-from datetime import datetime, timezone
+
 from smogsense.errors import SmogSenseError
 
 app = typer.Typer(no_args_is_help=True)
@@ -35,6 +36,7 @@ app.add_typer(app_publish, name="publish")
 app.add_typer(app_state, name="state")
 app.add_typer(app_run, name="run")
 
+
 @app.command()
 def doctor(online: bool = False):
     """Check environment, credentials presence and config parse."""
@@ -42,16 +44,19 @@ def doctor(online: bool = False):
     if online:
         print("Online check: OK")
 
+
 # Example command stub
 @app_ingest.command()
 def live():
     """Ingest live data."""
     pass
 
+
 @app_run.command()
 def daily():
     """Run the full daily cycle."""
     pass
+
 
 def main():
     try:
@@ -62,6 +67,7 @@ def main():
     except Exception as e:
         print(f"Internal error: {e}")
         sys.exit(50)
+
 
 if __name__ == "__main__":
     main()

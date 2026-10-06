@@ -5,20 +5,21 @@ Specification: configs/*.yaml and docs/system-architecture.md
 
 import hashlib
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     """Configuration loaded from configs/*.yaml and environment variables."""
-    # We will load a flat or nested structure matching the YAML. 
+
+    # We will load a flat or nested structure matching the YAML.
     # For Phase 0 stub, we can define a catch-all dict or explicitly define blocks.
     # To satisfy `unknown keys are errors` and `deterministic hash`, we enforce pydantic.
-    
+
     # We'll map the config domains roughly:
     model: dict[str, Any] = {}
     sources: dict[str, Any] = {}
@@ -34,11 +35,7 @@ class Settings(BaseSettings):
     cds_api_key: SecretStr | None = None
     firms_map_key: SecretStr | None = None
 
-    model_config = SettingsConfigDict(
-        extra='forbid',
-        env_file='.env',
-        env_file_encoding='utf-8'
-    )
+    model_config = SettingsConfigDict(extra="forbid", env_file=".env", env_file_encoding="utf-8")
 
     @classmethod
     def load(cls, path_dir: Path | str) -> "Settings":
@@ -47,16 +44,18 @@ class Settings(BaseSettings):
         yaml_data: dict[str, Any] = {}
         if path_dir.exists():
             for filepath in path_dir.glob("*.yaml"):
-                with open(filepath, "r", encoding="utf-8") as f:
+                with filepath.open(encoding="utf-8") as f:
                     content = yaml.safe_load(f)
                     if content:
                         yaml_data[filepath.stem] = content
-        
+
         return cls(**yaml_data)
 
     def hash(self) -> str:
         """Compute SHA256 of the canonicalised YAML representation."""
         # Dump model without secrets
-        data = self.model_dump(exclude={'openaq_api_key', 'ads_api_key', 'cds_api_key', 'firms_map_key'})
-        canonical = json.dumps(data, sort_keys=True, separators=(',', ':'))
-        return hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+        data = self.model_dump(
+            exclude={"openaq_api_key", "ads_api_key", "cds_api_key", "firms_map_key"}
+        )
+        canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

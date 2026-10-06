@@ -4,8 +4,9 @@ Specification: docs/deployment-and-ops.md -> 'Observability'
 """
 
 import os
+
 import structlog
-import logging
+
 
 def _get_secrets() -> set[str]:
     secrets = set()
@@ -13,6 +14,7 @@ def _get_secrets() -> set[str]:
         if val := os.getenv(key):
             secrets.add(val)
     return secrets
+
 
 def redact_secrets(logger, log_method, event_dict):
     """Processor to redact secrets from the event dict."""
@@ -33,6 +35,7 @@ def redact_secrets(logger, log_method, event_dict):
         return obj
 
     return _redact(event_dict)
+
 
 def setup_logging(json_format: bool = True):
     """Initialize structured logging."""

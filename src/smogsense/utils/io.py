@@ -5,7 +5,9 @@ Specification: docs/data-engineering.md -> 'Data contracts'
 
 import pandas as pd
 import pandera as pa
+
 from smogsense.errors import SchemaViolation
+
 
 def validate_frame(df: pd.DataFrame, schema: pa.DataFrameSchema) -> pd.DataFrame:
     """
@@ -14,7 +16,7 @@ def validate_frame(df: pd.DataFrame, schema: pa.DataFrameSchema) -> pd.DataFrame
     """
     if df.index.duplicated().any():
         raise SchemaViolation("Duplicate index found in dataframe before validation.")
-        
+
     try:
         # We perform reset_index() internally to avoid a known Pandera failure reporting bug,
         # but the schema must be applied correctly to the frame.
