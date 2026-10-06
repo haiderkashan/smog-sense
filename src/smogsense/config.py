@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 from pydantic import SecretStr, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Configuration loaded from configs/*.yaml and environment variables."""
@@ -31,10 +31,11 @@ class Settings(BaseSettings):
     cds_api_key: SecretStr | None = None
     firms_map_key: SecretStr | None = None
 
-    class Config:
-        extra = 'forbid' # Unknown keys are errors
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        extra='forbid',
+        env_file='.env',
+        env_file_encoding='utf-8'
+    )
 
     @classmethod
     def load(cls, path_dir: Path | str) -> "Settings":
