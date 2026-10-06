@@ -59,9 +59,10 @@ RUN apt-get update \
 # -----------------------------------------------------------------------------
 # uv-base: the dependency resolver/installer (official multi-arch image, pinned)
 # -----------------------------------------------------------------------------
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-source
+
 FROM base AS uv-base
-ARG UV_VERSION
-COPY --from=ghcr.io/astral-sh/uv:${UV_VERSION} /uv /usr/local/bin/uv
+COPY --from=uv-source /uv /usr/local/bin/uv
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON=/usr/bin/python3 \
