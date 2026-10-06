@@ -1,0 +1,9 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.woff2 binary
+*.parquet binary
+*.gz binary
+*.pdf binary
+uv.lock linguist-generated=true -diff
+data/schemas/*.yaml linguist-language=YAML

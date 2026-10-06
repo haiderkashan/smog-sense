@@ -1,0 +1,8 @@
+extends: relaxed
+rules:
+  line-length: disable
+  truthy:
+    check-keys: false        # GitHub Actions uses the bare key `on:`
+  indentation:
+    spaces: consistent
+    indent-sequences: consistent

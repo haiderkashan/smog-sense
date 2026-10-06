@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use SmogSense in your research, please cite it as below."
+title: "SmogSense: A Spatiotemporal Machine Learning Architecture for Probabilistic PM2.5 Forecasting in Sensor-Sparse Regions"
+type: software
+version: 0.1.0
+date-released: 2026-10-04
+license: MIT
+authors:
+  - name: "SmogSense contributors"
+keywords:
+  - air quality
+  - PM2.5
+  - probabilistic forecasting
+  - quantile regression
+  - meta-learning
+  - transfer learning
+  - Lahore
+  - Indo-Gangetic Plain
+abstract: >-
+  An open, zero-cost pipeline that produces daily bilingual (English/Urdu) probabilistic PM2.5 forecasts for Lahore,
+  using CAMS forecasts, NASA FIRMS fire detections and few-shot transfer learning from data-rich Indo-Gangetic cities.

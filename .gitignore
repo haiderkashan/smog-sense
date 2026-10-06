@@ -1,0 +1,164 @@
+# =============================================================================
+# SmogSense .gitignore
+# Principle: the repository stores CODE, CONFIG, SCHEMAS and DOCS. Data, model
+# weights, secrets, generated sites and AI-assistant context never enter Git.
+# Large/derived artefacts live in: the orphan `state` branch (small Parquet
+# journals), GitHub Releases (model bundles), Actions cache/artifacts (raw files).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. Internal AI-assistant context (LOCAL ONLY — never commit)
+# -----------------------------------------------------------------------------
+memory.md
+decisions.md
+roadmap.md
+AGENTS.md
+CLAUDE.md
+.claude/
+.cursor/
+.cursorrules
+.windsurf/
+.aider*
+.continue/
+
+# -----------------------------------------------------------------------------
+# 2. Secrets and credentials
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+.cdsapirc
+.netrc
+*.pem
+*.key
+*.p12
+credentials*.json
+secrets/
+.secrets/
+token*.txt
+
+# -----------------------------------------------------------------------------
+# 3. Data (structure is tracked via .gitkeep, contents are not)
+#    Pattern: ignore everything below, re-include directories, re-include .gitkeep.
+# -----------------------------------------------------------------------------
+data/raw/**
+!data/raw/**/
+!data/raw/**/.gitkeep
+
+data/interim/**
+!data/interim/**/
+!data/interim/**/.gitkeep
+
+data/processed/**
+!data/processed/**/
+!data/processed/**/.gitkeep
+
+data/external/**
+!data/external/**/
+!data/external/**/.gitkeep
+
+# Scientific binary formats — never commit, wherever they appear
+*.nc
+*.nc4
+*.grib
+*.grib2
+*.grb
+*.grb2
+*.idx
+*.hdf
+*.hdf5
+*.he5
+*.h5
+*.zarr/
+*.tif
+*.tiff
+*.csv.gz
+*.parquet
+!tests/fixtures/**/*.parquet
+!tests/fixtures/**/*.csv.gz
+
+# Local working copy of the orphan `state` branch (separate git checkout)
+.state/
+
+# -----------------------------------------------------------------------------
+# 4. Model artefacts (bundles are published as GitHub Release assets)
+# -----------------------------------------------------------------------------
+models/*
+!models/README.md
+!models/model_card_template.md
+!models/.gitkeep
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.joblib
+*.pkl
+*.pickle
+*.lgbm
+*.bst
+*.npz
+lightning_logs/
+mlruns/
+wandb/
+
+# -----------------------------------------------------------------------------
+# 5. Generated output (site, bulletins, cards, reports)
+# -----------------------------------------------------------------------------
+site/
+output/
+bulletins/
+cards/
+reports/
+web/static/fonts/*
+!web/static/fonts/README.md
+!web/static/fonts/.gitkeep
+
+# -----------------------------------------------------------------------------
+# 6. Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+.venv/
+venv/
+env/
+.python-version.local
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.ipynb_checkpoints/
+*.log
+pip-log.txt
+
+# -----------------------------------------------------------------------------
+# 7. Containers / local overrides
+# -----------------------------------------------------------------------------
+docker-compose.override.yml
+compose.override.yml
+.docker/
+.uv-cache/
+
+# -----------------------------------------------------------------------------
+# 8. Editors / OS
+# -----------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
