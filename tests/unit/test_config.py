@@ -1,10 +1,12 @@
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
 from smogsense.config import Settings
 
 
-def test_settings_unknown_keys_forbid(tmp_path):
+def test_settings_unknown_keys_forbid(tmp_path: Path) -> None:
     conf_dir = tmp_path / "configs"
     conf_dir.mkdir()
 
@@ -24,7 +26,7 @@ def test_settings_unknown_keys_forbid(tmp_path):
         Settings.load(conf_dir)
 
 
-def test_settings_hash(tmp_path):
+def test_settings_hash(tmp_path: Path) -> None:
     conf_dir = tmp_path / "configs"
     conf_dir.mkdir()
 

@@ -14,6 +14,8 @@ nav:
   accuracy: Accuracy
   switch_language: اردو
 status:
+  valid_until: "Valid until {time} (Pakistan time)"
+  expired_banner: "This forecast has expired. A new one is expected in the morning; do not rely on this one."
   issued: "Issued {time} (Pakistan time)"
   data_cutoff: "Latest sensor data: {time}"
   next_update: "Next update: tomorrow morning"
@@ -25,12 +27,15 @@ aqi:
   very_unhealthy: Very unhealthy
   hazardous: Hazardous
 horizon:
+  window: "{start} to {end}"
   day1: Next 24 hours
   day2: 24 to 48 hours ahead
   day3: 48 to 72 hours ahead
 units:
   ugm3: µg/m³
 uncertainty:
+  chance_exceed_low: "Chance of exceeding {threshold} µg/m³: under 5%"
+  chance_exceed_high: "Chance of exceeding {threshold} µg/m³: over 95%"
   median_label: Most likely level
   range_label: Likely range (8 days in 10)
   upper_label: Bad case (1 day in 10 is worse)
@@ -79,6 +84,7 @@ mode_banner:
   observations_only: "Reduced accuracy: satellite and model inputs were unavailable; this forecast uses recent sensor readings only."
   baseline_only: "Simplified forecast: the learning model was unavailable today, so a simpler method was used."
 methodology:
+  truth: "The numbers estimate what a reference-grade monitor would read: reference monitors are preferred, and low-cost sensors are used only after humidity correction. Foggy, humid conditions can make low-cost sensors read too high."
   short: "SmogSense combines recent sensor readings, satellite fire detections and atmospheric model forecasts. A learning model, first trained on Delhi's dense monitoring network and then adapted to Lahore's few sensors, estimates a range of likely PM2.5 levels."
 disclaimer: "SmogSense is a research project, not an official forecast. Do not rely on it alone for medical or emergency decisions. Follow guidance from the official health and environmental authorities."
 attribution: "Air-quality observations: OpenAQ and its data providers. Atmospheric forecasts: Generated using Copernicus Atmosphere Monitoring Service information 2026. Fire detections: NASA FIRMS."
@@ -93,14 +99,3 @@ card:
 a11y:
   skip_to_forecast: Skip to the forecast
   chart_alt: "Forecast chart for the next three days. The line is the most likely level; the shaded bands show the likely range."
-
-horizon:
-  window: "{start} to {end}"
-status:
-  valid_until: "Valid until {time} (Pakistan time)"
-  expired_banner: "This forecast has expired. A new one is expected in the morning; do not rely on this one."
-uncertainty:
-  chance_exceed_low: "Chance of exceeding {threshold} µg/m³: under 5%"
-  chance_exceed_high: "Chance of exceeding {threshold} µg/m³: over 95%"
-methodology:
-  truth: "The numbers estimate what a reference-grade monitor would read: reference monitors are preferred, and low-cost sensors are used only after humidity correction. Foggy, humid conditions can make low-cost sensors read too high."

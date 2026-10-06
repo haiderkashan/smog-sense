@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from smogsense.contracts import Issuance, QuantileGrid
 
 
-def test_issuance_block_window():
+def test_issuance_block_window() -> None:
     t0 = datetime(2026, 11, 5, 0, 0, tzinfo=UTC)
     issuance = Issuance(t0)
 
@@ -16,7 +16,7 @@ def test_issuance_block_window():
     assert end_48 == datetime(2026, 11, 7, 0, 0, tzinfo=UTC)
 
 
-def test_quantile_grid_public():
+def test_quantile_grid_public() -> None:
     grid = QuantileGrid()
     assert grid.public == (0.10, 0.50, 0.90)
     assert len(grid.levels) == 19

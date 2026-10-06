@@ -188,8 +188,8 @@ def test_every_third_party_action_is_pinned_to_a_commit_sha(repo_root: Path) -> 
 
 def test_workflows_are_least_privilege_and_bounded(repo_root: Path) -> None:
     for name, wf in _workflows(repo_root).items():
-        triggers = wf.get("on", wf.get(True, {}))
-        assert "pull_request_target" not in triggers, (
+        triggers = wf.get("on", wf.get(True, {}))  # type: ignore
+        assert triggers is not None and "pull_request_target" not in triggers, (
             f"{name}: pull_request_target exposes secrets to forks"
         )
         assert "permissions" in wf, f"{name}: declare top-level permissions"
@@ -203,7 +203,7 @@ def test_workflows_are_least_privilege_and_bounded(repo_root: Path) -> None:
 
 def test_scheduled_workflows_use_off_peak_minutes(repo_root: Path) -> None:
     for name, wf in _workflows(repo_root).items():
-        for entry in wf.get("on", wf.get(True, {})).get("schedule", []):
+        for entry in wf.get("on", wf.get(True, {})).get("schedule", []):  # type: ignore
             assert entry["cron"].split()[0] != "0", (
                 f"{name}: avoid minute 0 (GitHub delays top-of-hour schedules)"
             )
@@ -241,7 +241,13 @@ def test_no_paid_or_billable_dependencies(repo_root: Path) -> None:
 
 
 def test_configs_are_consistent_with_each_other(repo_root: Path) -> None:
-    load = lambda n: yaml.safe_load((repo_root / "configs" / n).read_text(encoding="utf-8"))  # noqa: E731
+    def load(n: str) -> dict[str, Any]:
+        from typing import Any, cast
+
+        return cast(
+            dict[str, Any], yaml.safe_load((repo_root / "configs" / n).read_text(encoding="utf-8"))
+        )
+
     model, feats, evaluation, bulletin = (
         load("model.yaml"),
         load("features.yaml"),

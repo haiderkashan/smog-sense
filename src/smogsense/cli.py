@@ -38,7 +38,7 @@ app.add_typer(app_run, name="run")
 
 
 @app.command()
-def doctor(online: bool = False):
+def doctor(online: bool = False) -> None:
     """Check environment, credentials presence and config parse."""
     print("Doctor check: OK")
     if online:
@@ -47,18 +47,18 @@ def doctor(online: bool = False):
 
 # Example command stub
 @app_ingest.command()
-def live():
+def live() -> None:
     """Ingest live data."""
     pass
 
 
 @app_run.command()
-def daily():
+def daily() -> None:
     """Run the full daily cycle."""
     pass
 
 
-def main():
+def main() -> None:
     try:
         app()
     except SmogSenseError as e:

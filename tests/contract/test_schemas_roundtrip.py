@@ -183,13 +183,20 @@ def test_feature_store_regex_columns_and_strictness(schemas: dict[str, pa.DataFr
 # ----------------------------------------------------------------------------- public JSON contract
 @pytest.fixture(scope="module")
 def bulletin_schema() -> dict[str, Any]:
-    return json.loads((SCHEMA_DIR / "bulletin.schema.json").read_text(encoding="utf-8"))
+    from typing import cast
+
+    return cast(
+        dict[str, Any],
+        json.loads((SCHEMA_DIR / "bulletin.schema.json").read_text(encoding="utf-8")),
+    )
 
 
 @pytest.fixture(scope="module")
 def bulletin_example() -> dict[str, Any]:
     path = Path(__file__).resolve().parents[1] / "fixtures" / "bulletin_valid_example.json"
-    return json.loads(path.read_text(encoding="utf-8"))
+    from typing import cast
+
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def test_bulletin_schema_is_valid_json_schema(bulletin_schema: dict[str, Any]) -> None:

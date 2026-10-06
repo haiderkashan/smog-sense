@@ -4,6 +4,7 @@ Specification: docs/deployment-and-ops.md -> 'Observability'
 """
 
 import os
+from typing import Any, cast
 
 import structlog
 
@@ -16,13 +17,13 @@ def _get_secrets() -> set[str]:
     return secrets
 
 
-def redact_secrets(logger, log_method, event_dict):
+def redact_secrets(logger: Any, log_method: str, event_dict: dict[str, Any]) -> dict[str, Any]:
     """Processor to redact secrets from the event dict."""
     secrets = _get_secrets()
     if not secrets:
         return event_dict
 
-    def _redact(obj):
+    def _redact(obj: Any) -> Any:
         if isinstance(obj, str):
             for secret in secrets:
                 if secret in obj:
@@ -34,18 +35,21 @@ def redact_secrets(logger, log_method, event_dict):
             return [_redact(i) for i in obj]
         return obj
 
-    return _redact(event_dict)
+    return cast(dict[str, Any], _redact(event_dict))
 
 
-def setup_logging(json_format: bool = True):
+def setup_logging(json_format: bool = True) -> None:
     """Initialize structured logging."""
-    processors = [
-        structlog.contextvars.merge_contextvars,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
-        structlog.processors.TimeStamper(fmt="iso"),
-        redact_secrets,
-    ]
+    processors = cast(
+        Any,
+        [
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.add_logger_name,
+            structlog.processors.TimeStamper(fmt="iso"),
+            redact_secrets,
+        ],
+    )
     if json_format:
         processors.append(structlog.processors.JSONRenderer())
     else:
