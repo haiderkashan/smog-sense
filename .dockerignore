@@ -1,0 +1,42 @@
+# Build context hygiene: the image needs src/, configs/, web/, data/schemas/, pyproject.toml, uv.lock.
+.git
+.github
+.state
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.hypothesis
+.coverage*
+htmlcov
+site
+output
+bulletins
+cards
+reports
+# Data and models are mounted/downloaded at runtime, never baked into the image
+data/raw
+data/interim
+data/processed
+data/external
+models
+# Not needed at runtime
+docs
+notebooks
+tests
+scripts
+*.md
+!README.md
+# Secrets and AI context must never enter an image layer
+.env
+.env.*
+!.env.example
+.cdsapirc
+memory.md
+decisions.md
+roadmap.md
+AGENTS.md
+CLAUDE.md

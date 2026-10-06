@@ -1,0 +1,168 @@
+# The production heartbeat: ONE idempotent forecast cycle per day.
+#
+#   Forecast reference time T0 = 00:00 UTC (= 05:00 PKT).
+#   Primary trigger 00:17 UTC. We deliberately avoid minute 00: GitHub documents that scheduled runs can be
+#   delayed or dropped under load, "particularly at the start of every hour".
+#   Retry triggers at 02:47 and 05:47 UTC run the same command; if the primary run already published this
+#   issuance they exit 11 (no-op) after ~2 minutes. This is the fail-over for a dropped cron event.
+#
+#   Data availability (verified Oct 2026): the CAMS 00 UTC run is guaranteed in the Atmosphere Data Store only
+#   by 10:00 UTC and the 12 UTC run by 22:00 UTC, so a 00:17 UTC job consumes the PREVIOUS day's 12 UTC run.
+#   See docs/system-architecture.md -> "Data availability and the as-of rule".
+name: daily-forecast
+run-name: daily-forecast (${{ github.event_name }}, issuance=${{ inputs.issuance || 'latest' }})
+
+on:
+  schedule:
+    - cron: "17 0 * * *"
+    - cron: "47 2 * * *"
+    - cron: "47 5 * * *"
+  workflow_dispatch:
+    inputs:
+      issuance:
+        description: "Issuance time, ISO-8601 UTC (e.g. 2026-11-05T00:00:00Z) or 'latest'"
+        required: false
+        default: latest
+        type: string
+      mode:
+        description: "live = real sources; fixtures = offline replay of recorded payloads"
+        required: false
+        default: live
+        type: choice
+        options: [live, fixtures]
+      force:
+        description: "Re-run even if this issuance is already published"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+# Serialises every job that writes the `state` branch (forecast, scoring, keep-alive).
+concurrency:
+  group: smogsense-state
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  forecast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: write   # push the `state` and `gh-pages` branches
+      packages: read    # pull the runtime image from GHCR
+      issues: write     # open/update alert issues
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SMOGSENSE_MODE: ${{ inputs.mode || 'live' }}
+      ISSUANCE: ${{ inputs.issuance || 'latest' }}
+      SMOGSENSE_FORCE: ${{ inputs.force && '1' || '0' }}
+      SITE_BASE_URL: ${{ vars.SITE_BASE_URL }}
+      OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+      ADS_API_KEY: ${{ secrets.ADS_API_KEY }}
+      CDS_API_KEY: ${{ secrets.CDS_API_KEY }}
+      FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare host (UID/GID, directories, image reference)
+        run: |
+          {
+            echo "HOST_UID=$(id -u)"
+            echo "HOST_GID=$(id -g)"
+            echo "SMOGSENSE_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
+          } >> "$GITHUB_ENV"
+          mkdir -p data/raw data/interim data/processed data/external models site .state
+
+      - name: Attach the `state` branch (append-only journals)
+        run: scripts/state_attach.sh
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the runtime image (build locally if this commit has none yet)
+        run: |
+          if docker pull "${SMOGSENSE_IMAGE}"; then
+            echo "pulled ${SMOGSENSE_IMAGE}"
+          else
+            echo "::warning::${SMOGSENSE_IMAGE} not found in GHCR; building locally (slower)"
+            docker build --target runtime -t "${SMOGSENSE_IMAGE}" .
+          fi
+
+      - name: Run the daily cycle (ingest, features, forecast, bulletin, site, validate)
+        id: cycle
+        run: |
+          set +e
+          docker compose --profile ops run --rm daily
+          rc=$?
+          set -e
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          case "${rc}" in
+            0|10|11) exit 0 ;;   # ok | published in degraded mode | already published (no-op)
+            *) echo "::error::daily cycle failed with exit code ${rc}"; exit "${rc}" ;;
+          esac
+
+      - name: Job summary
+        if: always()
+        run: |
+          f=data/processed/run_manifests/latest_summary.md
+          if [[ -f "${f}" ]]; then cat "${f}" >> "$GITHUB_STEP_SUMMARY"; else echo "No run summary was produced." >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Persist state journals (observations, inputs snapshot, forecast log)
+        if: steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10'
+        env:
+          RC: ${{ steps.cycle.outputs.rc }}
+        run: scripts/state_commit_push.sh "forecast $(date -u +%F) (rc=${RC})"
+
+      - name: Publish to GitHub Pages (single orphan commit)
+        if: steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10'
+        run: scripts/publish_ghpages.sh site
+
+      - name: Mirror to Cloudflare Pages (optional; never fails the run)
+        if: (steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10') && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_PAGES_PROJECT != ''
+        continue-on-error: true
+        run: npx --yes wrangler@4 pages deploy site --project-name "${CLOUDFLARE_PAGES_PROJECT}" --branch main --commit-dirty=true
+
+      - name: Post the card to the Telegram channel (optional; never fails the run)
+        if: (steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10') && env.TELEGRAM_BOT_TOKEN != ''
+        continue-on-error: true
+        run: docker compose --profile ops run --rm pipeline smogsense publish telegram
+
+      - name: Alert - published in degraded mode
+        if: steps.cycle.outputs.rc == '10'
+        run: |
+          body="The forecast was published, but in a degraded mode (see the job summary for the reason).
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          scripts/alert_issue.sh "SmogSense published in DEGRADED mode" "${body}" degraded
+
+      - name: Alert - pipeline failure
+        if: failure()
+        run: |
+          body="The daily pipeline failed (issuance=${ISSUANCE}).
+          Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          Follow docs/runbooks/incident-response.md."
+          scripts/alert_issue.sh "SmogSense daily pipeline failed" "${body}" pipeline-alert
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: diagnostics-${{ github.run_id }}
+          path: data/processed/run_manifests
+          retention-days: 14
+          if-no-files-found: ignore

@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in the pipeline, models, bulletin or website behaves incorrectly.
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Data ingestion (OpenAQ / CAMS / ERA5 / FIRMS)
+        - Preprocessing / QC / imputation
+        - Features
+        - Models / adaptation / calibration
+        - Evaluation / scoring
+        - Bulletin / website / cards
+        - Docker / CI / deployment
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: issuance
+    attributes:
+      label: Issuance time (UTC) affected, if any
+      placeholder: "2026-11-05T00:00:00Z"
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Prefer `SMOGSENSE_MODE=fixtures` commands so anyone can reproduce offline.
+      render: shell
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines or run-manifest excerpt
+      description: Do NOT paste API keys or tokens.
+      render: text

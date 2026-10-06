@@ -1,0 +1,53 @@
+# Builds the runtime image on every push to main and publishes it to GitHub Container Registry,
+# tagged with the commit SHA (what scheduled workflows pull) and `latest`.
+# GHCR is free and unmetered for PUBLIC packages; for a private repository the Free plan allows only
+# ~500 MB of package storage, which this image exceeds. Keep the repository (and package) public.
+name: docker-publish
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 3 * * 1"     # weekly rebuild of main's HEAD so Ubuntu security patches reach the sha-tagged image
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-publish
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lower-case the image name (GHCR requires it)
+        id: img
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build and push runtime image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runtime
+          push: true
+          tags: |
+            ${{ steps.img.outputs.name }}:sha-${{ github.sha }}
+            ${{ steps.img.outputs.name }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+          cache-from: type=gha,scope=runtime
+          cache-to: type=gha,scope=runtime,mode=max

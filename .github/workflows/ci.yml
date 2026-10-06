@@ -1,0 +1,99 @@
+# Continuous integration: runs on every pull request and every push to main.
+# Everything that can run in a container does, so CI executes the same bytes as `make check` on a laptop.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  hygiene:
+    name: pre-commit (ruff, yaml/json/toml, shellcheck, hadolint, actionlint, gitleaks)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run all pre-commit hooks
+        run: pipx run pre-commit run --all-files --show-diff-on-failure
+
+  container-checks:
+    name: lock file, lint, types, tests (dev image)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build dev image (layer-cached)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: dev
+          load: true
+          tags: smogsense:dev
+          cache-from: type=gha,scope=dev
+          cache-to: type=gha,scope=dev,mode=max
+      - name: Map host UID/GID and create bind-mount directories
+        run: |
+          echo "HOST_UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "HOST_GID=$(id -g)" >> "$GITHUB_ENV"
+          mkdir -p data/raw data/interim data/processed data/external models site .state
+      - name: uv.lock is present and in sync with pyproject.toml
+        run: docker compose --profile ci run --rm lockcheck
+      - name: Lint and type-check
+        run: docker compose --profile ci run --rm lint
+      - name: Tests (offline fixtures mode, no network)
+        run: docker compose --profile ci run --rm test
+
+  runtime-image:
+    name: runtime image builds, is CPU-only, non-root, shapes Urdu, within size budget
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build runtime image (layer-cached)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: runtime
+          load: true
+          tags: smogsense:ci
+          cache-from: type=gha,scope=runtime
+          cache-to: type=gha,scope=runtime,mode=max
+      - name: Smoke test the image
+        run: |
+          docker run --rm -i --entrypoint python smogsense:ci - <<'PY'
+          import torch, lightgbm, eccodes, smogsense
+          from PIL import features
+          assert torch.version.cuda is None and "+cpu" in torch.__version__, f"torch is not a CPU build: {torch.__version__}"
+          assert features.check("raqm"), "Pillow lacks Raqm: Urdu Nastaliq would not shape"
+          print("ok", smogsense.__version__, torch.__version__, lightgbm.__version__, "ecCodes", eccodes.codes_get_api_version())
+          PY
+          test "$(docker run --rm --entrypoint id smogsense:ci -u)" = "1000"
+          docker run --rm --entrypoint test smogsense:ci -f /usr/share/fonts/truetype/noto/NotoNastaliqUrdu-Regular.ttf
+      - name: Image size budget (warn > 3.5 GB, fail > 5 GB)
+        run: |
+          bytes="$(docker image inspect smogsense:ci --format '{{.Size}}')"
+          gb="$(awk -v b="${bytes}" 'BEGIN{printf "%.2f", b/1e9}')"
+          echo "image size: ${gb} GB" | tee -a "$GITHUB_STEP_SUMMARY"
+          awk -v b="${bytes}" 'BEGIN{exit !(b>3.5e9)}' && echo "::warning::runtime image is ${gb} GB (budget 3.5 GB)" || true
+          awk -v b="${bytes}" 'BEGIN{exit (b>5e9)}' || { echo "::error::runtime image exceeds 5 GB"; exit 1; }

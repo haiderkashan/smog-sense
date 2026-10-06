@@ -1,0 +1,117 @@
+# Manual, resumable backfill of historical inputs for Phase 2 (Delhi source domain + Lahore target domain).
+# Outputs are Parquet partitions stored as assets of ONE rolling GitHub Release (`data-backfill`):
+# release assets have no total size limit (2 GiB per file), unlike the repository itself.
+# The job stops cleanly before the 6 h job limit; re-dispatch to continue (partitions already in the
+# release are skipped).
+name: historical-backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Which source to backfill"
+        required: true
+        default: all
+        type: choice
+        options: [all, openaq-archive, cams, era5, firms]
+      domain:
+        description: "Which domain"
+        required: true
+        default: both
+        type: choice
+        options: [both, delhi, lahore]
+      start:
+        description: "First day (YYYY-MM-DD)"
+        required: true
+        type: string
+      end:
+        description: "Last day (YYYY-MM-DD)"
+        required: true
+        type: string
+      max_wall_minutes:
+        description: "Stop cleanly after this many minutes (job limit is 360)"
+        required: false
+        default: "300"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smogsense-backfill
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  backfill:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 345
+    permissions:
+      contents: write   # create/update the rolling release
+      packages: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SMOGSENSE_MODE: live
+      SMOGSENSE_CPUS: "4"
+      SMOGSENSE_MEM: 14g
+      SOURCE: ${{ inputs.source }}
+      DOMAIN: ${{ inputs.domain }}
+      START: ${{ inputs.start }}
+      END: ${{ inputs.end }}
+      MAX_WALL_MINUTES: ${{ inputs.max_wall_minutes }}
+      OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+      ADS_API_KEY: ${{ secrets.ADS_API_KEY }}
+      CDS_API_KEY: ${{ secrets.CDS_API_KEY }}
+      FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+    steps:
+      - name: Validate inputs
+        run: |
+          [[ "${START}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "::error::start must be YYYY-MM-DD"; exit 1; }
+          [[ "${END}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "::error::end must be YYYY-MM-DD"; exit 1; }
+          [[ "${MAX_WALL_MINUTES}" =~ ^[0-9]+$ ]] || { echo "::error::max_wall_minutes must be an integer"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare host
+        run: |
+          {
+            echo "HOST_UID=$(id -u)"
+            echo "HOST_GID=$(id -g)"
+            echo "SMOGSENSE_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
+          } >> "$GITHUB_ENV"
+          mkdir -p data/raw data/interim data/processed/backfill data/external models site .state
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the runtime image (build locally if absent)
+        run: |
+          docker pull "${SMOGSENSE_IMAGE}" || docker build --target runtime -t "${SMOGSENSE_IMAGE}" .
+
+      - name: Ensure the rolling data release exists and fetch existing partitions
+        run: |
+          gh release view data-backfill >/dev/null 2>&1 || \
+            gh release create data-backfill --prerelease --title "Historical backfill (rolling)" \
+              --notes "Parquet partitions produced by the historical-backfill workflow. Safe to overwrite; never edit by hand."
+          gh release download data-backfill --dir data/processed/backfill --pattern '*.parquet' || echo "no existing partitions"
+
+      - name: Backfill (resumable; stops before the job limit)
+        run: |
+          docker compose --profile ops run --rm pipeline \
+            smogsense run backfill --source "${SOURCE}" --domain "${DOMAIN}" \
+            --start "${START}" --end "${END}" --max-wall-minutes "${MAX_WALL_MINUTES}"
+
+      - name: Upload partitions to the rolling release
+        if: always()
+        run: |
+          shopt -s nullglob
+          files=(data/processed/backfill/*.parquet)
+          if (( ${#files[@]} )); then gh release upload data-backfill "${files[@]}" --clobber; else echo "nothing to upload"; fi

@@ -1,0 +1,46 @@
+name: Data source incident
+description: An upstream source changed behaviour, limits, schema, licence or availability.
+labels: ["data-source", "needs-triage"]
+body:
+  - type: dropdown
+    id: source
+    attributes:
+      label: Source
+      options:
+        - OpenAQ API v3
+        - OpenAQ AWS archive
+        - Copernicus ADS (CAMS global forecasts)
+        - Copernicus CDS (ERA5)
+        - NASA FIRMS
+        - NASA LAADS / Earthdata (MAIAC, research only)
+        - Cloudflare Pages
+        - GitHub (Actions / Pages / Releases / GHCR)
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: What changed?
+      description: Link the provider notice or changelog. Examples - new rate limit, renamed variable, satellite retired, licence change, outage.
+    validations:
+      required: true
+  - type: dropdown
+    id: ladder
+    attributes:
+      label: Which degradation-ladder level is affected?
+      options:
+        - Full (no impact yet)
+        - Stale CAMS
+        - Observations-only
+        - Baseline-only
+        - Unknown
+    validations:
+      required: true
+  - type: checkboxes
+    id: docs
+    attributes:
+      label: Follow-up
+      options:
+        - label: docs/verification-log.md needs an entry
+        - label: configs/sources.yaml needs an update
+        - label: a contract test needs to be added or changed

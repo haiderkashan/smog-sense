@@ -1,0 +1,185 @@
+# =============================================================================
+# SmogSense — local simulation of the production pipeline
+#
+# Profiles (nothing starts unless you select one):
+#   dev    interactive shell with the repo bind-mounted            make shell
+#   ci     lint + type-check + tests, identical to GitHub CI       make check
+#   ops    one-off stage runners (ingest, forecast, bulletin, ...) make daily
+#   serve  nginx serving ./site on http://localhost:8080           make serve
+#   demo   offline end-to-end run on recorded fixtures + serve     make demo
+#
+# Runner parity: ops services default to 2 CPUs / 7 GB RAM (SMOGSENSE_CPUS / SMOGSENSE_MEM override), the
+# smallest GitHub-hosted Linux runner available to a private repository (public repos get 4 vCPU / 16 GB).
+# If it fits here, it fits there. The git token is deliberately NOT passed into containers.
+#
+# Image: `${SMOGSENSE_IMAGE}` defaults to a locally built tag. GitHub Actions sets it to
+# ghcr.io/<owner>/smogsense:sha-<commit> so that CI and laptop run the same bytes.
+# =============================================================================
+name: smogsense
+
+x-env: &env
+  SMOGSENSE_MODE: ${SMOGSENSE_MODE:-live}
+  SMOGSENSE_LOG_LEVEL: ${SMOGSENSE_LOG_LEVEL:-INFO}
+  OPENAQ_API_KEY: ${OPENAQ_API_KEY:-}
+  ADS_API_KEY: ${ADS_API_KEY:-}
+  CDS_API_KEY: ${CDS_API_KEY:-}
+  FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
+  EARTHDATA_TOKEN: ${EARTHDATA_TOKEN:-}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+  CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+  CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+  SITE_BASE_URL: ${SITE_BASE_URL:-http://localhost:8080}
+  ISSUANCE: ${ISSUANCE:-latest}
+  SMOGSENSE_FORCE: ${SMOGSENSE_FORCE:-0}
+  HOME: /tmp/home
+  XDG_CACHE_HOME: /tmp/.cache
+  MPLCONFIGDIR: /tmp/.mpl
+
+x-ops: &ops
+  image: ${SMOGSENSE_IMAGE:-smogsense:local}
+  build:
+    context: .
+    target: runtime
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  environment: *env
+  working_dir: /app
+  volumes:
+    - ./data:/app/data
+    - ./models:/app/models
+    - ./site:/app/site
+    - ./.state:/app/.state
+    - ./configs:/app/configs:ro
+    - ./web:/app/web:ro
+  cpus: ${SMOGSENSE_CPUS:-2}
+  mem_limit: ${SMOGSENSE_MEM:-7g}
+  read_only: true
+  tmpfs:
+    - /tmp:size=2g,mode=1777
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+  profiles: ["ops"]
+
+services:
+  # ---------------------------------------------------------------- ops stages
+  pipeline:
+    <<: *ops
+    # generic runner:  docker compose run --rm pipeline smogsense <group> <command> [options]
+    command: ["smogsense", "--help"]
+
+  doctor:
+    <<: *ops
+    command: ["smogsense", "doctor"]
+
+  ingest:
+    <<: *ops
+    command: ["smogsense", "ingest", "live", "--issuance", "${ISSUANCE:-latest}"]
+
+  features:
+    <<: *ops
+    command: ["smogsense", "features", "build", "--issuance", "${ISSUANCE:-latest}"]
+
+  forecast:
+    <<: *ops
+    command: ["smogsense", "forecast", "run", "--issuance", "${ISSUANCE:-latest}"]
+
+  score:
+    <<: *ops
+    command: ["smogsense", "score", "shadow", "--stage", "provisional"]
+
+  bulletin:
+    <<: *ops
+    command: ["smogsense", "bulletin", "render", "--issuance", "${ISSUANCE:-latest}"]
+
+  site:
+    <<: *ops
+    command: ["smogsense", "site", "build"]
+
+  daily:
+    <<: *ops
+    # The whole 00:00 UTC cycle in one idempotent command (ingest -> features -> forecast -> bulletin -> site).
+    command: ["smogsense", "run", "daily", "--issuance", "${ISSUANCE:-latest}"]
+
+  # ---------------------------------------------------------------- developer experience
+  dev:
+    <<: *ops
+    profiles: ["dev"]
+    build:
+      context: .
+      target: dev
+    image: ${SMOGSENSE_DEV_IMAGE:-smogsense:dev}
+    working_dir: /workspace
+    read_only: false
+    volumes:
+      - .:/workspace
+    environment:
+      <<: *env
+      SMOGSENSE_HOME: /workspace
+      PYTHONPATH: /workspace/src
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+
+  lint:
+    extends: { service: dev }
+    profiles: ["ci"]
+    tty: false
+    stdin_open: false
+    command: ["bash", "-c", "ruff check . && ruff format --check . && mypy"]
+
+  test:
+    extends: { service: dev }
+    profiles: ["ci"]
+    tty: false
+    stdin_open: false
+    environment:
+      <<: *env
+      SMOGSENSE_MODE: fixtures
+      SMOGSENSE_HOME: /workspace
+      PYTHONPATH: /workspace/src
+    command: ["pytest", "-q", "-m", "not network"]
+
+  lockcheck:
+    extends: { service: dev }
+    profiles: ["ci"]
+    tty: false
+    stdin_open: false
+    # Fails if pyproject.toml and uv.lock disagree (needs the PyTorch CPU index; allowed on the runner).
+    command: ["uv", "lock", "--check"]
+
+  # ---------------------------------------------------------------- offline demo (no credentials)
+  demo:
+    <<: *ops
+    profiles: ["demo"]
+    environment:
+      <<: *env
+      SMOGSENSE_MODE: fixtures
+    command: ["smogsense", "run", "daily", "--issuance", "2025-11-05T00:00:00Z"]
+
+  # ---------------------------------------------------------------- local static server
+  serve:
+    image: nginx:stable-alpine
+    profiles: ["serve", "demo"]
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      demo:
+        condition: service_completed_successfully
+        required: false

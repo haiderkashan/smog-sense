@@ -1,0 +1,94 @@
+# Prospective verification. Scores every (issuance, horizon) pair whose verification window has closed.
+#   provisional : OpenAQ API at window end + 6 h  (fast, may still be revised by providers)
+#   settled     : OpenAQ S3 archive, which publishes 72 h after the end of the local day (final truth)
+# Scoring only writes the `state` branch; the next daily run rebuilds the public scorecard pages from it.
+name: shadow-scoring
+
+on:
+  schedule:
+    - cron: "7 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smogsense-state
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  score:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      packages: read
+      issues: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SMOGSENSE_MODE: live
+      OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prepare host
+        run: |
+          {
+            echo "HOST_UID=$(id -u)"
+            echo "HOST_GID=$(id -g)"
+            echo "SMOGSENSE_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
+          } >> "$GITHUB_ENV"
+          mkdir -p data/raw data/interim data/processed data/external models site .state
+
+      - name: Attach the `state` branch
+        run: scripts/state_attach.sh
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull the runtime image (build locally if absent)
+        run: |
+          docker pull "${SMOGSENSE_IMAGE}" || {
+            echo "::warning::image not found in GHCR; building locally"
+            docker build --target runtime -t "${SMOGSENSE_IMAGE}" .
+          }
+
+      - name: Watchdog - today's forecast must already exist (dead-man's switch)
+        run: |
+          # Independent of daily-forecast.yml: catches the case where that workflow never started at all
+          # (dropped schedule, disabled workflow, expired token). `state exists` exits 11 when published.
+          set +e
+          docker compose --profile ops run --rm pipeline smogsense state exists --issuance latest
+          rc=$?
+          set -e
+          if [[ ${rc} -ne 11 ]]; then
+            body="No forecast was published for the latest 00:00 UTC issuance by $(date -u +%H:%M) UTC (state exists exit code ${rc}).
+          Check daily-forecast runs: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/daily-forecast.yml
+          Then follow docs/runbooks/incident-response.md."
+            scripts/alert_issue.sh "SmogSense: no forecast published for today's issuance" "${body}" pipeline-alert
+          fi
+
+      - name: Provisional scoring (OpenAQ API)
+        run: docker compose --profile ops run --rm score
+
+      - name: Settled scoring (OpenAQ archive)
+        run: docker compose --profile ops run --rm pipeline smogsense score shadow --stage settled
+
+      - name: Persist score journals
+        run: scripts/state_commit_push.sh "scores $(date -u +%F)"
+
+      - name: Alert - scoring failure
+        if: failure()
+        run: |
+          body="Shadow scoring failed. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          scripts/alert_issue.sh "SmogSense shadow scoring failed" "${body}" pipeline-alert

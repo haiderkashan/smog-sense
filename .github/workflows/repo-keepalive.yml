@@ -1,0 +1,59 @@
+# GitHub disables scheduled workflows in a public repository after 60 days without repository activity.
+# This monthly job (a) re-enables the production workflows if they were disabled and (b) writes a
+# heartbeat to the `state` branch. It is best-effort: the daily pipeline itself pushes to `state` every day,
+# and GitHub e-mails the repository owner when it disables a schedule (see docs/runbooks/season-start-checklist.md).
+name: repo-keepalive
+
+on:
+  schedule:
+    - cron: "11 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smogsense-state
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Re-enable scheduled workflows (no-op if already enabled)
+        run: |
+          for wf in daily-forecast.yml shadow-scoring.yml; do
+            gh workflow enable "${wf}" || echo "could not enable ${wf}"
+          done
+
+      - name: Write heartbeat to the state branch
+        run: |
+          scripts/state_attach.sh
+          printf '{"heartbeat_utc":"%s","run":"%s"}\n' "$(date -u +%FT%TZ)" "${GITHUB_RUN_ID}" > .state/heartbeat.json
+          scripts/state_commit_push.sh "heartbeat $(date -u +%F)"
+
+      - name: Back up the state branch as a git bundle (GitHub Release asset)
+        run: |
+          # The journals are the scientific record of the shadow run; keep an off-branch copy (restore: git clone <bundle>).
+          git -C .state fetch --quiet --unshallow origin state || true
+          bundle="state-$(date -u +%Y-%m).bundle"
+          git -C .state bundle create "../${bundle}" --all
+          gh release view state-backups >/dev/null 2>&1 || \
+            gh release create state-backups --prerelease --title "State branch backups" \
+              --notes "Monthly git bundles of the state branch. Restore with: git clone state-YYYY-MM.bundle state"
+          gh release upload state-backups "${bundle}" --clobber
