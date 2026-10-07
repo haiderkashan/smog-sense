@@ -1,9 +1,18 @@
+"""smogsense.data_ingestion.base -- Resilient HTTP foundation.
+
+Implements RateBudget, CircuitBreaker, and ResilientClient.
+"""
+
 import asyncio
 import contextlib
 import datetime
+import email.utils
 import hashlib
+import logging
 import random
 import time
+import typing
+import urllib.parse
 from typing import Any
 
 import httpx
@@ -21,7 +30,10 @@ class CircuitBreakerError(Exception):
     pass
 
 class RateBudget:
-    def __init__(self, per_minute: int, per_hour: int, safety_margin: float = 0.8) -> None:
+    # Based on Phase 1a requirements: 48/min, 1600/hr, 0.8 safety margin
+    def __init__(self, per_minute: int = 48, per_hour: int = 1600, safety_margin: float = 0.8) -> None:
+        self.published_minute = per_minute
+        self.published_hour = per_hour
         self.capacity_minute = int(per_minute * safety_margin)
         self.capacity_hour = int(per_hour * safety_margin)
         self.tokens_minute = float(self.capacity_minute)
@@ -33,8 +45,8 @@ class RateBudget:
         self.rate_hour = self.capacity_hour / 3600.0
 
     async def acquire(self, tokens: int = 1) -> None:
-        async with self._lock:
-            while True:
+        while True:
+            async with self._lock:
                 now = time.monotonic()
                 elapsed = now - self.last_update
                 self.last_update = now
@@ -51,14 +63,20 @@ class RateBudget:
                 wait_hour = max(0.0, (tokens - self.tokens_hour) / self.rate_hour)
                 wait_time = max(wait_minute, wait_hour)
 
-                await asyncio.sleep(wait_time)
+            # Sleep outside the lock so concurrent requests can evaluate their waits
+            await asyncio.sleep(wait_time)
 
-    async def reconcile(self, remaining: int, reset_seconds: float) -> None:
+    async def reconcile(self, remaining: int, limit: int | None = None) -> None:
+        """Deterministically reconcile the bucket only if the window is definitively known."""
         async with self._lock:
-            if reset_seconds <= 60:
+            if limit == self.published_minute:
                 self.tokens_minute = min(self.tokens_minute, float(remaining))
-            else:
+            elif limit == self.published_hour:
                 self.tokens_hour = min(self.tokens_hour, float(remaining))
+            else:
+                # Ambiguous or unknown window (e.g., FIRMS 10-minute window, or limit not provided).
+                # Do not reconcile. Applying a mismatched 'remaining' destroys independent capacity.
+                pass
 
 class CircuitBreaker:
     def __init__(self, consecutive_429_to_open: int = 3, open_seconds: int = 900) -> None:
@@ -80,9 +98,9 @@ class CircuitBreaker:
         async with self._lock:
             if self.failures > 0:
                 self.failures = 0
-                if self.opened_at is not None:
-                    self.opened_at = None
-                    self.logger.info("circuit_breaker_closed")
+            if self.opened_at is not None:
+                self.opened_at = None
+                self.logger.info("circuit_breaker_closed")
 
     async def check(self) -> None:
         async with self._lock:
@@ -96,13 +114,29 @@ class CircuitBreaker:
                     raise CircuitBreakerError(f"Circuit open for another {self.open_duration - elapsed:.1f}s")
 
 class AuditLogger:
+    SENSITIVE_KEYS: typing.ClassVar[set[str]] = {"api_key", "apikey", "token", "access_token", "password", "secret", "client_secret", "map_key"}
+
     def __init__(self) -> None:
         self.logger = structlog.get_logger("audit")
 
+    def _sanitize_params(self, params: dict[str, Any]) -> dict[str, Any]:
+        return {
+            k: ("***" if k.lower() in self.SENSITIVE_KEYS else v)
+            for k, v in params.items()
+        }
+
     def log(self, response: httpx.Response) -> None:
         parsed_url = response.request.url
-        scrubbed_url = str(parsed_url.copy_with(password=None, username=None))
-        params = dict(parsed_url.params)
+        
+        path = parsed_url.path
+        if "firms" in parsed_url.host and "/api/" in path:
+            parts = path.split("/")
+            if len(parts) >= 5 and parts[1] == "api" and parts[3] == "csv":
+                parts[4] = "***"
+                path = "/".join(parts)
+                
+        scrubbed_url = str(parsed_url.copy_with(password=None, username=None, path=path, query=urllib.parse.urlencode(self._sanitize_params(dict(parsed_url.params))).encode("utf-8")))
+        params = self._sanitize_params(dict(parsed_url.params))
 
         body_bytes = response.content
         sha256 = hashlib.sha256(body_bytes).hexdigest()
@@ -116,6 +150,17 @@ class AuditLogger:
             timestamp_utc=datetime.datetime.now(datetime.UTC).isoformat()
         )
 
+def _parse_time_header(val: str) -> float:
+    try:
+        return float(val)
+    except ValueError:
+        try:
+            dt = email.utils.parsedate_to_datetime(val)
+            now = datetime.datetime.now(datetime.UTC)
+            return max(0.0, (dt - now).total_seconds())
+        except (TypeError, ValueError):
+            return 0.0
+
 class WaitRetryAfter(wait_base):
     def __call__(self, retry_state: RetryCallState) -> float:
         attempt = retry_state.attempt_number - 1
@@ -128,18 +173,16 @@ class WaitRetryAfter(wait_base):
             if isinstance(exc, httpx.HTTPStatusError):
                 headers = exc.response.headers
                 if "retry-after" in headers:
-                    with contextlib.suppress(ValueError):
-                        header_wait = float(headers["retry-after"])
+                    header_wait = _parse_time_header(headers["retry-after"])
                 elif "x-ratelimit-reset" in headers:
-                    with contextlib.suppress(ValueError):
-                        header_wait = float(headers["x-ratelimit-reset"])
+                    header_wait = _parse_time_header(headers["x-ratelimit-reset"])
 
         return max(calc_wait, header_wait)
 
 def _should_retry(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
         return exc.response.status_code in {408, 429, 500, 502, 503, 504}
-    return False
+    return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
 
 def create_client(connect_timeout: float = 10.0, read_timeout: float = 60.0) -> httpx.AsyncClient:
     timeout = httpx.Timeout(connect=connect_timeout, read=read_timeout, write=10.0, pool=10.0)
@@ -151,6 +194,7 @@ class ResilientClient:
         self.rate_budget = rate_budget
         self.circuit_breaker = circuit_breaker
         self.audit = AuditLogger()
+        self.fallback_logger = logging.getLogger("smogsense.audit.fallback")
 
     @retry(
         retry=retry_if_exception(_should_retry),
@@ -168,19 +212,28 @@ class ResilientClient:
 
             remaining = resp.headers.get("x-ratelimit-remaining")
             reset = resp.headers.get("x-ratelimit-reset")
-            if remaining is not None and reset is not None:
+            if remaining is not None:
                 with contextlib.suppress(ValueError):
-                    await self.rate_budget.reconcile(int(remaining), float(reset))
+                    limit_val = int(resp.headers["x-ratelimit-limit"]) if "x-ratelimit-limit" in resp.headers else None
+                    await self.rate_budget.reconcile(int(remaining), limit_val)
 
             await self.circuit_breaker.record_success()
-            self.audit.log(resp)
+
+            try:
+                self.audit.log(resp)
+            except Exception as audit_exc:
+                self.fallback_logger.error("audit_log_failed", exc_info=audit_exc)
+
             return resp
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 await self.circuit_breaker.record_failure()
-            with contextlib.suppress(Exception):
+
+            try:
                 await e.response.aread()
                 self.audit.log(e.response)
+            except Exception as audit_exc:
+                self.fallback_logger.error("audit_log_failed_on_error_response", exc_info=audit_exc)
             raise
 
