@@ -53,7 +53,7 @@ def live() -> None:
 
 
 @app_run.command()
-def daily() -> None:
+def daily(issuance: str = typer.Option("latest", "--issuance", help="Issuance time")) -> None:
     """Run the full daily cycle."""
     pass
 
