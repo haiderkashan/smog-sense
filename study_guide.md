@@ -377,3 +377,27 @@ The following invariants apply to all future phases:
 *   **Test Intent**: Whether a test proves the *intended requirement* (e.g., parsing an HTTP-date correctly) rather than merely exercising code branches to hit 100% coverage.
 *   **Fallback semantics**: Whether a fallback silently changes semantics.
 
+
+
+## 6.8 P1-03: CAMS Ingestion & Temporal Alignment (Resilient HTTP Foundation Layer)
+### Overview
+Subphase 1a.3 implements CAMS forecast fetching, strict bitemporal alignment, and precise GRIB extraction avoiding positional-dimension hacks.
+
+### Bitemporal Contract & Alignment (Contract B)
+1. **Ambiguity Resolution:** The documentation was ambiguous about whether the `<12h` lead constraint intentionally produced 10-hour gaps in meteorology or was an error. We established Contract B: continuous bitemporal stitching where `B = max { cycle : B + 10h <= t }` with no `<12h` gap restriction.
+2. **Implementation:** `asof_cams_run` implements the explicit lattice (00Z -> previous 12Z, 06Z -> previous 12Z, 12Z -> same-day 00Z). `stitch_cams_series` utilizes this to sweep backwards, continuously mapping `target_hour_utc` to the maximum *knowable* `cams_cycle_utc` at that exact hour `t`.
+3. **Leakage Protection:** No cycle is ever selected if it requires future knowledge relative to `t`. Normalization natively pushes all timestamps (aware/naive) directly to UTC.
+
+### CAMS/ADS Ingestion
+1. **Authentication/Credentials:** Purely driven by environment variables.
+2. **Licence Faults:** Explicitly intercepted `cdsapi` exceptions containing "accept the terms/licence". This raises `SourceUnavailable("Accept the dataset licence on the ADS website once")`, structurally enforcing the CLI's exit code 20 handling.
+3. **Polling Budget:** Polling loop explicitly calculates elapsed `time.monotonic()` against a rigid 20-minute operational wall-clock budget. Sleep intervals dynamically shrink.
+4. **Atomic Concurrency:** Unique `tempfile.NamedTemporaryFile` landing directly into `dest_path.parent` before executing `os.replace` guarantees zero concurrency overwrites.
+
+### Explicit GRIB/Xarray Processing
+1. **Positional Safety:** Replaced positional index slicing `[v].values` with explicitly queried `lat_dim` and `lon_dim`. Non-spatial axes are `stacked` into an explicit sample array, ensuring exact matching of `valid_time` regardless of dataset shape `(time, step, lat, lon)` vs `(step, lat, lon)`.
+2. **Units Auditing:** Checks `da.attrs.get("units")` before mutating variables. Maps `kg m**-3` correctly to `* 1e9` for PM2.5, and evaluates `K` and `C` conversions dynamically for temp/dewpoint using defined alias subsets.
+3. **Bilinear Spatial Extraction:**
+   - Detects and strictly flips ascending/descending orientation before providing coordinate pairs to `scipy`'s `RegularGridInterpolator(method='linear')`.
+   - Modulo arithmetic securely wraps `-180/180` and `0/360` domains.
+4. **Centroids and Geodesics:** WGS84 great-circle distance `grid_distance_km` calculates exact range from the point target to the physically *nearest* grid node, avoiding interpolation-distance confusion. `outside_grid` is recorded natively.
