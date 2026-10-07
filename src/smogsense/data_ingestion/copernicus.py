@@ -1,14 +1,158 @@
-"""smogsense.data_ingestion.copernicus — CDS and ADS client wrapper (CAMS global forecasts, ERA5 hindcast).
+"""smogsense.data_ingestion.copernicus - CDS and ADS client wrapper.
 
 Wraps cdsapi for two distinct data stores with separate endpoints and personal access tokens:
 ADS (cams-global-atmospheric-composition-forecasts) and CDS (reanalysis-era5-single-levels).
-Handles licence-not-accepted errors, queue polling with bounded wall-clock budget, area
-subsetting and GRIB/NetCDF landing.
 
-Public contract (implemented in Phase 1):
-- latest_available_cams_run(now_utc) -> base_time_utc using the 10 h availability rule.
-- fetch_cams(base_time_utc, leadtimes, variables, area) -> Path
-- fetch_era5(month, variables, area) -> Path
-
-Specification: docs/data-engineering.md → 'Copernicus ADS: CAMS global forecasts'
+Specification: docs/data-engineering.md -> 'Copernicus ADS: CAMS global forecasts'
 """
+import os
+import time
+import shutil
+import tempfile
+import logging
+from pathlib import Path
+from typing import Any
+from datetime import datetime, timezone
+import cdsapi
+import requests.exceptions
+
+from smogsense.errors import SourceUnavailable
+
+logger = logging.getLogger(__name__)
+
+class CamsClient:
+    def __init__(self, config: dict[str, Any]):
+        self.config = config
+        
+    def _get_ads_client(self) -> cdsapi.Client:
+        ads_conf = self.config['ads']
+        url = ads_conf['url']
+        key_env = ads_conf['key_env']
+        key = os.environ.get(key_env)
+        if not key:
+            raise SourceUnavailable(f"Missing {key_env} in environment")
+        return cdsapi.Client(url=url, key=key, wait_until_complete=False)
+
+    def fetch_cams(
+        self,
+        base_time: datetime,
+        leadtime_hours: list[int],
+        variables: list[str],
+        area: list[float],
+        dest_path: Path
+    ) -> Path:
+        """
+        Fetch CAMS forecast data using ADS.
+        """
+        # Validate base_time
+        if base_time.tzinfo is None:
+            base_time = base_time.replace(tzinfo=timezone.utc)
+        else:
+            base_time = base_time.astimezone(timezone.utc)
+            
+        if base_time.minute != 0 or base_time.second != 0 or base_time.microsecond != 0:
+            raise ValueError(f"Invalid CAMS base time {base_time}: must be on the hour")
+        if base_time.hour not in (0, 12):
+            raise ValueError(f"Invalid CAMS base time {base_time}: must be 00Z or 12Z")
+            
+        # Validate area
+        if len(area) != 4:
+            raise ValueError(f"Area must contain exactly 4 numbers [north, west, south, east], got {len(area)}")
+        if area[0] < area[2]:
+            raise ValueError(f"Invalid area: north ({area[0]}) must be >= south ({area[2]})")
+            
+        # Validate lead times
+        if not leadtime_hours:
+            raise ValueError("leadtime_hours must not be empty")
+        for h in leadtime_hours:
+            if not isinstance(h, int) or h < 0:
+                raise ValueError(f"Invalid lead time {h}: must be non-negative integer")
+                
+        # Validate variables
+        if not variables:
+            raise ValueError("variables must not be empty")
+            
+        ads_conf = self.config['ads']
+        dataset = ads_conf['dataset']
+        req_conf = ads_conf.get('request', {})
+        
+        # Build request according to actual API schema
+        request = {
+            "data_format": req_conf.get("data_format", "grib"),
+            "type": req_conf.get("type", ["forecast"]),
+            "date": base_time.strftime("%Y-%m-%d"),
+            "time": base_time.strftime("%H:%M"),
+            "leadtime_hour": [str(h) for h in sorted(set(leadtime_hours))],
+            "variable": variables,
+            "area": area,
+        }
+        
+        client = self._get_ads_client()
+        
+        logger.info("Submitting ADS request to %s for %s", dataset, base_time)
+        try:
+            result = client.retrieve(dataset, request)
+        except Exception as e:
+            msg = str(e).lower()
+            if "accept the terms" in msg or "licence" in msg or "license" in msg:
+                raise SourceUnavailable("Accept the dataset licence on the ADS website once") from e
+            raise SourceUnavailable(f"ADS retrieve failed: {e}") from e
+            
+        queue_conf = ads_conf.get("queue", {})
+        poll_interval = queue_conf.get("poll_interval_s", 30)
+        max_wall_minutes = queue_conf.get("max_wall_minutes_operational", 20)
+        max_wall_seconds = max_wall_minutes * 60
+        
+        start_time = time.monotonic()
+        while True:
+            elapsed = time.monotonic() - start_time
+            remaining = max_wall_seconds - elapsed
+            if remaining <= 0:
+                raise SourceUnavailable(f"ADS queue timeout: exceeded {max_wall_minutes} minutes")
+                
+            try:
+                result.update()
+            except requests.exceptions.RequestException as e:
+                # transient network error
+                logger.warning("Transient error updating ADS result status: %s", e)
+                time.sleep(min(poll_interval, remaining))
+                continue
+            except Exception as e:
+                # terminal API error from cdsapi itself (not a network level request error)
+                if "unknown api state" in str(e).lower():
+                    raise SourceUnavailable(f"ADS request failed: terminal error: {e}") from e
+                logger.warning("Error updating ADS result status: %s", e)
+                time.sleep(min(poll_interval, remaining))
+                continue
+                
+            state = result.reply.get("state")
+            if state == "completed":
+                break
+            elif state in ("failed", "deleted"):
+                error_msg = result.reply.get("error", {}).get("message", "Unknown error")
+                raise SourceUnavailable(f"ADS request failed: {state} - {error_msg}")
+                
+            time.sleep(min(poll_interval, remaining))
+            
+        # Ensure destination directory exists
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Atomic landing with unique temporary file
+        fd, temp_path_str = tempfile.mkstemp(
+            dir=dest_path.parent,
+            prefix=f".{dest_path.name}.",
+            suffix=".tmp.grib"
+        )
+        os.close(fd)
+        temp_path = Path(temp_path_str)
+        
+        try:
+            result.download(str(temp_path))
+            os.replace(temp_path, dest_path)
+        except Exception as e:
+            raise SourceUnavailable(f"Failed to download GRIB: {e}") from e
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+                
+        return dest_path
