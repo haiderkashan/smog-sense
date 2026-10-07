@@ -23,9 +23,17 @@ class StationRegistry:
 
     def _compute_eligibility(self, df: pd.DataFrame, min_uptime: float) -> pd.Series:
         # history_days measures calendar span (first observation to last observation)
-        # lifecycle_uptime measures the data density over that span
         history_days = (df["last_datetime"] - df["first_datetime"]).dt.total_seconds() / 86400
-        return (history_days >= 30) & (df["lifecycle_uptime"] >= min_uptime)
+
+        # P1-02 semantic decision: lifecycle_uptime cannot satisfy the 90-day uptime requirement.
+        # Until pm25_uptime_90d is computed by the historical backfill layer (P1-07/P1-13),
+        # no station passes the uptime eligibility gate.
+        if "pm25_uptime_90d" in df.columns:
+            uptime_check = df["pm25_uptime_90d"] >= min_uptime
+        else:
+            uptime_check = pd.Series(False, index=df.index)
+
+        return (history_days >= 30) & uptime_check
 
     def _compute_colocation(self, df: pd.DataFrame) -> pd.Series:
         """Assign co-located group ID.
