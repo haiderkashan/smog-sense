@@ -55,7 +55,17 @@ def live() -> None:
 @app_run.command()
 def daily(issuance: str = typer.Option("latest", "--issuance", help="Issuance time")) -> None:
     """Run the full daily cycle."""
-    pass
+    import json
+    from pathlib import Path
+
+    # Phase 0 scaffolding: produce dummy artifacts to satisfy the GitHub Actions deployment workflow
+    forecast_dir = Path("site/forecast")
+    forecast_dir.mkdir(parents=True, exist_ok=True)
+    (Path("site") / "index.html").write_text("<html><body><h1>SmogSense Skeleton</h1></body></html>", encoding="utf-8")
+    (forecast_dir / "latest.json").write_text(json.dumps({"dummy": True, "issuance": issuance}), encoding="utf-8")
+
+    print("Daily cycle skeleton completed. Dummy site artifacts generated.")
+
 
 
 def main() -> None:
