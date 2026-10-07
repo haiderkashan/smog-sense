@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "name": "openaq-api",
+    "page": 1,
+    "limit": 1000,
+    "found": 2
+  },
+  "results": [
+    {
+      "datetime": {"utc": "2026-10-07T12:00:00+00:00"},
+      "value": 142.5,
+      "parameter": {"id": 2, "name": "pm25"}
+    },
+    {
+      "datetime": {"utc": "2026-10-07T11:00:00+00:00"},
+      "value": 138.1,
+      "parameter": {"id": 2, "name": "pm25"}
+    }
+  ]
+}
