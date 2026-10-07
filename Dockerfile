@@ -11,8 +11,8 @@
 #     "works on my laptop" and "works on the runner" share a libc, a Python (3.12) and a GDAL (3.8).
 #   * CPU only. torch is resolved from the PyTorch CPU index (see pyproject.toml [tool.uv.sources]);
 #     no CUDA libraries are ever downloaded.
-#   * ecCodes arrives as a wheel (eccodes -> eccodeslib), so no libeccodes apt package is needed.
-#   * Pillow's wheel bundles Raqm/HarfBuzz/FriBiDi, giving correct Urdu Nastaliq shaping without a browser.
+#   * ecCodes requires the C library, which is supplied via the eccodeslib PyPI package on Linux.
+#   * Pillow requires libraqm0 (via apt) on Linux for correct Urdu Nastaliq shaping without a browser.
 #   * fonts-noto-core provides Noto Nastaliq Urdu and Noto Sans (OFL-licensed) for card rendering.
 #   * Wheels only (`--no-build`): a dependency without a wheel fails the build loudly instead of
 #     silently compiling for ten minutes.
@@ -50,6 +50,7 @@ RUN apt-get update \
       curl \
       git \
       libgomp1 \
+      libraqm0 \
       fonts-noto-core \
  && if [ "${INSTALL_GDAL}" = "true" ]; then \
       apt-get install -y --no-install-recommends gdal-bin libgdal34t64; \
@@ -139,6 +140,7 @@ RUN chmod 0755 /usr/local/bin/entrypoint.sh \
  && mkdir -p /app/data/raw /app/data/interim /app/data/processed /app/data/external /app/models /app/site /app/.state \
  && chown -R smog:smog /app /home/smog
 
+# hadolint ignore=DL3066
 USER smog
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
 CMD ["smogsense", "--help"]
@@ -148,6 +150,7 @@ CMD ["smogsense", "--help"]
 # package through PYTHONPATH, so edits are live without reinstalling.
 # -----------------------------------------------------------------------------
 FROM runtime AS dev
+# hadolint ignore=DL3066
 USER root
 # hadolint ignore=DL3008
 RUN apt-get update \
@@ -162,5 +165,6 @@ ENV SMOGSENSE_HOME=/workspace \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/opt/venv
 WORKDIR /workspace
+# hadolint ignore=DL3066
 USER smog
 CMD ["bash"]
