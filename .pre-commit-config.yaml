@@ -57,6 +57,7 @@ repos:
     rev: v0.11.0
     hooks:
       - id: shellcheck
+        args: ["-x"]
 
   - repo: https://github.com/hadolint/hadolint
     rev: v2.15.1
