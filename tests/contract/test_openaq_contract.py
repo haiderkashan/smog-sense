@@ -54,7 +54,7 @@ async def test_openaq_list_locations_contract(resilient_client: ResilientClient)
     assert row["sensor_id_rh"] == 5002
     assert row["sensor_id_temp"] == 5003
     assert pd.to_datetime(row["first_datetime"]).isoformat() == "2020-01-01T00:00:00+00:00"
-    assert row["pm25_uptime_90d"] == 0.95
+    assert row["lifecycle_uptime"] == 0.95
 
 @pytest.mark.anyio
 @respx.mock
@@ -70,7 +70,8 @@ async def test_openaq_fetch_hourly_contract(resilient_client: ResilientClient) -
     start_utc = datetime(2026, 10, 7, 10, 0, tzinfo=UTC)
     end_utc = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 
-    df = await fetch_hourly(resilient_client, [5001], start_utc, end_utc)
+    locations_df = pd.DataFrame([{"location_id": 1001, "sensor_id_pm25": 5001, "sensor_id_temp": 5003, "sensor_id_rh": 5002}])
+    df = await fetch_hourly(resilient_client, locations_df, start_utc, end_utc)
 
     assert route.called
     assert len(df) == 2
@@ -79,9 +80,9 @@ async def test_openaq_fetch_hourly_contract(resilient_client: ResilientClient) -
     assert "pm25_ugm3" in df.columns
 
     row0 = df.iloc[0]
-    assert row0["sensor_id"] == 5001
-    assert row0["pm25_ugm3"] == 142.5
-    assert pd.to_datetime(row0["ts_utc"]).isoformat() == "2026-10-07T12:00:00+00:00"
+    assert row0["location_id"] == 1001
+    assert row0["pm25_ugm3"] == 138.1
+    assert pd.to_datetime(row0["ts_utc"]).isoformat() == "2026-10-07T11:00:00+00:00"
 
 @pytest.mark.anyio
 async def test_station_registry(tmp_path: Path) -> None:

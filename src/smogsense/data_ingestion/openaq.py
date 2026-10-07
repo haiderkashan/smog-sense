@@ -9,6 +9,8 @@ Public contract (implemented in Phase 1a):
 - fetch_hourly(client, locations_df, start_utc, end_utc) -> DataFrame (pivoted, one row per station-hour).
 - Respects pagination via limit/page and stops on found/limit arithmetic, never on empty-page
   guessing.
+
+Specification: docs/data-engineering.md -> 'Phase 1 data audit (acceptance criteria)'
 """
 
 import asyncio

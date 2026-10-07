@@ -1,6 +1,8 @@
 """smogsense.data_ingestion.base -- Resilient HTTP foundation.
 
 Implements RateBudget, CircuitBreaker, and ResilientClient.
+
+Specification: docs/system-architecture.md -> 'Failure handling and degradation ladder'
 """
 
 import asyncio
