@@ -5,14 +5,14 @@ ADS (cams-global-atmospheric-composition-forecasts) and CDS (reanalysis-era5-sin
 
 Specification: docs/data-engineering.md -> 'Copernicus ADS: CAMS global forecasts'
 """
-import os
-import time
-import shutil
-import tempfile
 import logging
+import os
+import tempfile
+import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from datetime import datetime, timezone
+
 import cdsapi
 import requests.exceptions
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class CamsClient:
     def __init__(self, config: dict[str, Any]):
         self.config = config
-        
+
     def _get_ads_client(self) -> cdsapi.Client:
         ads_conf = self.config['ads']
         url = ads_conf['url']
@@ -46,36 +46,36 @@ class CamsClient:
         """
         # Validate base_time
         if base_time.tzinfo is None:
-            base_time = base_time.replace(tzinfo=timezone.utc)
+            base_time = base_time.replace(tzinfo=UTC)
         else:
-            base_time = base_time.astimezone(timezone.utc)
-            
+            base_time = base_time.astimezone(UTC)
+
         if base_time.minute != 0 or base_time.second != 0 or base_time.microsecond != 0:
             raise ValueError(f"Invalid CAMS base time {base_time}: must be on the hour")
         if base_time.hour not in (0, 12):
             raise ValueError(f"Invalid CAMS base time {base_time}: must be 00Z or 12Z")
-            
+
         # Validate area
         if len(area) != 4:
             raise ValueError(f"Area must contain exactly 4 numbers [north, west, south, east], got {len(area)}")
         if area[0] < area[2]:
             raise ValueError(f"Invalid area: north ({area[0]}) must be >= south ({area[2]})")
-            
+
         # Validate lead times
         if not leadtime_hours:
             raise ValueError("leadtime_hours must not be empty")
         for h in leadtime_hours:
             if not isinstance(h, int) or h < 0:
                 raise ValueError(f"Invalid lead time {h}: must be non-negative integer")
-                
+
         # Validate variables
         if not variables:
             raise ValueError("variables must not be empty")
-            
+
         ads_conf = self.config['ads']
         dataset = ads_conf['dataset']
         req_conf = ads_conf.get('request', {})
-        
+
         # Build request according to actual API schema
         request = {
             "data_format": req_conf.get("data_format", "grib"),
@@ -86,9 +86,9 @@ class CamsClient:
             "variable": variables,
             "area": area,
         }
-        
+
         client = self._get_ads_client()
-        
+
         logger.info("Submitting ADS request to %s for %s", dataset, base_time)
         try:
             result = client.retrieve(dataset, request)
@@ -97,19 +97,19 @@ class CamsClient:
             if "accept the terms" in msg or "licence" in msg or "license" in msg:
                 raise SourceUnavailable("Accept the dataset licence on the ADS website once") from e
             raise SourceUnavailable(f"ADS retrieve failed: {e}") from e
-            
+
         queue_conf = ads_conf.get("queue", {})
         poll_interval = queue_conf.get("poll_interval_s", 30)
         max_wall_minutes = queue_conf.get("max_wall_minutes_operational", 20)
         max_wall_seconds = max_wall_minutes * 60
-        
+
         start_time = time.monotonic()
         while True:
             elapsed = time.monotonic() - start_time
             remaining = max_wall_seconds - elapsed
             if remaining <= 0:
                 raise SourceUnavailable(f"ADS queue timeout: exceeded {max_wall_minutes} minutes")
-                
+
             try:
                 result.update()
             except requests.exceptions.RequestException as e:
@@ -124,19 +124,19 @@ class CamsClient:
                 logger.warning("Error updating ADS result status: %s", e)
                 time.sleep(min(poll_interval, remaining))
                 continue
-                
+
             state = result.reply.get("state")
             if state == "completed":
                 break
             elif state in ("failed", "deleted"):
                 error_msg = result.reply.get("error", {}).get("message", "Unknown error")
                 raise SourceUnavailable(f"ADS request failed: {state} - {error_msg}")
-                
+
             time.sleep(min(poll_interval, remaining))
-            
+
         # Ensure destination directory exists
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Atomic landing with unique temporary file
         fd, temp_path_str = tempfile.mkstemp(
             dir=dest_path.parent,
@@ -145,7 +145,7 @@ class CamsClient:
         )
         os.close(fd)
         temp_path = Path(temp_path_str)
-        
+
         try:
             result.download(str(temp_path))
             os.replace(temp_path, dest_path)
@@ -154,5 +154,5 @@ class CamsClient:
         finally:
             if temp_path.exists():
                 temp_path.unlink()
-                
+
         return dest_path

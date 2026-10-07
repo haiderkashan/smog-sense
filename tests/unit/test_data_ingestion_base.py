@@ -140,14 +140,14 @@ async def test_reconcile_known_minute_window(resilient_client: ResilientClient) 
     rb.published_hour = 2000
     rb.tokens_minute = 48.0
     rb.tokens_hour = 1600.0
-    
+
     respx.get("https://api.example.com/data").mock(
         return_value=httpx.Response(200, headers={
             "x-ratelimit-remaining": "2",
             "x-ratelimit-limit": "60"
         })
     )
-    
+
     await resilient_client.get("https://api.example.com/data")
     assert rb.tokens_minute <= 2.0
     assert rb.tokens_hour >= 1599.0
@@ -160,13 +160,13 @@ async def test_reconcile_ambiguous_window(resilient_client: ResilientClient) -> 
     rb.published_hour = 2000
     rb.tokens_minute = 48.0
     rb.tokens_hour = 1600.0
-    
+
     respx.get("https://api.example.com/data").mock(
         return_value=httpx.Response(200, headers={
             "x-ratelimit-remaining": "2"
         })
     )
-    
+
     await resilient_client.get("https://api.example.com/data")
     assert rb.tokens_minute >= 47.0
     assert rb.tokens_hour >= 1599.0

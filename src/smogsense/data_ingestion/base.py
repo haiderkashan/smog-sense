@@ -129,14 +129,14 @@ class AuditLogger:
 
     def log(self, response: httpx.Response) -> None:
         parsed_url = response.request.url
-        
+
         path = parsed_url.path
         if "firms" in parsed_url.host and "/api/" in path:
             parts = path.split("/")
             if len(parts) >= 5 and parts[1] == "api" and parts[3] == "csv":
                 parts[4] = "***"
                 path = "/".join(parts)
-                
+
         scrubbed_url = str(parsed_url.copy_with(password=None, username=None, path=path, query=urllib.parse.urlencode(self._sanitize_params(dict(parsed_url.params))).encode("utf-8")))
         params = self._sanitize_params(dict(parsed_url.params))
 
