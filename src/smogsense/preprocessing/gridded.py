@@ -18,7 +18,7 @@ import pandas as pd
 import xarray as xr
 import yaml
 from pyproj import Geod
-from scipy.interpolate import RegularGridInterpolator  # type: ignore
+from scipy.interpolate import RegularGridInterpolator
 
 PM25_ALIASES = {"pm2p5", "particulate_matter_2.5um", "pm25"}
 TEMP_ALIASES = {"t2m", "2m_temperature"}

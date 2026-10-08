@@ -13,7 +13,7 @@ Specification: docs/data-engineering.md -> 'Gap handling and imputation'
 
 import numpy as np
 import pandas as pd
-from scipy.interpolate import pchip_interpolate  # type: ignore
+from scipy.interpolate import pchip_interpolate
 
 
 def pchip_impute(series: pd.Series, max_gap: int = 3) -> pd.Series:

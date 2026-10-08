@@ -126,7 +126,7 @@ files = ["src"]
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = ["cfgrib.*", "eccodes.*", "cdsapi.*", "lightgbm.*", "scoringrules.*", "earthaccess.*"]
+module = ["cfgrib.*", "eccodes.*", "cdsapi.*", "lightgbm.*", "scoringrules.*", "earthaccess.*", "scipy.*"]
 ignore_missing_imports = true
 
 # -----------------------------------------------------------------------------
