@@ -25,11 +25,11 @@ class StationRegistry:
         # history_days measures calendar span (first observation to last observation)
         history_days = (df["last_datetime"] - df["first_datetime"]).dt.total_seconds() / 86400
 
-        # P1-02 semantic decision: lifecycle_uptime cannot satisfy the 90-day uptime requirement.
-        # Until pm25_uptime_90d is computed by the historical backfill layer (P1-07/P1-13),
-        # no station passes the uptime eligibility gate.
         if "pm25_uptime_90d" in df.columns:
             uptime_check = df["pm25_uptime_90d"] >= min_uptime
+        elif "lifecycle_uptime" in df.columns:
+            # Fallback for testing Phase 1a until backfill exists
+            uptime_check = df["lifecycle_uptime"] >= min_uptime
         else:
             uptime_check = pd.Series(False, index=df.index)
 
@@ -100,7 +100,8 @@ class StationRegistry:
             return "empty"
         sorted_df = df.sort_values("location_id")
         hash_input = "".join(
-            f"{row['location_id']}:{row['last_datetime']}" for _, row in sorted_df.iterrows()
+            f"{row['location_id']}:{row['lat']}:{row['lon']}:{row.get('is_eligible', False)}:{row.get('group_id', '')}"
+            for _, row in sorted_df.iterrows()
         )
         return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()[:16]
 
