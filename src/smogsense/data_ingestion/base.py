@@ -35,7 +35,7 @@ class CircuitBreakerError(Exception):
 class RateBudget:
     # Based on Phase 1a requirements: 48/min, 1600/hr, 0.8 safety margin
     def __init__(
-        self, per_minute: int = 48, per_hour: int = 1600, safety_margin: float = 0.8
+        self, per_minute: int = 60, per_hour: int = 2000, safety_margin: float = 0.8
     ) -> None:
         self.published_minute = per_minute
         self.published_hour = per_hour
@@ -181,12 +181,16 @@ class AuditLogger:
 
 def _parse_time_header(val: str) -> float:
     try:
-        return float(val)
+        v = float(val)
+        if v > 1e8:
+            now = datetime.datetime.now(datetime.UTC).timestamp()
+            v = max(0.0, v - now)
+        return min(v, 300.0)
     except ValueError:
         try:
             dt = email.utils.parsedate_to_datetime(val)
             now = datetime.datetime.now(datetime.UTC)
-            return max(0.0, (dt - now).total_seconds())
+            return min(max(0.0, (dt - now).total_seconds()), 300.0)
         except (TypeError, ValueError):
             return 0.0
 
@@ -216,9 +220,12 @@ def _should_retry(exc: BaseException) -> bool:
     return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
 
 
-def create_client(connect_timeout: float = 10.0, read_timeout: float = 60.0) -> httpx.AsyncClient:
+def create_client(
+    connect_timeout: float = 10.0, read_timeout: float = 60.0, api_key: str | None = None
+) -> httpx.AsyncClient:
     timeout = httpx.Timeout(connect=connect_timeout, read=read_timeout, write=10.0, pool=10.0)
-    return httpx.AsyncClient(timeout=timeout)
+    headers = {"X-API-Key": api_key} if api_key else {}
+    return httpx.AsyncClient(timeout=timeout, headers=headers)
 
 
 class ResilientClient:
@@ -232,7 +239,10 @@ class ResilientClient:
         self.fallback_logger = logging.getLogger("smogsense.audit.fallback")
 
     @retry(
-        retry=retry_if_exception(_should_retry), wait=WaitRetryAfter(), stop=stop_after_attempt(6)
+        retry=retry_if_exception(_should_retry),
+        wait=WaitRetryAfter(),
+        stop=stop_after_attempt(6),
+        reraise=True,
     )
     async def get(self, url: str, **kwargs: Any) -> httpx.Response:
         await self.circuit_breaker.check()

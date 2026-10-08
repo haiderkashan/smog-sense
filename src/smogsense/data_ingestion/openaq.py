@@ -26,10 +26,10 @@ from smogsense.data_ingestion.base import ResilientClient
 logger = get_logger(__name__)
 
 # Authoritative OpenAQ v3 Parameter IDs
-# PM2.5 = 2, Temperature = 19, Relative Humidity = 100
+# PM2.5 = 2, Temperature = 100, Relative Humidity = 98
 PARAM_ID_PM25 = 2
-PARAM_ID_TEMP = 19
-PARAM_ID_RH = 100
+PARAM_ID_TEMP = 100
+PARAM_ID_RH = 98
 
 
 async def list_locations(client: ResilientClient, domain: str) -> pd.DataFrame:
@@ -65,7 +65,7 @@ async def list_locations(client: ResilientClient, domain: str) -> pd.DataFrame:
             if loc_id is None or loc_id in seen_locations:
                 continue
 
-            coords = loc.get("coordinates", {})
+            coords = loc.get("coordinates") or {}
             lat = coords.get("latitude")
             lon = coords.get("longitude")
 
@@ -76,13 +76,13 @@ async def list_locations(client: ResilientClient, domain: str) -> pd.DataFrame:
             seen_locations.add(loc_id)
 
             name = loc.get("name")
-            provider = loc.get("provider", {}).get("name")
+            provider = (loc.get("provider") or {}).get("name")
 
             # Preserve True/False/None
             is_monitor = loc.get("isMonitor")
 
-            first_dt = loc.get("datetimeFirst", {}).get("utc")
-            last_dt = loc.get("datetimeLast", {}).get("utc")
+            first_dt = (loc.get("datetimeFirst") or {}).get("utc")
+            last_dt = (loc.get("datetimeLast") or {}).get("utc")
 
             # Collect multiple sensors per parameter, picking the one with the highest coverage
             best_pm25, best_pm25_cov = None, -1.0
@@ -178,18 +178,14 @@ async def _fetch_single_sensor_hourly(
         url = f"https://api.openaq.org/v3/sensors/{sensor_id}/hours"
         params = {"datetime_from": date_from, "datetime_to": date_to, "limit": limit, "page": page}
 
-        try:
-            resp = await client.get(url, params=params)
-            data = resp.json()
-        except Exception as e:
-            logger.warning("openaq_fetch_failed", sensor_id=sensor_id, error=str(e))
-            break
+        resp = await client.get(url, params=params)
+        data = resp.json()
 
         if not data.get("results"):
             break
 
         for row in data.get("results", []):
-            ts = row.get("datetime", {}).get("utc")
+            ts = (row.get("period") or {}).get("datetimeFrom", {}).get("utc")
             val = row.get("value")
 
             rows.append({"location_id": location_id, "ts_utc": ts, param_col: val})
