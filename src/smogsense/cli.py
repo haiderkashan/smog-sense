@@ -95,7 +95,7 @@ def exists(issuance: str = typer.Option("latest", "--issuance")) -> None:
             if data.get("published") is True:
                 sys.exit(11)
         except Exception:
-            pass  # noqa: S110
+            pass
     sys.exit(0)
 
 

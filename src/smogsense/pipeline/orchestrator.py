@@ -158,7 +158,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 else:
                     is_rerun = True
         except Exception:
-            pass  # noqa: S110
+            pass
 
     from smogsense.data_ingestion.base import CircuitBreaker, RateBudget
 
@@ -196,9 +196,13 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
 
         if not cams_path.exists():
             cams_path.parent.mkdir(parents=True, exist_ok=True)
+            # Calculate leadtimes required for targets T+24, T+48, T+72
+            targets = [issuance_utc + timedelta(hours=h) for h in [24, 48, 72]]
+            cams_leadtimes = [int((t - cams_base).total_seconds() / 3600.0) for t in targets]
+
             cams_client.fetch_cams(
                 base_time=cams_base,
-                leadtime_hours=[24, 48, 72],
+                leadtime_hours=cams_leadtimes,
                 variables=["particulate_matter_2.5um"],
                 area=[
                     settings.domains["domains"]["lahore"]["station_bbox"]["north"],
@@ -233,8 +237,13 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         cams_lead_offset_h = float((issuance_utc - cams_base).total_seconds() / 3600.0)
 
     try:
+        seed_history = {}
+        seed_path = Path(".state/artifacts/seed_history.json")
+        if seed_path.exists():
+            with seed_path.open("r", encoding="utf-8") as f:
+                seed_history = json.load(f).get("quantiles", {})
+
         if has_cams:
-            m1 = M1Cams(None)
             for _, s in stations_df.iterrows():
                 loc_id = s["location_id"]
                 station_cams = (
@@ -263,6 +272,8 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
 
                     val = float(match.iloc[0]["pm25_ugm3"])
 
+                    q = seed_history.get(str(loc_id), {}).get(str(h))
+                    m1 = M1Cams(q)
                     qf_out = m1.predict(val)
                     if isinstance(qf_out, QuantileFunction):
                         quantiles = qf_out.q.tolist()
