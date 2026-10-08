@@ -51,8 +51,8 @@ class M0Persistence:
             raise ValueError("M0 Persistence is undefined at N=0 (no residual quantiles).")
 
         obs = np.asarray(recent_24h_obs, dtype=float)
-        obs = obs[~np.isnan(obs)]
-        if len(obs) == 0:
+        if np.isnan(obs).any() or len(obs) == 0:
+            raise ValueError("M0 Persistence requires a complete valid 24h block.")
             raise ValueError("No valid observations provided to M0.")
 
         mean_val = float(np.mean(obs))

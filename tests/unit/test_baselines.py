@@ -19,7 +19,7 @@ def test_m0_persistence_probabilistic() -> None:
     residuals = np.linspace(-10, 10, 19)
     m0 = M0Persistence(residuals)
 
-    obs = pd.Series([10.0, 20.0, 30.0, np.nan])  # mean of valid is 20.0
+    obs = pd.Series([10.0, 20.0, 30.0, 20.0])  # complete block, mean is 20.0
 
     qf = m0.predict(obs)
 

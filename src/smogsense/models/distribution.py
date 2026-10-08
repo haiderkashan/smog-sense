@@ -57,9 +57,8 @@ class QuantileFunction:
         # Lower tail
         mask_lo = tau_arr < self.taus[0]
         if np.any(mask_lo):
-            # Clip to avoid log(0)
-            tau_safe = np.clip(tau_arr[mask_lo], 1e-12, None)
-            val = self.q[0] + self.s_lo * (np.log(tau_safe) - math.log(self.taus[0]))
+            with np.errstate(divide="ignore"):
+                val = self.q[0] + self.s_lo * (np.log(tau_arr[mask_lo]) - math.log(self.taus[0]))
             val = np.maximum(0.0, val)
             res[mask_lo] = val
 
@@ -90,7 +89,6 @@ class QuantileFunction:
                 res[mask_lo] = 0.0
             else:
                 tau_lo = np.exp((x_arr[mask_lo] - self.q[0]) / self.s_lo + math.log(self.taus[0]))
-                tau_lo[x_arr[mask_lo] < 0.0] = 0.0
                 res[mask_lo] = tau_lo
 
         mask_hi = x_arr > self.q[-1]
@@ -104,8 +102,8 @@ class QuantileFunction:
                 res[mask_hi] = 1.0 - one_minus_tau
 
         res = np.clip(res, 0.0, 1.0)
-        # Ensure x <= 0 yields 0 exactly due to floor
-        res[x_arr <= 0.0] = 0.0
+        # Ensure x < 0 yields 0 exactly due to floor
+        res[x_arr < 0.0] = 0.0
 
         return float(res[0]) if np.isscalar(x) else res
 
