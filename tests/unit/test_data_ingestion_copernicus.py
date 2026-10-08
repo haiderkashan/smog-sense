@@ -11,57 +11,78 @@ from smogsense.errors import SourceUnavailable
 @pytest.fixture
 def base_config():
     return {
-        'ads': {
-            'url': 'test', 'key_env': 'ADS_API_KEY',
-            'dataset': 'test_dataset',
-            'request': {},
-            'queue': {'max_wall_minutes_operational': 20, 'poll_interval_s': 30}
+        "ads": {
+            "url": "test",
+            "key_env": "ADS_API_KEY",
+            "dataset": "test_dataset",
+            "request": {},
+            "queue": {"max_wall_minutes_operational": 20, "poll_interval_s": 30},
         }
     }
+
 
 def test_fetch_cams_validation(base_config):
     client = CamsClient(base_config)
     dest_path = Path("test.grib")
 
     with pytest.raises(ValueError, match="must be on the hour"):
-        client.fetch_cams(datetime(2026, 1, 1, 0, 1, tzinfo=UTC), [0], ["var1"], [10, 2, 3, 10], dest_path)
+        client.fetch_cams(
+            datetime(2026, 1, 1, 0, 1, tzinfo=UTC), [0], ["var1"], [10, 2, 3, 10], dest_path
+        )
 
     with pytest.raises(ValueError, match="must be 00Z or 12Z"):
-        client.fetch_cams(datetime(2026, 1, 1, 6, 0, tzinfo=UTC), [0], ["var1"], [10, 2, 3, 10], dest_path)
+        client.fetch_cams(
+            datetime(2026, 1, 1, 6, 0, tzinfo=UTC), [0], ["var1"], [10, 2, 3, 10], dest_path
+        )
 
     with pytest.raises(ValueError, match="Area must contain exactly 4 numbers"):
-        client.fetch_cams(datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], ["var1"], [1, 2, 3], dest_path)
+        client.fetch_cams(
+            datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], ["var1"], [1, 2, 3], dest_path
+        )
 
     with pytest.raises(ValueError, match="leadtime_hours must not be empty"):
-        client.fetch_cams(datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [], ["var1"], [10, 2, 3, 10], dest_path)
+        client.fetch_cams(
+            datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [], ["var1"], [10, 2, 3, 10], dest_path
+        )
 
     with pytest.raises(ValueError, match="must be non-negative integer"):
-        client.fetch_cams(datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [-1], ["var1"], [10, 2, 3, 10], dest_path)
+        client.fetch_cams(
+            datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [-1], ["var1"], [10, 2, 3, 10], dest_path
+        )
 
     with pytest.raises(ValueError, match="variables must not be empty"):
-        client.fetch_cams(datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], [], [10, 2, 3, 10], dest_path)
+        client.fetch_cams(
+            datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], [], [10, 2, 3, 10], dest_path
+        )
+
 
 def test_fetch_cams_403_licence_error(base_config):
     client = CamsClient(base_config)
 
-    with patch.dict('os.environ', {'ADS_API_KEY': '123'}):
-        with patch('cdsapi.Client') as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}):
+        with patch("cdsapi.Client") as MockClient:
             mock_cds = MagicMock()
             MockClient.return_value = mock_cds
             mock_cds.retrieve.side_effect = Exception("please accept the terms of the dataset")
 
-            with pytest.raises(SourceUnavailable, match="Accept the dataset licence on the ADS website once"):
+            with pytest.raises(
+                SourceUnavailable, match="Accept the dataset licence on the ADS website once"
+            ):
                 client.fetch_cams(
                     datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
-                    [0, 1], ["var1"], [10, 0, 0, 10], Path("test.grib")
+                    [0, 1],
+                    ["var1"],
+                    [10, 0, 0, 10],
+                    Path("test.grib"),
                 )
 
-@patch('time.sleep', return_value=None)
-@patch('time.monotonic', side_effect=[0, 10, 20 * 60 + 1])
+
+@patch("time.sleep", return_value=None)
+@patch("time.monotonic", side_effect=[0, 10, 20 * 60 + 1])
 def test_fetch_cams_queue_timeout(mock_mono, mock_sleep, base_config):
     client = CamsClient(base_config)
 
-    with patch.dict('os.environ', {'ADS_API_KEY': '123'}), patch('cdsapi.Client') as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as MockClient:
         mock_cds = MagicMock()
         MockClient.return_value = mock_cds
         mock_result = MagicMock()
@@ -71,14 +92,18 @@ def test_fetch_cams_queue_timeout(mock_mono, mock_sleep, base_config):
         with pytest.raises(SourceUnavailable, match="ADS queue timeout"):
             client.fetch_cams(
                 datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
-                [0, 1], ["var1"], [10, 0, 0, 10], Path("test.grib")
+                [0, 1],
+                ["var1"],
+                [10, 0, 0, 10],
+                Path("test.grib"),
             )
+
 
 def test_atomic_landing(tmp_path, base_config):
     client = CamsClient(base_config)
     dest_path = tmp_path / "final.grib"
 
-    with patch.dict('os.environ', {'ADS_API_KEY': '123'}), patch('cdsapi.Client') as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as MockClient:
         mock_cds = MagicMock()
         MockClient.return_value = mock_cds
         mock_result = MagicMock()
@@ -87,12 +112,12 @@ def test_atomic_landing(tmp_path, base_config):
 
         def fake_download(target_path):
             Path(target_path).write_text("grib_data")
+
         mock_result.download.side_effect = fake_download
 
-        with patch('time.monotonic', return_value=0):
+        with patch("time.monotonic", return_value=0):
             res = client.fetch_cams(
-                datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
-                [0], ["var1"], [10, 0, 0, 10], dest_path
+                datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], ["var1"], [10, 0, 0, 10], dest_path
             )
 
         assert res == dest_path
@@ -100,11 +125,12 @@ def test_atomic_landing(tmp_path, base_config):
         # check that no tmp files are left
         assert len(list(tmp_path.glob("*.tmp.grib"))) == 0
 
+
 def test_atomic_landing_cleanup_on_fail(tmp_path, base_config):
     client = CamsClient(base_config)
     dest_path = tmp_path / "final.grib"
 
-    with patch.dict('os.environ', {'ADS_API_KEY': '123'}), patch('cdsapi.Client') as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as MockClient:
         mock_cds = MagicMock()
         MockClient.return_value = mock_cds
         mock_result = MagicMock()
@@ -114,17 +140,18 @@ def test_atomic_landing_cleanup_on_fail(tmp_path, base_config):
         def fake_download_fail(target_path):
             Path(target_path).write_text("partial")
             raise Exception("Network error")
+
         mock_result.download.side_effect = fake_download_fail
 
-        with patch('time.monotonic', return_value=0):
+        with patch("time.monotonic", return_value=0):
             with pytest.raises(SourceUnavailable, match="Failed to download GRIB"):
                 client.fetch_cams(
-                    datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
-                    [0], ["var1"], [10, 0, 0, 10], dest_path
+                    datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], ["var1"], [10, 0, 0, 10], dest_path
                 )
 
         assert not dest_path.exists()
         assert len(list(tmp_path.glob("*.tmp.grib"))) == 0
+
 
 def test_concurrent_atomic_landing(tmp_path, base_config):
     import concurrent.futures
@@ -137,7 +164,7 @@ def test_concurrent_atomic_landing(tmp_path, base_config):
     # To ensure they overlap, we'll make the mock download sleep slightly,
     # then write to its specific target_path.
 
-    with patch.dict('os.environ', {'ADS_API_KEY': '123'}), patch('cdsapi.Client') as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as MockClient:
         mock_cds = MagicMock()
         MockClient.return_value = mock_cds
         mock_result = MagicMock()
@@ -153,11 +180,11 @@ def test_concurrent_atomic_landing(tmp_path, base_config):
 
         mock_result.download.side_effect = fake_download
 
-        with patch('time.monotonic', return_value=0):
+        with patch("time.monotonic", return_value=0):
+
             def run_fetch():
                 return client.fetch_cams(
-                    datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
-                    [0], ["var1"], [10, 0, 0, 10], dest_path
+                    datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], ["var1"], [10, 0, 0, 10], dest_path
                 )
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -165,7 +192,7 @@ def test_concurrent_atomic_landing(tmp_path, base_config):
 
                 for f in concurrent.futures.as_completed(futures):
                     try:
-                        f.result() # should not raise exceptions
+                        f.result()  # should not raise exceptions
                     except Exception as e:
                         # Windows concurrent os.replace can raise Access is denied (WinError 5)
                         if "Access is denied" in str(e) or "WinError 5" in str(e):

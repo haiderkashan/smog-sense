@@ -15,12 +15,14 @@ from smogsense.preprocessing.qc import (
 
 
 def test_qc_range_reject():
-    df = pd.DataFrame({
-        "sensor_id": [1, 1, 1, 1],
-        "ts_utc": pd.date_range("2026-01-01", periods=4, freq="h"),
-        "pm25_ugm3": [-10.0, -5.0, 1500.0, 1501.0],
-        "other_col": [1, 2, 3, 4]
-    })
+    df = pd.DataFrame(
+        {
+            "sensor_id": [1, 1, 1, 1],
+            "ts_utc": pd.date_range("2026-01-01", periods=4, freq="h"),
+            "pm25_ugm3": [-10.0, -5.0, 1500.0, 1501.0],
+            "other_col": [1, 2, 3, 4],
+        }
+    )
     out = apply_qc(df)
 
     # -10 -> RANGE_REJECT, NaN
@@ -43,12 +45,15 @@ def test_qc_range_reject():
     assert len(out) == 4
     assert list(out["other_col"]) == [1, 2, 3, 4]
 
+
 def test_qc_negative_clipped():
-    df = pd.DataFrame({
-        "sensor_id": [1, 1, 1, 1],
-        "ts_utc": pd.date_range("2026-01-01", periods=4, freq="h"),
-        "pm25_ugm3": [-4.0, -0.1, 0.0, 10.0]
-    })
+    df = pd.DataFrame(
+        {
+            "sensor_id": [1, 1, 1, 1],
+            "ts_utc": pd.date_range("2026-01-01", periods=4, freq="h"),
+            "pm25_ugm3": [-4.0, -0.1, 0.0, 10.0],
+        }
+    )
     out = apply_qc(df)
 
     assert out.loc[0, "pm25_ugm3"] == 0.0
@@ -63,53 +68,74 @@ def test_qc_negative_clipped():
     assert out.loc[3, "pm25_ugm3"] == 10.0
     assert out.loc[3, "qc_flags"] == 0
 
+
 def test_qc_flatline():
     # Exactly 5 identical -> no flatline
     # Exactly 6 identical -> flatline
     # Zero -> no flatline
-    df = pd.DataFrame({
-        "sensor_id": [1]*12,
-        "ts_utc": pd.date_range("2026-01-01", periods=12, freq="h"),
-        "pm25_ugm3": [
-            10, 10, 10, 10, 10,  # 5 identical -> no
-            0, 0, 0, 0, 0, 0, 0  # 7 identical zeros -> no
-        ]
-    })
+    df = pd.DataFrame(
+        {
+            "sensor_id": [1] * 12,
+            "ts_utc": pd.date_range("2026-01-01", periods=12, freq="h"),
+            "pm25_ugm3": [
+                10,
+                10,
+                10,
+                10,
+                10,  # 5 identical -> no
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,  # 7 identical zeros -> no
+            ],
+        }
+    )
     out = apply_qc(df)
     assert out["qc_flags"].sum() == 0
     assert out["pm25_ugm3"].notna().all()
 
-    df2 = pd.DataFrame({
-        "sensor_id": [1]*7,
-        "ts_utc": pd.date_range("2026-01-01", periods=7, freq="h"),
-        "pm25_ugm3": [10, 10, 10, 10, 10, 10, 10]
-    })
+    df2 = pd.DataFrame(
+        {
+            "sensor_id": [1] * 7,
+            "ts_utc": pd.date_range("2026-01-01", periods=7, freq="h"),
+            "pm25_ugm3": [10, 10, 10, 10, 10, 10, 10],
+        }
+    )
     out2 = apply_qc(df2)
     assert (out2["qc_flags"] == FLATLINE).all()
     assert out2["pm25_ugm3"].isna().all()
 
+
 def test_qc_flatline_interrupted_and_gaps():
-    df = pd.DataFrame({
-        "sensor_id": [1]*6,
-        "ts_utc": [
-            pd.Timestamp("2026-01-01 00:00:00"),
-            pd.Timestamp("2026-01-01 01:00:00"),
-            pd.Timestamp("2026-01-01 02:00:00"),
-            pd.Timestamp("2026-01-01 03:00:00"),
-            pd.Timestamp("2026-01-01 04:00:00"),
-            pd.Timestamp("2026-01-01 06:00:00"), # gap
-        ],
-        "pm25_ugm3": [10, 10, 10, 10, 10, 10]
-    })
+    df = pd.DataFrame(
+        {
+            "sensor_id": [1] * 6,
+            "ts_utc": [
+                pd.Timestamp("2026-01-01 00:00:00"),
+                pd.Timestamp("2026-01-01 01:00:00"),
+                pd.Timestamp("2026-01-01 02:00:00"),
+                pd.Timestamp("2026-01-01 03:00:00"),
+                pd.Timestamp("2026-01-01 04:00:00"),
+                pd.Timestamp("2026-01-01 06:00:00"),  # gap
+            ],
+            "pm25_ugm3": [10, 10, 10, 10, 10, 10],
+        }
+    )
     out = apply_qc(df)
     assert out["qc_flags"].sum() == 0
 
+
 def test_qc_spike():
-    df = pd.DataFrame({
-        "sensor_id": [1]*10,
-        "ts_utc": pd.date_range("2026-01-01", periods=10, freq="h"),
-        "pm25_ugm3": [10, 12, 11, 200, 10, 9, 11, 10, 10, 10]
-    })
+    df = pd.DataFrame(
+        {
+            "sensor_id": [1] * 10,
+            "ts_utc": pd.date_range("2026-01-01", periods=10, freq="h"),
+            "pm25_ugm3": [10, 12, 11, 200, 10, 9, 11, 10, 10, 10],
+        }
+    )
     out = apply_qc(df)
     # 200 is a spike.
     assert pd.isna(out.loc[3, "pm25_ugm3"])
@@ -117,19 +143,25 @@ def test_qc_spike():
     # ensure it didn't delete rows
     assert len(out) == 10
 
+
 def test_qc_flags_combine():
-    df = pd.DataFrame({
-        "sensor_id": [1],
-        "ts_utc": pd.date_range("2026-01-01", periods=1, freq="h"),
-        "pm25_ugm3": [-10],
-        "qc_flags": [512]
-    })
+    df = pd.DataFrame(
+        {
+            "sensor_id": [1],
+            "ts_utc": pd.date_range("2026-01-01", periods=1, freq="h"),
+            "pm25_ugm3": [-10],
+            "qc_flags": [512],
+        }
+    )
     out = apply_qc(df)
     assert out.loc[0, "qc_flags"] == (512 | RANGE_REJECT)
 
+
 def test_pchip_impute_gaps():
-    s = pd.Series([10.0, np.nan, np.nan, 20.0, np.nan, np.nan, np.nan, np.nan, 30.0],
-                  index=pd.date_range("2026-01-01", periods=9, freq="h"))
+    s = pd.Series(
+        [10.0, np.nan, np.nan, 20.0, np.nan, np.nan, np.nan, np.nan, 30.0],
+        index=pd.date_range("2026-01-01", periods=9, freq="h"),
+    )
     out = pchip_impute(s, max_gap=3)
 
     # The 2-gap should be filled
@@ -142,11 +174,13 @@ def test_pchip_impute_gaps():
     assert pd.isna(out.iloc[6])
     assert pd.isna(out.iloc[7])
 
+
 def test_pchip_impute_edges():
     s = pd.Series([np.nan, 10.0, 20.0, np.nan])
     out = pchip_impute(s, max_gap=3)
     assert pd.isna(out.iloc[0])
     assert pd.isna(out.iloc[3])
+
 
 def test_pchip_regression_overshoot():
     # 3-hour internal gap between approx 520 and 480
@@ -158,20 +192,23 @@ def test_pchip_regression_overshoot():
     x = np.arange(len(y))
     cs = CubicSpline(x[valid], y[valid])
     cs_out = cs(x)
-    assert cs_out[2:5].max() > 550 # Overshoots envelope (mathematical requirement)
+    assert cs_out[2:5].max() > 550  # Overshoots envelope (mathematical requirement)
 
     out = pchip_impute(s, max_gap=3)
     # PCHIP remains within envelope (roughly between 470 and 530)
     assert (out.iloc[2:5] <= 520).all()
     assert (out.iloc[2:5] >= 480).all()
 
+
 def test_imputed_flag():
-    df = pd.DataFrame({
-        "sensor_id": [1, 1, 1],
-        "ts_utc": pd.date_range("2026-01-01", periods=3, freq="h"),
-        "pm25_ugm3": [10.0, np.nan, 20.0],
-        "qc_flags": [0, 8, 0] # existing spike flag on the NaN
-    })
+    df = pd.DataFrame(
+        {
+            "sensor_id": [1, 1, 1],
+            "ts_utc": pd.date_range("2026-01-01", periods=3, freq="h"),
+            "pm25_ugm3": [10.0, np.nan, 20.0],
+            "qc_flags": [0, 8, 0],  # existing spike flag on the NaN
+        }
+    )
 
     # Mocking how pipeline might do it
     imputed = pchip_impute(df["pm25_ugm3"], max_gap=3)
@@ -185,6 +222,7 @@ def test_imputed_flag():
     assert df.loc[0, "qc_flags"] == 0
     assert df.loc[2, "qc_flags"] == 0
 
+
 def test_qc_empty_input():
     df = pd.DataFrame(columns=["sensor_id", "ts_utc", "pm25_ugm3"])
     out = apply_qc(df)
@@ -193,6 +231,7 @@ def test_qc_empty_input():
     s = pd.Series(dtype=float)
     out_s = pchip_impute(s)
     assert len(out_s) == 0
+
 
 def test_impute_invalid_max_gap():
     with pytest.raises(ValueError):

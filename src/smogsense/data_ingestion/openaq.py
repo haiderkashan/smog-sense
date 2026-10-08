@@ -51,12 +51,7 @@ async def list_locations(client: ResilientClient, domain: str) -> pd.DataFrame:
 
     while True:
         url = "https://api.openaq.org/v3/locations"
-        params = {
-            "bbox": bbox_str,
-            "parameters_id": PARAM_ID_PM25,
-            "limit": limit,
-            "page": page
-        }
+        params = {"bbox": bbox_str, "parameters_id": PARAM_ID_PM25, "limit": limit, "page": page}
 
         resp = await client.get(url, params=params)
         data = resp.json()
@@ -100,31 +95,40 @@ async def list_locations(client: ResilientClient, domain: str) -> pd.DataFrame:
                 cov = float(sensor.get("coverage", {}).get("percentComplete", 0.0)) / 100.0
 
                 if param_id == PARAM_ID_PM25:
-                    if cov > best_pm25_cov or (cov == best_pm25_cov and (best_pm25 is None or s_id < best_pm25)):
+                    if cov > best_pm25_cov or (
+                        cov == best_pm25_cov and (best_pm25 is None or s_id < best_pm25)
+                    ):
                         best_pm25 = s_id
                         best_pm25_cov = cov
                 elif param_id == PARAM_ID_RH:
-                    if cov > best_rh_cov or (cov == best_rh_cov and (best_rh is None or s_id < best_rh)):
+                    if cov > best_rh_cov or (
+                        cov == best_rh_cov and (best_rh is None or s_id < best_rh)
+                    ):
                         best_rh = s_id
                         best_rh_cov = cov
-                elif param_id == PARAM_ID_TEMP and (cov > best_temp_cov or (cov == best_temp_cov and (best_temp is None or s_id < best_temp))):
-                        best_temp = s_id
-                        best_temp_cov = cov
+                elif param_id == PARAM_ID_TEMP and (
+                    cov > best_temp_cov
+                    or (cov == best_temp_cov and (best_temp is None or s_id < best_temp))
+                ):
+                    best_temp = s_id
+                    best_temp_cov = cov
 
-            locations.append({
-                "location_id": loc_id,
-                "name": name,
-                "provider": provider,
-                "lat": float(lat),
-                "lon": float(lon),
-                "is_monitor": is_monitor,
-                "sensor_id_pm25": best_pm25,
-                "sensor_id_rh": best_rh,
-                "sensor_id_temp": best_temp,
-                "first_datetime": first_dt,
-                "last_datetime": last_dt,
-                "lifecycle_uptime": max(best_pm25_cov, 0.0)
-            })
+            locations.append(
+                {
+                    "location_id": loc_id,
+                    "name": name,
+                    "provider": provider,
+                    "lat": float(lat),
+                    "lon": float(lon),
+                    "is_monitor": is_monitor,
+                    "sensor_id_pm25": best_pm25,
+                    "sensor_id_rh": best_rh,
+                    "sensor_id_temp": best_temp,
+                    "first_datetime": first_dt,
+                    "last_datetime": last_dt,
+                    "lifecycle_uptime": max(best_pm25_cov, 0.0),
+                }
+            )
 
         found = data.get("meta", {}).get("found", 0)
         if limit * page >= found:
@@ -136,15 +140,33 @@ async def list_locations(client: ResilientClient, domain: str) -> pd.DataFrame:
         df["first_datetime"] = pd.to_datetime(df["first_datetime"], utc=True)
         df["last_datetime"] = pd.to_datetime(df["last_datetime"], utc=True)
     else:
-        df = pd.DataFrame(columns=[
-            "location_id", "name", "provider", "lat", "lon", "is_monitor",
-            "sensor_id_pm25", "sensor_id_rh", "sensor_id_temp",
-            "first_datetime", "last_datetime", "lifecycle_uptime"
-        ])
+        df = pd.DataFrame(
+            columns=[
+                "location_id",
+                "name",
+                "provider",
+                "lat",
+                "lon",
+                "is_monitor",
+                "sensor_id_pm25",
+                "sensor_id_rh",
+                "sensor_id_temp",
+                "first_datetime",
+                "last_datetime",
+                "lifecycle_uptime",
+            ]
+        )
     return df
 
 
-async def _fetch_single_sensor_hourly(client: ResilientClient, location_id: int, sensor_id: int, param_col: str, start_utc: datetime, end_utc: datetime) -> pd.DataFrame:
+async def _fetch_single_sensor_hourly(
+    client: ResilientClient,
+    location_id: int,
+    sensor_id: int,
+    param_col: str,
+    start_utc: datetime,
+    end_utc: datetime,
+) -> pd.DataFrame:
     page = 1
     limit = 1000
     rows: list[dict[str, Any]] = []
@@ -154,12 +176,7 @@ async def _fetch_single_sensor_hourly(client: ResilientClient, location_id: int,
 
     while True:
         url = f"https://api.openaq.org/v3/sensors/{sensor_id}/hours"
-        params = {
-            "datetime_from": date_from,
-            "datetime_to": date_to,
-            "limit": limit,
-            "page": page
-        }
+        params = {"datetime_from": date_from, "datetime_to": date_to, "limit": limit, "page": page}
 
         try:
             resp = await client.get(url, params=params)
@@ -175,11 +192,7 @@ async def _fetch_single_sensor_hourly(client: ResilientClient, location_id: int,
             ts = row.get("datetime", {}).get("utc")
             val = row.get("value")
 
-            rows.append({
-                "location_id": location_id,
-                "ts_utc": ts,
-                param_col: val
-            })
+            rows.append({"location_id": location_id, "ts_utc": ts, param_col: val})
 
         found = data.get("meta", {}).get("found", 0)
         if limit * page >= found:
@@ -189,27 +202,45 @@ async def _fetch_single_sensor_hourly(client: ResilientClient, location_id: int,
     return pd.DataFrame(rows)
 
 
-async def fetch_hourly(client: ResilientClient, locations_df: pd.DataFrame, start_utc: datetime, end_utc: datetime) -> pd.DataFrame:
+async def fetch_hourly(
+    client: ResilientClient, locations_df: pd.DataFrame, start_utc: datetime, end_utc: datetime
+) -> pd.DataFrame:
     """Fetch hourly data for multiple locations and pivot to one row per station-hour."""
     tasks = []
 
     for _, row in locations_df.iterrows():
         loc_id = row["location_id"]
         if pd.notna(row["sensor_id_pm25"]):
-            tasks.append(_fetch_single_sensor_hourly(client, loc_id, int(row["sensor_id_pm25"]), "pm25_ugm3", start_utc, end_utc))
+            tasks.append(
+                _fetch_single_sensor_hourly(
+                    client, loc_id, int(row["sensor_id_pm25"]), "pm25_ugm3", start_utc, end_utc
+                )
+            )
         if pd.notna(row["sensor_id_rh"]):
-            tasks.append(_fetch_single_sensor_hourly(client, loc_id, int(row["sensor_id_rh"]), "rh_pct", start_utc, end_utc))
+            tasks.append(
+                _fetch_single_sensor_hourly(
+                    client, loc_id, int(row["sensor_id_rh"]), "rh_pct", start_utc, end_utc
+                )
+            )
         if pd.notna(row["sensor_id_temp"]):
-            tasks.append(_fetch_single_sensor_hourly(client, loc_id, int(row["sensor_id_temp"]), "temperature_c", start_utc, end_utc))
+            tasks.append(
+                _fetch_single_sensor_hourly(
+                    client, loc_id, int(row["sensor_id_temp"]), "temperature_c", start_utc, end_utc
+                )
+            )
 
     if not tasks:
-        return pd.DataFrame(columns=["location_id", "ts_utc", "pm25_ugm3", "rh_pct", "temperature_c"])
+        return pd.DataFrame(
+            columns=["location_id", "ts_utc", "pm25_ugm3", "rh_pct", "temperature_c"]
+        )
 
     dfs = await asyncio.gather(*tasks)
     valid_dfs = [df for df in dfs if not df.empty]
 
     if not valid_dfs:
-        return pd.DataFrame(columns=["location_id", "ts_utc", "pm25_ugm3", "rh_pct", "temperature_c"])
+        return pd.DataFrame(
+            columns=["location_id", "ts_utc", "pm25_ugm3", "rh_pct", "temperature_c"]
+        )
 
     # Combine all long-form rows
     long_df = pd.concat(valid_dfs, ignore_index=True)

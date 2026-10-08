@@ -8,6 +8,7 @@ Public contract (implemented in Phase 1):
 
 Specification: docs/data-engineering.md -> 'Copernicus ADS: CAMS global forecasts'
 """
+
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ PM25_ALIASES = {"pm2p5", "particulate_matter_2.5um", "pm25"}
 TEMP_ALIASES = {"t2m", "2m_temperature"}
 DEWPOINT_ALIASES = {"d2m", "2m_dewpoint_temperature"}
 
+
 def get_centroid_from_config(domain: str = "lahore") -> dict[str, Any]:
     project_root = Path(__file__).resolve().parents[3]
     config_path = project_root / "configs" / "domains.yaml"
@@ -34,11 +36,13 @@ def get_centroid_from_config(domain: str = "lahore") -> dict[str, Any]:
     res = conf.get("domains", {}).get(domain, {}).get("centroid", {})
     return dict(res) if res else {}
 
+
 def calc_rh(t_c: np.ndarray, td_c: np.ndarray) -> np.ndarray:
     """Calculate Relative Humidity using Magnus formula."""
     e_t = 6.1094 * np.exp(17.625 * t_c / (t_c + 243.04))
     e_td = 6.1094 * np.exp(17.625 * td_c / (td_c + 243.04))
     return 100.0 * e_td / e_t
+
 
 def _normalize_longitudes(pts_lon: np.ndarray, grid_lon: np.ndarray) -> np.ndarray:
     if len(pts_lon) == 0:
@@ -57,11 +61,16 @@ def _normalize_longitudes(pts_lon: np.ndarray, grid_lon: np.ndarray) -> np.ndarr
 
     return pts_out
 
-def extract_stations(grib_path: Path, stations: pd.DataFrame, domain: str = "lahore") -> pd.DataFrame:
+
+def extract_stations(
+    grib_path: Path, stations: pd.DataFrame, domain: str = "lahore"
+) -> pd.DataFrame:
     """Extract station and centroid series from GRIB via bilinear interpolation."""
     required_cols = {"location_id", "lat", "lon"}
     if not required_cols.issubset(stations.columns):
-        raise ValueError(f"Station DataFrame missing required columns: {required_cols - set(stations.columns)}")
+        raise ValueError(
+            f"Station DataFrame missing required columns: {required_cols - set(stations.columns)}"
+        )
 
     if stations.empty:
         return pd.DataFrame()
@@ -74,11 +83,9 @@ def extract_stations(grib_path: Path, stations: pd.DataFrame, domain: str = "lah
         raise ValueError(f"Centroid configuration missing for domain: {domain}")
 
     if "centroid" not in df_pts["location_id"].values:
-        cent_row = pd.DataFrame([{
-            "location_id": "centroid",
-            "lat": centroid["lat"],
-            "lon": centroid["lon"]
-        }])
+        cent_row = pd.DataFrame(
+            [{"location_id": "centroid", "lat": centroid["lat"], "lon": centroid["lon"]}]
+        )
         df_pts = pd.concat([df_pts, cent_row], ignore_index=True)
 
     pts_lat = np.asarray(df_pts["lat"], dtype=float)
@@ -189,9 +196,9 @@ def extract_stations(grib_path: Path, stations: pd.DataFrame, domain: str = "lah
                 interp = RegularGridInterpolator(
                     (lats_asc, lons_asc),
                     data,
-                    method='linear',
+                    method="linear",
                     bounds_error=False,
-                    fill_value=np.nan
+                    fill_value=np.nan,
                 )
                 vals = interp(interp_pts)
 

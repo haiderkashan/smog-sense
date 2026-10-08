@@ -17,6 +17,7 @@ from smogsense.data_ingestion.station_registry import StationRegistry
 def anyio_backend() -> str:
     return "asyncio"
 
+
 @pytest.fixture
 async def resilient_client() -> AsyncGenerator[ResilientClient, None]:
     client = create_client()
@@ -25,6 +26,7 @@ async def resilient_client() -> AsyncGenerator[ResilientClient, None]:
     res_client = ResilientClient(client, rb, cb)
     yield res_client
     await client.aclose()
+
 
 @pytest.mark.anyio
 @respx.mock
@@ -56,6 +58,7 @@ async def test_openaq_list_locations_contract(resilient_client: ResilientClient)
     assert pd.to_datetime(row["first_datetime"]).isoformat() == "2020-01-01T00:00:00+00:00"
     assert row["lifecycle_uptime"] == 0.95
 
+
 @pytest.mark.anyio
 @respx.mock
 async def test_openaq_fetch_hourly_contract(resilient_client: ResilientClient) -> None:
@@ -70,7 +73,16 @@ async def test_openaq_fetch_hourly_contract(resilient_client: ResilientClient) -
     start_utc = datetime(2026, 10, 7, 10, 0, tzinfo=UTC)
     end_utc = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
 
-    locations_df = pd.DataFrame([{"location_id": 1001, "sensor_id_pm25": 5001, "sensor_id_temp": 5003, "sensor_id_rh": 5002}])
+    locations_df = pd.DataFrame(
+        [
+            {
+                "location_id": 1001,
+                "sensor_id_pm25": 5001,
+                "sensor_id_temp": 5003,
+                "sensor_id_rh": 5002,
+            }
+        ]
+    )
     df = await fetch_hourly(resilient_client, locations_df, start_utc, end_utc)
 
     assert route.called
@@ -84,41 +96,44 @@ async def test_openaq_fetch_hourly_contract(resilient_client: ResilientClient) -
     assert row0["pm25_ugm3"] == 138.1
     assert pd.to_datetime(row0["ts_utc"]).isoformat() == "2026-10-07T11:00:00+00:00"
 
+
 @pytest.mark.anyio
 async def test_station_registry(tmp_path: Path) -> None:
     registry = StationRegistry(tmp_path)
 
     # 3 stations: A and B are close but same provider -> not colocated.
     # B and C are close and different providers -> colocated.
-    df_in = pd.DataFrame([
-        {
-            "location_id": 1,
-            "provider": "Prov1",
-            "lat": 31.55000,
-            "lon": 74.33000,
-            "first_datetime": pd.to_datetime("2026-01-01T00:00:00Z"),
-            "last_datetime": pd.to_datetime("2026-10-07T00:00:00Z"),
-            "pm25_uptime_90d": 0.8
-        },
-        {
-            "location_id": 2,
-            "provider": "Prov1",
-            "lat": 31.55010, # ~11m away
-            "lon": 74.33000,
-            "first_datetime": pd.to_datetime("2026-01-01T00:00:00Z"),
-            "last_datetime": pd.to_datetime("2026-10-07T00:00:00Z"),
-            "pm25_uptime_90d": 0.4 # Below uptime threshold
-        },
-        {
-            "location_id": 3,
-            "provider": "Prov2",
-            "lat": 31.55015, # ~16m away from Prov1(2), ~22m away from Prov1(1)
-            "lon": 74.33000,
-            "first_datetime": pd.to_datetime("2026-09-15T00:00:00Z"), # < 30 days history!
-            "last_datetime": pd.to_datetime("2026-10-07T00:00:00Z"),
-            "pm25_uptime_90d": 0.9
-        }
-    ])
+    df_in = pd.DataFrame(
+        [
+            {
+                "location_id": 1,
+                "provider": "Prov1",
+                "lat": 31.55000,
+                "lon": 74.33000,
+                "first_datetime": pd.to_datetime("2026-01-01T00:00:00Z"),
+                "last_datetime": pd.to_datetime("2026-10-07T00:00:00Z"),
+                "pm25_uptime_90d": 0.8,
+            },
+            {
+                "location_id": 2,
+                "provider": "Prov1",
+                "lat": 31.55010,  # ~11m away
+                "lon": 74.33000,
+                "first_datetime": pd.to_datetime("2026-01-01T00:00:00Z"),
+                "last_datetime": pd.to_datetime("2026-10-07T00:00:00Z"),
+                "pm25_uptime_90d": 0.4,  # Below uptime threshold
+            },
+            {
+                "location_id": 3,
+                "provider": "Prov2",
+                "lat": 31.55015,  # ~16m away from Prov1(2), ~22m away from Prov1(1)
+                "lon": 74.33000,
+                "first_datetime": pd.to_datetime("2026-09-15T00:00:00Z"),  # < 30 days history!
+                "last_datetime": pd.to_datetime("2026-10-07T00:00:00Z"),
+                "pm25_uptime_90d": 0.9,
+            },
+        ]
+    )
 
     df_out = registry.build_and_save(df_in, "test_domain", min_uptime=0.5)
 
@@ -126,8 +141,8 @@ async def test_station_registry(tmp_path: Path) -> None:
     assert "colocated_group_id" in df_out.columns
 
     assert bool(df_out.iloc[0]["eligible"]) is True
-    assert bool(df_out.iloc[1]["eligible"]) is False # uptime < 0.5
-    assert bool(df_out.iloc[2]["eligible"]) is False # history < 30 days
+    assert bool(df_out.iloc[1]["eligible"]) is False  # uptime < 0.5
+    assert bool(df_out.iloc[2]["eligible"]) is False  # history < 30 days
 
     g1 = df_out.iloc[0]["colocated_group_id"]
     g2 = df_out.iloc[1]["colocated_group_id"]

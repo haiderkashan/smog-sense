@@ -99,10 +99,14 @@ class StationRegistry:
         if df.empty:
             return "empty"
         sorted_df = df.sort_values("location_id")
-        hash_input = "".join(f"{row['location_id']}:{row['last_datetime']}" for _, row in sorted_df.iterrows())
+        hash_input = "".join(
+            f"{row['location_id']}:{row['last_datetime']}" for _, row in sorted_df.iterrows()
+        )
         return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()[:16]
 
-    def build_and_save(self, locations_df: pd.DataFrame, domain: str, min_uptime: float) -> pd.DataFrame:
+    def build_and_save(
+        self, locations_df: pd.DataFrame, domain: str, min_uptime: float
+    ) -> pd.DataFrame:
         if locations_df.empty:
             df = locations_df.copy()
             df["eligible"] = pd.Series(dtype=bool)

@@ -31,9 +31,12 @@ from tenacity.wait import wait_base
 class CircuitBreakerError(Exception):
     pass
 
+
 class RateBudget:
     # Based on Phase 1a requirements: 48/min, 1600/hr, 0.8 safety margin
-    def __init__(self, per_minute: int = 48, per_hour: int = 1600, safety_margin: float = 0.8) -> None:
+    def __init__(
+        self, per_minute: int = 48, per_hour: int = 1600, safety_margin: float = 0.8
+    ) -> None:
         self.published_minute = per_minute
         self.published_hour = per_hour
         self.capacity_minute = int(per_minute * safety_margin)
@@ -53,8 +56,12 @@ class RateBudget:
                 elapsed = now - self.last_update
                 self.last_update = now
 
-                self.tokens_minute = min(float(self.capacity_minute), self.tokens_minute + elapsed * self.rate_minute)
-                self.tokens_hour = min(float(self.capacity_hour), self.tokens_hour + elapsed * self.rate_hour)
+                self.tokens_minute = min(
+                    float(self.capacity_minute), self.tokens_minute + elapsed * self.rate_minute
+                )
+                self.tokens_hour = min(
+                    float(self.capacity_hour), self.tokens_hour + elapsed * self.rate_hour
+                )
 
                 if self.tokens_minute >= tokens and self.tokens_hour >= tokens:
                     self.tokens_minute -= tokens
@@ -79,6 +86,7 @@ class RateBudget:
                 # Ambiguous or unknown window (e.g., FIRMS 10-minute window, or limit not provided).
                 # Do not reconcile. Applying a mismatched 'remaining' destroys independent capacity.
                 pass
+
 
 class CircuitBreaker:
     def __init__(self, consecutive_429_to_open: int = 3, open_seconds: int = 900) -> None:
@@ -113,19 +121,28 @@ class CircuitBreaker:
                     self.failures = 0
                     self.logger.info("circuit_breaker_closed")
                 else:
-                    raise CircuitBreakerError(f"Circuit open for another {self.open_duration - elapsed:.1f}s")
+                    raise CircuitBreakerError(
+                        f"Circuit open for another {self.open_duration - elapsed:.1f}s"
+                    )
+
 
 class AuditLogger:
-    SENSITIVE_KEYS: typing.ClassVar[set[str]] = {"api_key", "apikey", "token", "access_token", "password", "secret", "client_secret", "map_key"}
+    SENSITIVE_KEYS: typing.ClassVar[set[str]] = {
+        "api_key",
+        "apikey",
+        "token",
+        "access_token",
+        "password",
+        "secret",
+        "client_secret",
+        "map_key",
+    }
 
     def __init__(self) -> None:
         self.logger = structlog.get_logger("audit")
 
     def _sanitize_params(self, params: dict[str, Any]) -> dict[str, Any]:
-        return {
-            k: ("***" if k.lower() in self.SENSITIVE_KEYS else v)
-            for k, v in params.items()
-        }
+        return {k: ("***" if k.lower() in self.SENSITIVE_KEYS else v) for k, v in params.items()}
 
     def log(self, response: httpx.Response) -> None:
         parsed_url = response.request.url
@@ -137,7 +154,16 @@ class AuditLogger:
                 parts[4] = "***"
                 path = "/".join(parts)
 
-        scrubbed_url = str(parsed_url.copy_with(password=None, username=None, path=path, query=urllib.parse.urlencode(self._sanitize_params(dict(parsed_url.params))).encode("utf-8")))
+        scrubbed_url = str(
+            parsed_url.copy_with(
+                password=None,
+                username=None,
+                path=path,
+                query=urllib.parse.urlencode(self._sanitize_params(dict(parsed_url.params))).encode(
+                    "utf-8"
+                ),
+            )
+        )
         params = self._sanitize_params(dict(parsed_url.params))
 
         body_bytes = response.content
@@ -149,8 +175,9 @@ class AuditLogger:
             params=params,
             status_code=response.status_code,
             response_sha256=sha256,
-            timestamp_utc=datetime.datetime.now(datetime.UTC).isoformat()
+            timestamp_utc=datetime.datetime.now(datetime.UTC).isoformat(),
         )
+
 
 def _parse_time_header(val: str) -> float:
     try:
@@ -163,11 +190,12 @@ def _parse_time_header(val: str) -> float:
         except (TypeError, ValueError):
             return 0.0
 
+
 class WaitRetryAfter(wait_base):
     def __call__(self, retry_state: RetryCallState) -> float:
         attempt = retry_state.attempt_number - 1
         jitter = random.SystemRandom().uniform(0, 1)
-        calc_wait = float(jitter * min(120.0, 2.0 * (2 ** attempt)))
+        calc_wait = float(jitter * min(120.0, 2.0 * (2**attempt)))
 
         header_wait = 0.0
         if retry_state.outcome is not None:
@@ -181,17 +209,22 @@ class WaitRetryAfter(wait_base):
 
         return max(calc_wait, header_wait)
 
+
 def _should_retry(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
         return exc.response.status_code in {408, 429, 500, 502, 503, 504}
     return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
 
+
 def create_client(connect_timeout: float = 10.0, read_timeout: float = 60.0) -> httpx.AsyncClient:
     timeout = httpx.Timeout(connect=connect_timeout, read=read_timeout, write=10.0, pool=10.0)
     return httpx.AsyncClient(timeout=timeout)
 
+
 class ResilientClient:
-    def __init__(self, client: httpx.AsyncClient, rate_budget: RateBudget, circuit_breaker: CircuitBreaker) -> None:
+    def __init__(
+        self, client: httpx.AsyncClient, rate_budget: RateBudget, circuit_breaker: CircuitBreaker
+    ) -> None:
         self.client = client
         self.rate_budget = rate_budget
         self.circuit_breaker = circuit_breaker
@@ -199,9 +232,7 @@ class ResilientClient:
         self.fallback_logger = logging.getLogger("smogsense.audit.fallback")
 
     @retry(
-        retry=retry_if_exception(_should_retry),
-        wait=WaitRetryAfter(),
-        stop=stop_after_attempt(6)
+        retry=retry_if_exception(_should_retry), wait=WaitRetryAfter(), stop=stop_after_attempt(6)
     )
     async def get(self, url: str, **kwargs: Any) -> httpx.Response:
         await self.circuit_breaker.check()
@@ -216,7 +247,11 @@ class ResilientClient:
             reset = resp.headers.get("x-ratelimit-reset")
             if remaining is not None:
                 with contextlib.suppress(ValueError):
-                    limit_val = int(resp.headers["x-ratelimit-limit"]) if "x-ratelimit-limit" in resp.headers else None
+                    limit_val = (
+                        int(resp.headers["x-ratelimit-limit"])
+                        if "x-ratelimit-limit" in resp.headers
+                        else None
+                    )
                     await self.rate_budget.reconcile(int(remaining), limit_val)
 
             await self.circuit_breaker.record_success()
@@ -238,4 +273,3 @@ class ResilientClient:
             except Exception as audit_exc:
                 self.fallback_logger.error("audit_log_failed_on_error_response", exc_info=audit_exc)
             raise
-

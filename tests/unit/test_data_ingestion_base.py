@@ -26,16 +26,21 @@ from smogsense.data_ingestion.base import (
 def anyio_backend() -> str:
     return "asyncio"
 
+
 @pytest.fixture
 def rate_budget() -> RateBudget:
     return RateBudget(per_minute=6000, per_hour=120000, safety_margin=1.0)
+
 
 @pytest.fixture
 def circuit_breaker() -> CircuitBreaker:
     return CircuitBreaker(consecutive_429_to_open=3, open_seconds=900)
 
+
 @pytest.fixture
-async def resilient_client(rate_budget: RateBudget, circuit_breaker: CircuitBreaker) -> AsyncGenerator[ResilientClient, None]:
+async def resilient_client(
+    rate_budget: RateBudget, circuit_breaker: CircuitBreaker
+) -> AsyncGenerator[ResilientClient, None]:
     client = create_client()
     res_client = ResilientClient(client, rate_budget, circuit_breaker)
     yield res_client
@@ -44,7 +49,9 @@ async def resilient_client(rate_budget: RateBudget, circuit_breaker: CircuitBrea
 
 @pytest.mark.anyio
 @respx.mock
-async def test_429_with_retry_after(resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_429_with_retry_after(
+    resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     sleep_calls: list[float] = []
 
     async def _mock_sleep(delay: float, *args: Any, **kwargs: Any) -> None:
@@ -70,10 +77,14 @@ async def test_429_with_retry_after(resilient_client: ResilientClient, monkeypat
 
 @pytest.mark.anyio
 @respx.mock
-async def test_retry_after_http_date(resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_retry_after_http_date(
+    resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     sleep_calls: list[float] = []
+
     async def _mock_sleep(delay: float, *args: Any, **kwargs: Any) -> None:
         sleep_calls.append(delay)
+
     monkeypatch.setattr("asyncio.sleep", _mock_sleep)
 
     future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1)
@@ -95,14 +106,15 @@ async def test_retry_after_http_date(resilient_client: ResilientClient, monkeypa
 
 @pytest.mark.anyio
 @respx.mock
-async def test_circuit_breaker_opens_after_3_consecutive_429s(resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_circuit_breaker_opens_after_3_consecutive_429s(
+    resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     async def _mock_sleep(*args: Any, **kwargs: Any) -> None:
         pass
+
     monkeypatch.setattr("asyncio.sleep", _mock_sleep)
 
-    route = respx.get("https://api.example.com/data").mock(
-        return_value=httpx.Response(429)
-    )
+    route = respx.get("https://api.example.com/data").mock(return_value=httpx.Response(429))
 
     with pytest.raises(CircuitBreakerError) as exc_info:
         await resilient_client.get("https://api.example.com/data")
@@ -113,18 +125,19 @@ async def test_circuit_breaker_opens_after_3_consecutive_429s(resilient_client: 
 
 @pytest.mark.anyio
 @respx.mock
-async def test_circuit_breaker_recovery(resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_circuit_breaker_recovery(
+    resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     async def _mock_sleep(*args: Any, **kwargs: Any) -> None:
         pass
+
     monkeypatch.setattr("asyncio.sleep", _mock_sleep)
 
     cb = resilient_client.circuit_breaker
     cb.failures = 3
     cb.opened_at = time.monotonic() - 901
 
-    route = respx.get("https://api.example.com/data").mock(
-        return_value=httpx.Response(200)
-    )
+    route = respx.get("https://api.example.com/data").mock(return_value=httpx.Response(200))
 
     await resilient_client.get("https://api.example.com/data")
     assert cb.opened_at is None
@@ -142,15 +155,15 @@ async def test_reconcile_known_minute_window(resilient_client: ResilientClient) 
     rb.tokens_hour = 1600.0
 
     respx.get("https://api.example.com/data").mock(
-        return_value=httpx.Response(200, headers={
-            "x-ratelimit-remaining": "2",
-            "x-ratelimit-limit": "60"
-        })
+        return_value=httpx.Response(
+            200, headers={"x-ratelimit-remaining": "2", "x-ratelimit-limit": "60"}
+        )
     )
 
     await resilient_client.get("https://api.example.com/data")
     assert rb.tokens_minute <= 2.0
     assert rb.tokens_hour >= 1599.0
+
 
 @pytest.mark.anyio
 @respx.mock
@@ -162,9 +175,7 @@ async def test_reconcile_ambiguous_window(resilient_client: ResilientClient) -> 
     rb.tokens_hour = 1600.0
 
     respx.get("https://api.example.com/data").mock(
-        return_value=httpx.Response(200, headers={
-            "x-ratelimit-remaining": "2"
-        })
+        return_value=httpx.Response(200, headers={"x-ratelimit-remaining": "2"})
     )
 
     await resilient_client.get("https://api.example.com/data")
@@ -172,20 +183,35 @@ async def test_reconcile_ambiguous_window(resilient_client: ResilientClient) -> 
     assert rb.tokens_hour >= 1599.0
 
 
-@pytest.mark.parametrize("status_code,should_retry", [
-    (408, True), (429, True), (500, True), (502, True), (503, True), (504, True),
-    (400, False), (401, False), (403, False), (404, False)
-])
+@pytest.mark.parametrize(
+    "status_code,should_retry",
+    [
+        (408, True),
+        (429, True),
+        (500, True),
+        (502, True),
+        (503, True),
+        (504, True),
+        (400, False),
+        (401, False),
+        (403, False),
+        (404, False),
+    ],
+)
 @pytest.mark.anyio
 @respx.mock
-async def test_retry_status_matrix(resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch, status_code: int, should_retry: bool) -> None:
+async def test_retry_status_matrix(
+    resilient_client: ResilientClient,
+    monkeypatch: pytest.MonkeyPatch,
+    status_code: int,
+    should_retry: bool,
+) -> None:
     async def _mock_sleep(*args: Any, **kwargs: Any) -> None:
         pass
+
     monkeypatch.setattr("asyncio.sleep", _mock_sleep)
 
-    route = respx.get("https://api.example.com/data").mock(
-        return_value=httpx.Response(status_code)
-    )
+    route = respx.get("https://api.example.com/data").mock(return_value=httpx.Response(status_code))
 
     with pytest.raises((RetryError, httpx.HTTPStatusError, CircuitBreakerError)):
         await resilient_client.get("https://api.example.com/data")
@@ -202,9 +228,12 @@ async def test_retry_status_matrix(resilient_client: ResilientClient, monkeypatc
 
 @pytest.mark.anyio
 @respx.mock
-async def test_timeouts_and_connection_errors_are_retried(resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_timeouts_and_connection_errors_are_retried(
+    resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     async def _mock_sleep(*args: Any, **kwargs: Any) -> None:
         pass
+
     monkeypatch.setattr("asyncio.sleep", _mock_sleep)
 
     route = respx.get("https://api.example.com/data").mock(
@@ -240,7 +269,10 @@ async def test_rate_budget_concurrency() -> None:
 
 def test_audit_logger_redaction() -> None:
     audit = AuditLogger()
-    req = httpx.Request("GET", "https://firms.modaps.eosdis.nasa.gov/api/area/csv/MY_SECRET_MAP_KEY/VIIRS_SNPP_NRT/world/1/2026-10-07?api_key=SECRET123&q=lahore&token=XYZ")
+    req = httpx.Request(
+        "GET",
+        "https://firms.modaps.eosdis.nasa.gov/api/area/csv/MY_SECRET_MAP_KEY/VIIRS_SNPP_NRT/world/1/2026-10-07?api_key=SECRET123&q=lahore&token=XYZ",
+    )
     resp = httpx.Response(200, request=req, content=b"{}")
 
     with structlog.testing.capture_logs() as cap_logs:
@@ -261,15 +293,15 @@ def test_audit_logger_redaction() -> None:
 
 @pytest.mark.anyio
 @respx.mock
-async def test_audit_logger_failure_isolation(resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_audit_logger_failure_isolation(
+    resilient_client: ResilientClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     def broken_log(*args: Any, **kwargs: Any) -> None:
         raise ValueError("Audit logger crashed")
 
     monkeypatch.setattr(resilient_client.audit, "log", broken_log)
 
-    route = respx.get("https://api.example.com/data").mock(
-        return_value=httpx.Response(200)
-    )
+    route = respx.get("https://api.example.com/data").mock(return_value=httpx.Response(200))
 
     resp = await resilient_client.get("https://api.example.com/data")
     assert resp.status_code == 200
@@ -287,4 +319,3 @@ def test_sha256_deterministic() -> None:
 
     expected_sha256 = hashlib.sha256(body).hexdigest()
     assert cap_logs[0]["response_sha256"] == expected_sha256
-

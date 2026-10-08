@@ -19,11 +19,11 @@ from scipy.interpolate import pchip_interpolate  # type: ignore
 def pchip_impute(series: pd.Series, max_gap: int = 3) -> pd.Series:
     """
     Impute short internal gaps using PCHIP interpolation in log1p space.
-    
+
     Args:
         series: The PM2.5 series to impute.
         max_gap: Maximum number of consecutive NaNs to fill.
-        
+
     Returns:
         pd.Series with eligible gaps filled.
     """
@@ -45,7 +45,7 @@ def pchip_impute(series: pd.Series, max_gap: int = 3) -> pd.Series:
 
     eligible = mask_na.copy()
     eligible[:first_v] = False
-    eligible[last_v+1:] = False
+    eligible[last_v + 1 :] = False
 
     run_id_arr = np.cumsum(mask_na != np.roll(mask_na, 1))
     for rid in np.unique(run_id_arr[eligible]):
@@ -70,6 +70,7 @@ def pchip_impute(series: pd.Series, max_gap: int = 3) -> pd.Series:
 
     out.iloc[np.where(eligible)[0]] = y_interp
     return out
+
 
 def impute_short_gaps(series: pd.Series, max_gap_h: int = 3) -> tuple[pd.Series, pd.Series]:
     """

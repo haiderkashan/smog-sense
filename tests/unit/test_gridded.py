@@ -14,46 +14,47 @@ def test_calc_rh():
     rh = calc_rh(np.array([25.0]), np.array([15.0]))
     assert np.isclose(rh[0], 53.8, atol=0.5)
 
+
 @pytest.fixture
 def mock_grib_simple():
     lats = [32.0, 31.0]
     lons = [74.0, 75.0]
 
-    data = np.array([
-        [10.0, 20.0],
-        [30.0, 40.0]
-    ])
+    data = np.array([[10.0, 20.0], [30.0, 40.0]])
 
     t2m_da = xr.DataArray(
         data=data + 273.15,
         dims=["latitude", "longitude"],
         coords={"latitude": lats, "longitude": lons},
-        attrs={"units": "K"}
+        attrs={"units": "K"},
     )
     pm2p5_da = xr.DataArray(
         data=data * 1e-9,
         dims=["latitude", "longitude"],
         coords={"latitude": lats, "longitude": lons},
-        attrs={"units": "kg m**-3"}
+        attrs={"units": "kg m**-3"},
     )
 
     ds = xr.Dataset(
         {"t2m": t2m_da, "pm2p5": pm2p5_da},
-        coords={"valid_time": pd.Timestamp("2026-01-01T00:00:00Z")}
+        coords={"valid_time": pd.Timestamp("2026-01-01T00:00:00Z")},
     )
     return ds
 
-@patch('smogsense.preprocessing.gridded.xr.open_dataset')
-@patch('smogsense.preprocessing.gridded.get_centroid_from_config')
+
+@patch("smogsense.preprocessing.gridded.xr.open_dataset")
+@patch("smogsense.preprocessing.gridded.get_centroid_from_config")
 def test_extract_stations_bilinear(mock_centroid, mock_open_ds, mock_grib_simple):
     mock_open_ds.return_value.__enter__.return_value = mock_grib_simple
     mock_centroid.return_value = {"lat": 31.5, "lon": 74.5}
 
-    stations = pd.DataFrame([
-        {"location_id": "loc1", "lat": 31.5, "lon": 74.5},
-        {"location_id": "loc2", "lat": 32.0, "lon": 74.0},
-        {"location_id": "loc_out", "lat": 40.0, "lon": 80.0},
-    ])
+    stations = pd.DataFrame(
+        [
+            {"location_id": "loc1", "lat": 31.5, "lon": 74.5},
+            {"location_id": "loc2", "lat": 32.0, "lon": 74.0},
+            {"location_id": "loc_out", "lat": 40.0, "lon": 80.0},
+        ]
+    )
 
     df = extract_stations(Path("dummy.grib"), stations)
 
@@ -77,14 +78,16 @@ def test_extract_stations_bilinear(mock_centroid, mock_open_ds, mock_grib_simple
     assert np.isnan(row_out["temperature_c"])
     assert bool(row_out["outside_grid"]) is True
 
+
 def test_extract_stations_validation():
-    stations = pd.DataFrame([{"id": "loc1", "lat": 31.5}]) # missing lon and location_id
+    stations = pd.DataFrame([{"id": "loc1", "lat": 31.5}])  # missing lon and location_id
     with pytest.raises(ValueError, match="missing required columns"):
         extract_stations(Path("dummy.grib"), stations)
 
+
 @pytest.fixture
 def mock_grib_time_step():
-    lats = [31.0, 32.0] # ascending this time
+    lats = [31.0, 32.0]  # ascending this time
     lons = [74.0, 75.0]
 
     # Shape: (time: 2, step: 2, latitude: 2, longitude: 2)
@@ -98,16 +101,17 @@ def mock_grib_time_step():
             "time": [pd.Timestamp("2026-01-01"), pd.Timestamp("2026-01-02")],
             "step": [pd.Timedelta("0h"), pd.Timedelta("1h")],
             "lat": lats,
-            "lon": lons
+            "lon": lons,
         },
-        attrs={"units": "C"} # Try C directly
+        attrs={"units": "C"},  # Try C directly
     )
 
     ds = xr.Dataset({"t2m": t2m_da})
     return ds
 
-@patch('smogsense.preprocessing.gridded.xr.open_dataset')
-@patch('smogsense.preprocessing.gridded.get_centroid_from_config')
+
+@patch("smogsense.preprocessing.gridded.xr.open_dataset")
+@patch("smogsense.preprocessing.gridded.get_centroid_from_config")
 def test_extract_stations_time_step(mock_centroid, mock_open_ds, mock_grib_time_step):
     mock_open_ds.return_value.__enter__.return_value = mock_grib_time_step
     mock_centroid.return_value = {"lat": 31.5, "lon": 74.5}
@@ -125,6 +129,7 @@ def test_extract_stations_time_step(mock_centroid, mock_open_ds, mock_grib_time_
     # Data is all 1.0, and units were C, so temp should be 1.0
     assert (df["temperature_c"] == 1.0).all()
 
+
 @pytest.fixture
 def mock_grib_360():
     # Lats: 32, 31 (descending)
@@ -132,36 +137,33 @@ def mock_grib_360():
     lats = [32.0, 31.0]
     lons = [358.0, 359.0]
 
-    data = np.array([
-        [10.0, 20.0],
-        [30.0, 40.0]
-    ])
+    data = np.array([[10.0, 20.0], [30.0, 40.0]])
 
     t2m_da = xr.DataArray(
         data=data + 273.15,
         dims=["latitude", "longitude"],
         coords={"latitude": lats, "longitude": lons},
-        attrs={"units": "K"}
+        attrs={"units": "K"},
     )
 
-    ds = xr.Dataset(
-        {"t2m": t2m_da},
-        coords={"valid_time": pd.Timestamp("2026-01-01T00:00:00Z")}
-    )
+    ds = xr.Dataset({"t2m": t2m_da}, coords={"valid_time": pd.Timestamp("2026-01-01T00:00:00Z")})
     return ds
 
-@patch('smogsense.preprocessing.gridded.xr.open_dataset')
-@patch('smogsense.preprocessing.gridded.get_centroid_from_config')
+
+@patch("smogsense.preprocessing.gridded.xr.open_dataset")
+@patch("smogsense.preprocessing.gridded.get_centroid_from_config")
 def test_extract_stations_longitude_normalization(mock_centroid, mock_open_ds, mock_grib_360):
     mock_open_ds.return_value.__enter__.return_value = mock_grib_360
     # Station uses standard -180/180 convention.
     # 358.5 in [0, 360] is -1.5 in [-180, 180].
     mock_centroid.return_value = {"lat": 31.5, "lon": -1.5}
 
-    stations = pd.DataFrame([
-        {"location_id": "loc1", "lat": 31.5, "lon": -1.5},
-        {"location_id": "loc_out", "lat": 31.5, "lon": -10.0},
-    ])
+    stations = pd.DataFrame(
+        [
+            {"location_id": "loc1", "lat": 31.5, "lon": -1.5},
+            {"location_id": "loc_out", "lat": 31.5, "lon": -10.0},
+        ]
+    )
 
     df = extract_stations(Path("dummy.grib"), stations)
 

@@ -9,54 +9,96 @@ def test_registry_colocation_and_eligibility(tmp_path):
     registry = StationRegistry(tmp_path)
 
     now = datetime(2026, 10, 7, tzinfo=UTC)
-    df = pd.DataFrame([
-        # Loc 1 and Loc 2 are within 50m, different providers -> should co-locate
-        {
-            "location_id": 1, "provider": "P1", "lat": 31.5, "lon": 74.5,
-            "first_datetime": now - timedelta(days=40), "last_datetime": now,
-            "lifecycle_uptime": 0.95, "pm25_uptime_90d": 0.95
-        },
-        {
-            "location_id": 2, "provider": "P2", "lat": 31.5001, "lon": 74.5001, # ~15m away
-            "first_datetime": now - timedelta(days=40), "last_datetime": now,
-            "lifecycle_uptime": 0.95, "pm25_uptime_90d": 0.95
-        },
-        # Loc 3 is isolated
-        {
-            "location_id": 3, "provider": "P1", "lat": 32.0, "lon": 75.0,
-            "first_datetime": now - timedelta(days=40), "last_datetime": now,
-            "lifecycle_uptime": 0.95, "pm25_uptime_90d": 0.95
-        },
-        # Loc 4 and 5 are within 50m but SAME provider -> do not co-locate
-        {
-            "location_id": 4, "provider": "P3", "lat": 31.8, "lon": 74.8,
-            "first_datetime": now - timedelta(days=40), "last_datetime": now,
-            "lifecycle_uptime": 0.95, "pm25_uptime_90d": 0.95
-        },
-        {
-            "location_id": 5, "provider": "P3", "lat": 31.8001, "lon": 74.8001,
-            "first_datetime": now - timedelta(days=40), "last_datetime": now,
-            "lifecycle_uptime": 0.95, "pm25_uptime_90d": 0.95
-        },
-        # Loc 6 is ineligible due to < 30 days history
-        {
-            "location_id": 6, "provider": "P4", "lat": 33.0, "lon": 76.0,
-            "first_datetime": now - timedelta(days=20), "last_datetime": now,
-            "lifecycle_uptime": 0.95, "pm25_uptime_90d": 0.95
-        },
-        # Loc 7 is ineligible due to < 0.90 uptime (90-day)
-        {
-            "location_id": 7, "provider": "P5", "lat": 33.1, "lon": 76.1,
-            "first_datetime": now - timedelta(days=40), "last_datetime": now,
-            "lifecycle_uptime": 0.95, "pm25_uptime_90d": 0.85
-        },
-        # Loc 8 is ineligible because pm25_uptime_90d is missing, despite high lifecycle_uptime
-        {
-            "location_id": 8, "provider": "P6", "lat": 33.2, "lon": 76.2,
-            "first_datetime": now - timedelta(days=40), "last_datetime": now,
-            "lifecycle_uptime": 0.95, "pm25_uptime_90d": pd.NA
-        }
-    ])
+    df = pd.DataFrame(
+        [
+            # Loc 1 and Loc 2 are within 50m, different providers -> should co-locate
+            {
+                "location_id": 1,
+                "provider": "P1",
+                "lat": 31.5,
+                "lon": 74.5,
+                "first_datetime": now - timedelta(days=40),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                "pm25_uptime_90d": 0.95,
+            },
+            {
+                "location_id": 2,
+                "provider": "P2",
+                "lat": 31.5001,
+                "lon": 74.5001,  # ~15m away
+                "first_datetime": now - timedelta(days=40),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                "pm25_uptime_90d": 0.95,
+            },
+            # Loc 3 is isolated
+            {
+                "location_id": 3,
+                "provider": "P1",
+                "lat": 32.0,
+                "lon": 75.0,
+                "first_datetime": now - timedelta(days=40),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                "pm25_uptime_90d": 0.95,
+            },
+            # Loc 4 and 5 are within 50m but SAME provider -> do not co-locate
+            {
+                "location_id": 4,
+                "provider": "P3",
+                "lat": 31.8,
+                "lon": 74.8,
+                "first_datetime": now - timedelta(days=40),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                "pm25_uptime_90d": 0.95,
+            },
+            {
+                "location_id": 5,
+                "provider": "P3",
+                "lat": 31.8001,
+                "lon": 74.8001,
+                "first_datetime": now - timedelta(days=40),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                "pm25_uptime_90d": 0.95,
+            },
+            # Loc 6 is ineligible due to < 30 days history
+            {
+                "location_id": 6,
+                "provider": "P4",
+                "lat": 33.0,
+                "lon": 76.0,
+                "first_datetime": now - timedelta(days=20),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                "pm25_uptime_90d": 0.95,
+            },
+            # Loc 7 is ineligible due to < 0.90 uptime (90-day)
+            {
+                "location_id": 7,
+                "provider": "P5",
+                "lat": 33.1,
+                "lon": 76.1,
+                "first_datetime": now - timedelta(days=40),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                "pm25_uptime_90d": 0.85,
+            },
+            # Loc 8 is ineligible because pm25_uptime_90d is missing, despite high lifecycle_uptime
+            {
+                "location_id": 8,
+                "provider": "P6",
+                "lat": 33.2,
+                "lon": 76.2,
+                "first_datetime": now - timedelta(days=40),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                "pm25_uptime_90d": pd.NA,
+            },
+        ]
+    )
 
     res = registry.build_and_save(df, "lahore", min_uptime=0.90)
 
@@ -74,22 +116,49 @@ def test_registry_colocation_and_eligibility(tmp_path):
 
     # Eligibility checks
     assert bool(res.loc[res["location_id"] == 1, "eligible"].iloc[0]) is True
-    assert bool(res.loc[res["location_id"] == 6, "eligible"].iloc[0]) is False # short history
-    assert bool(res.loc[res["location_id"] == 7, "eligible"].iloc[0]) is False # low uptime
-    assert bool(res.loc[res["location_id"] == 8, "eligible"].iloc[0]) is False # missing 90d uptime ignores lifecycle proxy
+    assert bool(res.loc[res["location_id"] == 6, "eligible"].iloc[0]) is False  # short history
+    assert bool(res.loc[res["location_id"] == 7, "eligible"].iloc[0]) is False  # low uptime
+    assert (
+        bool(res.loc[res["location_id"] == 8, "eligible"].iloc[0]) is False
+    )  # missing 90d uptime ignores lifecycle proxy
+
 
 def test_registry_colocation_determinism(tmp_path):
     registry = StationRegistry(tmp_path)
     now = datetime(2026, 10, 7, tzinfo=UTC)
 
     rows = [
-        {"location_id": 1, "provider": "P1", "lat": 31.5, "lon": 74.5, "first_datetime": now - timedelta(days=40), "last_datetime": now, "lifecycle_uptime": 0.95},
-        {"location_id": 2, "provider": "P2", "lat": 31.5001, "lon": 74.5001, "first_datetime": now - timedelta(days=40), "last_datetime": now, "lifecycle_uptime": 0.95},
-        {"location_id": 3, "provider": "P3", "lat": 31.5002, "lon": 74.5002, "first_datetime": now - timedelta(days=40), "last_datetime": now, "lifecycle_uptime": 0.95}
+        {
+            "location_id": 1,
+            "provider": "P1",
+            "lat": 31.5,
+            "lon": 74.5,
+            "first_datetime": now - timedelta(days=40),
+            "last_datetime": now,
+            "lifecycle_uptime": 0.95,
+        },
+        {
+            "location_id": 2,
+            "provider": "P2",
+            "lat": 31.5001,
+            "lon": 74.5001,
+            "first_datetime": now - timedelta(days=40),
+            "last_datetime": now,
+            "lifecycle_uptime": 0.95,
+        },
+        {
+            "location_id": 3,
+            "provider": "P3",
+            "lat": 31.5002,
+            "lon": 74.5002,
+            "first_datetime": now - timedelta(days=40),
+            "last_datetime": now,
+            "lifecycle_uptime": 0.95,
+        },
     ]
 
     df1 = pd.DataFrame(rows)
-    df2 = pd.DataFrame(rows[::-1]) # Reverse order
+    df2 = pd.DataFrame(rows[::-1])  # Reverse order
 
     res1 = registry.build_and_save(df1, "lahore", 0.90)
     res2 = registry.build_and_save(df2, "lahore", 0.90)
@@ -102,36 +171,70 @@ def test_registry_colocation_determinism(tmp_path):
     # Registry versions must be identical
     assert res1["registry_version"].iloc[0] == res2["registry_version"].iloc[0]
 
+
 def test_transitive_colocation(tmp_path):
     registry = StationRegistry(tmp_path)
     now = datetime(2026, 10, 7, tzinfo=UTC)
 
-    df = pd.DataFrame([
-        # 1 and 2 are 40m apart. 2 and 3 are 40m apart. 1 and 3 are 80m apart.
-        {"location_id": 1, "provider": "P1", "lat": 0.0, "lon": 0.0, "first_datetime": now, "last_datetime": now, "lifecycle_uptime": 0.95},
-        {"location_id": 2, "provider": "P2", "lat": 0.00036, "lon": 0.0, "first_datetime": now, "last_datetime": now, "lifecycle_uptime": 0.95}, # ~40m North
-        {"location_id": 3, "provider": "P3", "lat": 0.00072, "lon": 0.0, "first_datetime": now, "last_datetime": now, "lifecycle_uptime": 0.95}  # ~80m North
-    ])
+    df = pd.DataFrame(
+        [
+            # 1 and 2 are 40m apart. 2 and 3 are 40m apart. 1 and 3 are 80m apart.
+            {
+                "location_id": 1,
+                "provider": "P1",
+                "lat": 0.0,
+                "lon": 0.0,
+                "first_datetime": now,
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+            },
+            {
+                "location_id": 2,
+                "provider": "P2",
+                "lat": 0.00036,
+                "lon": 0.0,
+                "first_datetime": now,
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+            },  # ~40m North
+            {
+                "location_id": 3,
+                "provider": "P3",
+                "lat": 0.00072,
+                "lon": 0.0,
+                "first_datetime": now,
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+            },  # ~80m North
+        ]
+    )
 
     res = registry.build_and_save(df, "lahore", 0.90)
 
     # Transitive grouping should link 1, 2, and 3 into the same group ID (1)
     for loc_id in [1, 2, 3]:
         assert res.loc[res["location_id"] == loc_id, "colocated_group_id"].iloc[0] == 1
+
+
 def test_registry_fails_all_if_90d_uptime_missing(tmp_path):
     registry = StationRegistry(tmp_path)
     now = datetime(2026, 10, 7, tzinfo=UTC)
 
     # Simulates the output directly from list_locations before any historical backfill
-    df = pd.DataFrame([
-        {
-            "location_id": 1, "provider": "P1", "lat": 31.5, "lon": 74.5,
-            "first_datetime": now - timedelta(days=40), "last_datetime": now,
-            "lifecycle_uptime": 0.95
-            # Note: pm25_uptime_90d is completely absent from columns
-        }
-    ])
+    df = pd.DataFrame(
+        [
+            {
+                "location_id": 1,
+                "provider": "P1",
+                "lat": 31.5,
+                "lon": 74.5,
+                "first_datetime": now - timedelta(days=40),
+                "last_datetime": now,
+                "lifecycle_uptime": 0.95,
+                # Note: pm25_uptime_90d is completely absent from columns
+            }
+        ]
+    )
 
     res = registry.build_and_save(df, "lahore", 0.90)
     assert bool(res.loc[res["location_id"] == 1, "eligible"].iloc[0]) is False
-

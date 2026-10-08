@@ -13,6 +13,7 @@ Specification: docs/data-engineering.md -> 'Temporal alignment'
 
 Contract update: unified rule and corrected stitching.
 """
+
 from datetime import UTC, datetime, timedelta
 
 import pandas as pd
@@ -23,6 +24,7 @@ def normalize_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=UTC)
     return dt.astimezone(UTC)
+
 
 def asof_cams_run(issuance: datetime) -> datetime:
     """
@@ -43,6 +45,7 @@ def asof_cams_run(issuance: datetime) -> datetime:
         return cycle_00z
 
     raise ValueError("Unexpected error in asof_cams_run computation")
+
 
 def stitch_cams_series(issuance: datetime, window_hours: int = 72) -> pd.DataFrame:
     """
@@ -65,11 +68,13 @@ def stitch_cams_series(issuance: datetime, window_hours: int = 72) -> pd.DataFra
         # B = max { cycle : B + 10h <= t }
         selected_b = asof_cams_run(t)
 
-        records.append({
-            'target_hour_utc': t,
-            'cams_cycle_utc': selected_b,
-            'lead_time_hours': int((t - selected_b).total_seconds() / 3600.0)
-        })
+        records.append(
+            {
+                "target_hour_utc": t,
+                "cams_cycle_utc": selected_b,
+                "lead_time_hours": int((t - selected_b).total_seconds() / 3600.0),
+            }
+        )
 
     df = pd.DataFrame(records)
     df["lead_time_hours"] = df["lead_time_hours"].astype("Int64")

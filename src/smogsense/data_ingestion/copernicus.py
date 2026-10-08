@@ -5,6 +5,7 @@ ADS (cams-global-atmospheric-composition-forecasts) and CDS (reanalysis-era5-sin
 
 Specification: docs/data-engineering.md -> 'Copernicus ADS: CAMS global forecasts'
 """
+
 import logging
 import os
 import tempfile
@@ -20,14 +21,15 @@ from smogsense.errors import SourceUnavailable
 
 logger = logging.getLogger(__name__)
 
+
 class CamsClient:
     def __init__(self, config: dict[str, Any]):
         self.config = config
 
     def _get_ads_client(self) -> cdsapi.Client:
-        ads_conf = self.config['ads']
-        url = ads_conf['url']
-        key_env = ads_conf['key_env']
+        ads_conf = self.config["ads"]
+        url = ads_conf["url"]
+        key_env = ads_conf["key_env"]
         key = os.environ.get(key_env)
         if not key:
             raise SourceUnavailable(f"Missing {key_env} in environment")
@@ -39,7 +41,7 @@ class CamsClient:
         leadtime_hours: list[int],
         variables: list[str],
         area: list[float],
-        dest_path: Path
+        dest_path: Path,
     ) -> Path:
         """
         Fetch CAMS forecast data using ADS.
@@ -57,7 +59,9 @@ class CamsClient:
 
         # Validate area
         if len(area) != 4:
-            raise ValueError(f"Area must contain exactly 4 numbers [north, west, south, east], got {len(area)}")
+            raise ValueError(
+                f"Area must contain exactly 4 numbers [north, west, south, east], got {len(area)}"
+            )
         if area[0] < area[2]:
             raise ValueError(f"Invalid area: north ({area[0]}) must be >= south ({area[2]})")
 
@@ -72,9 +76,9 @@ class CamsClient:
         if not variables:
             raise ValueError("variables must not be empty")
 
-        ads_conf = self.config['ads']
-        dataset = ads_conf['dataset']
-        req_conf = ads_conf.get('request', {})
+        ads_conf = self.config["ads"]
+        dataset = ads_conf["dataset"]
+        req_conf = ads_conf.get("request", {})
 
         # Build request according to actual API schema
         request = {
@@ -139,9 +143,7 @@ class CamsClient:
 
         # Atomic landing with unique temporary file
         fd, temp_path_str = tempfile.mkstemp(
-            dir=dest_path.parent,
-            prefix=f".{dest_path.name}.",
-            suffix=".tmp.grib"
+            dir=dest_path.parent, prefix=f".{dest_path.name}.", suffix=".tmp.grib"
         )
         os.close(fd)
         temp_path = Path(temp_path_str)
