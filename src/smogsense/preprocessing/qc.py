@@ -165,14 +165,19 @@ def expand_to_hourly_grid(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     def _expand_group(g: pd.DataFrame) -> pd.DataFrame:
+        # Save group val before index changes
+        loc_val = g[group_col].iloc[0] if group_col in g.columns else g.name
+
         g = g.set_index("ts_utc").sort_index()
         g = g[~g.index.duplicated(keep="first")]
         if len(g) == 0:
             return g
         full_idx = pd.date_range(g.index.min(), g.index.max(), freq="h")
         g = g.reindex(full_idx)
+
         # Forward fill the group identifier
-        g[group_col] = g[group_col].ffill().bfill()
+        g[group_col] = loc_val
+
         # Fill qc_flags with 0 for new rows
         if "qc_flags" in g.columns:
             g["qc_flags"] = g["qc_flags"].fillna(0).astype(int)

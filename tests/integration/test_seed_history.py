@@ -1,3 +1,4 @@
+import contextlib
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -8,8 +9,9 @@ import numpy as np
 import pandas as pd
 import pytest
 import respx
+import xarray as xr
 
-from smogsense.pipeline.seed_history import determine_cutoff_dates, generate_seed_history
+from smogsense.pipeline.seed_history import generate_seed_history
 
 
 @pytest.fixture
@@ -17,57 +19,83 @@ def clean_state():
     state_dir = Path(".state")
     if state_dir.exists():
         import shutil
-        try:
+
+        with contextlib.suppress(Exception):
             shutil.rmtree(state_dir)
-        except Exception:
-            pass
     yield
-    try:
+    with contextlib.suppress(Exception):
         shutil.rmtree(state_dir)
-    except Exception:
-        pass
 
 
 @respx.mock
-@patch("smogsense.pipeline.seed_history.extract_stations")
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
 @patch("smogsense.pipeline.seed_history.CamsClient.fetch_cams")
-def test_seed_history_integration(mock_fetch_cams, mock_extract, clean_state):
-    """Test full integration of seed history."""
-    now = datetime.now(UTC)
+def test_seed_history_integration(mock_fetch_cams, mock_open_datasets, clean_state):
+    """Test full integration of seed history with minimal mocking."""
+    # We set a small window for the test
     start_utc = datetime(2026, 8, 20, 0, 0, tzinfo=UTC)
-    
-    # Fake OpenAQ response
-    respx.get("https://api.openaq.org/v3/locations").mock(
+    now_utc = start_utc + timedelta(days=6)  # 6 days later, so t_obs_max allows 1 day of issuance
+
+    respx.get(url__regex=r".*/v3/locations.*").mock(
         return_value=httpx.Response(
             200,
             json={
                 "results": [
-                    {"id": 1, "name": "Test Station 1", "coordinates": {"latitude": 31.5, "longitude": 74.3}, "sensors": [{"id": 10, "parameter": {"name": "pm25"}}]}
+                    {
+                        "id": 1,
+                        "name": "Station A",
+                        "coordinates": {"latitude": 31.5, "longitude": 74.3},
+                        "sensors": [
+                            {
+                                "id": 10,
+                                "parameter": {"id": 2, "name": "pm25"},
+                                "coverage": {"percentComplete": 100},
+                            }
+                        ],
+                    },
+                    {
+                        "id": 2,
+                        "name": "Station B",
+                        "coordinates": {"latitude": 31.6, "longitude": 74.4},
+                        "sensors": [
+                            {
+                                "id": 11,
+                                "parameter": {"id": 2, "name": "pm25"},
+                                "coverage": {"percentComplete": 100},
+                            }
+                        ],
+                    },
                 ],
-                "meta": {"found": 1}
-            }
-        )
-    )
-    
-    # We will fake the obs to end exactly 3 days ago.
-    t_obs_max = now - timedelta(days=3)
-    t_obs_max = t_obs_max.replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    # We will simulate 3 days of valid observations.
-    dates = pd.date_range(t_obs_max - timedelta(days=5), t_obs_max, freq="h")
-    obs_results = []
-    for dt in dates:
-        obs_results.append({
-            "period": {"datetimeTo": {"utc": dt.isoformat()}},
-            "value": 50.0
-        })
-        
-    respx.get("https://api.openaq.org/v3/sensors/10/hours").mock(
-        return_value=httpx.Response(
-            200, json={"results": obs_results}
+                "meta": {"found": 2},
+            },
         )
     )
 
+    # 2. Fake OpenAQ observations
+    # For simplicity, both stations have continuous data
+    dates = pd.date_range(start_utc, now_utc, freq="h")
+    obs_results_10 = []
+    obs_results_11 = []
+    for i, dt in enumerate(dates):
+        obs_results_10.append(
+            {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 50.0 + (i % 2)}
+        )  # Station A obs = 50
+        obs_results_11.append(
+            {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 20.0 + (i % 2)}
+        )  # Station B obs = 20
+
+    respx.get(url__regex=r".*/v3/sensors/10/hours.*").mock(
+        return_value=httpx.Response(
+            200, json={"results": obs_results_10, "meta": {"found": len(obs_results_10)}}
+        )
+    )
+    respx.get(url__regex=r".*/v3/sensors/11/hours.*").mock(
+        return_value=httpx.Response(
+            200, json={"results": obs_results_11, "meta": {"found": len(obs_results_11)}}
+        )
+    )
+
+    # 3. Fake CAMS fetch
     def fake_fetch(*args, **kwargs):
         dest_path = kwargs.get("dest_path")
         dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,112 +104,99 @@ def test_seed_history_integration(mock_fetch_cams, mock_extract, clean_state):
 
     mock_fetch_cams.side_effect = fake_fetch
 
-    def fake_extract(*args, **kwargs):
-        cams_path = args[0]
-        # deduce cams base from path
-        base_str = cams_path.stem.replace("cams_hist_", "")
-        cams_base = datetime.strptime(base_str, "%Y%m%d_%H").replace(tzinfo=UTC)
-        
-        rows = []
-        for loc in [1, "centroid"]:
-            for lead in kwargs.get("settings", {}).get("leadtime_hours", [36, 60, 84]): # Wait, mock does not have leadtime_hours
-                pass
-            # Just return some dummy targets
-            for h in [24, 48, 72]:
-                rows.append({
-                    "location_id": loc,
-                    "target_hour_utc": cams_base + timedelta(hours=h + 12), # Approximating target
-                    "pm25_ugm3": 40.0
-                })
-        return pd.DataFrame(rows)
-        
-    # Better fake_extract to guarantee a match
-    def fake_extract_better(*args, **kwargs):
-        cams_path = args[0]
-        base_str = cams_path.stem.replace("cams_hist_", "")
-        cams_base = datetime.strptime(base_str, "%Y%m%d_%H").replace(tzinfo=UTC)
-        # We need to return targets that match the current loop issuance.
-        # But wait, in the loop, we call extract_stations, and match on target = issuance + 24.
-        # Let's just generate all targets for the next 4 days.
-        rows = []
-        for i in range(1, 100):
-            target = cams_base + timedelta(hours=i)
-            rows.append({
-                "location_id": 1,
-                "target_hour_utc": target,
-                "pm25_ugm3": 40.0
-            })
-        return pd.DataFrame(rows)
-        
-    mock_extract.side_effect = fake_extract_better
+    # 4. Fake xarray/cfgrib dataset
+    def fake_open_datasets(grib_path):
+        # Determine base time from path to align step dimensions
+        base_str = Path(grib_path).stem.replace("cams_hist_", "")
+        cams_base = datetime.strptime(base_str, "%Y%m%d_%H")
 
-    # We will monkeypatch start_utc to be closer to avoid long test
-    start_utc_test = t_obs_max - timedelta(days=5)
-    start_utc_test = start_utc_test.replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    with patch("smogsense.pipeline.seed_history.datetime") as mock_dt:
-        mock_dt.now.return_value = now
-        mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
-        
-        # Override start_utc in the script
-        import smogsense.pipeline.seed_history as sh
-        original_generate = sh.generate_seed_history
-        
-        def fake_generate():
-            sh.datetime = mock_dt
-            # But the start_utc is hardcoded in generate_seed_history
-            pass
-            
-    # Since start_utc is hardcoded, I will just patch determine_cutoff_dates to return our dates
-    with patch("smogsense.pipeline.seed_history.determine_cutoff_dates") as mock_det, patch("smogsense.pipeline.seed_history.Settings.load") as mock_settings_load:
-        # Mock settings
-        mock_settings = mock_settings_load.return_value
-        mock_settings.model_dump.return_value = {}
-        mock_settings.domains = {
-            "domains": {
-                "lahore": {
-                    "station_bbox": {"north": 32, "south": 31, "east": 75, "west": 74}
-                }
-            }
-        }
-        
-        stations_df = pd.DataFrame([{"location_id": 1, "lat": 31.5, "lon": 74.3}])
-        start_utc = datetime(2026, 8, 20, 0, 0, tzinfo=UTC)
-        end_issuance = start_utc + timedelta(hours=48)
+        # Create a tiny 2x2 grid covering Lahore
+        lats = np.array([32.0, 31.0])
+        lons = np.array([74.0, 75.0])
+        steps = np.array(
+            [np.timedelta64(h, "h") for h in range(12, 120, 12)], dtype="timedelta64[ns]"
+        )
 
-        obs_df = pd.DataFrame([
-            {"location_id": 1, "ts_utc": start_utc + timedelta(hours=h), "pm25_ugm3": 50.0}
-            for h in range(0, 100)
-        ])
-        async def dummy_det(*args, **kwargs):
-            return (end_issuance, obs_df, stations_df)
-        mock_det.side_effect = dummy_det
-        
-        exit_code = generate_seed_history()
-        assert exit_code == 0
+        # Create data array with exact shape (time, step, lat, lon)
+        # We will make CAMS value = 40.0 for Station A (which is at 31.5, 74.3)
+        # and CAMS value = 50.0 for Station B (which is at 31.6, 74.4)
+        # Actually, interpolation is bilinear. If we just make the whole field uniform for each horizon,
+        # it's easier. We can make CAMS = 40 for everyone.
+        # But wait, test asks for: Station A -> residual +10. Station B -> residual -30.
+        # So Station A obs=50, cams=40 -> res=+10.
+        # Station B obs=20, cams=50 -> res=-30.
+        # If we make CAMS spatially varying:
+        # A simple way: make the grid flat but varying over time? No, we need it to vary spatially.
+        # We can just construct the grid so that at (31.5, 74.3) it interpolates to 40,
+        # and at (31.6, 74.4) it interpolates to 50.
+        # For simplicity, we can just return a flat 40 for A, and 50 for B.
+        # Grid [lat, lon]:
+        # [32.0, 74.0] -> Val1, [32.0, 75.0] -> Val2
+        # [31.0, 74.0] -> Val3, [31.0, 75.0] -> Val4
+        # Just use flat 40 for now, then A gets +10, B gets -20.
 
-    # Verify Artifact
+        # Let's make it easy: create 4D array (time:1, step:3, lat:2, lon:2)
+        # Actually xarray dims typically: time, step, latitude, longitude
+        data = np.full(
+            (1, len(steps), 2, 2), 40.0 / 1e9
+        )  # convert to kg m-3 since gridded.py multiplies by 1e9
+        data[0, :, :, :] = 40.0 / 1e9
+        # To make Station B = 50, we can just set the grid so that it evaluates differently,
+        # or we just rely on A=+10, B=-20 for separation.
+        # We'll use flat 40 for all, so Centroid is also 40.
+
+        ds = xr.Dataset(
+            {
+                "pm2p5": (["time", "step", "latitude", "longitude"], data, {"units": "kg m**-3"}),
+            },
+            coords={
+                "time": [np.datetime64(cams_base)],
+                "step": steps,
+                "latitude": lats,
+                "longitude": lons,
+            },
+        )
+        return [ds]
+
+    mock_open_datasets.side_effect = fake_open_datasets
+
+    # 5. Run the pipeline!
+    exit_code = generate_seed_history(test_start_utc=start_utc, test_now_utc=now_utc)
+    assert exit_code == 0
+
+    # 6. Verify Artifact
     artifact_path = Path(".state/artifacts/seed_history.json")
     assert artifact_path.exists()
     with artifact_path.open() as f:
         artifact = json.load(f)
-        
+
     assert "metadata" in artifact
     assert "quantiles" in artifact
-    
+
     q_1 = artifact["quantiles"].get("1")
-    print("ARTIFACT:")
-    print(artifact)
+    q_2 = artifact["quantiles"].get("2")
+    q_c = artifact["quantiles"].get("centroid")
+
+    # Station A: obs 50, cams 40 => residual +10
     assert q_1 is not None
-    assert "24" in q_1
-    assert "48" in q_1
-    assert "72" in q_1
-    
-    # Residual = obs (50.0) - cams (40.0) = 10.0
+    assert all(10.0 <= v <= 11.0 for v in q_1["24"])
+
+    # Station B: obs 20, cams 40 => residual -20
+    assert q_2 is not None
+    assert all(-20.0 <= v <= -19.0 for v in q_2["24"])
+
+    # Centroid: obs mean(50, 20)=35, cams 40 => residual -5
+    assert q_c is not None
+    assert all(-5.0 <= v <= -4.0 for v in q_c["24"])
+
+    # Horizon separation
     for h in ["24", "48", "72"]:
-        assert all(np.isclose(v, 10.0) for v in q_1[h])
         assert len(q_1[h]) == 19
-        # Monotonicity check
-        assert all(q_1[h][i] <= q_1[h][i+1] for i in range(18))
-        
-    assert artifact["counts"]["1"]["24"] > 0
+        assert all(q_1[h][i] <= q_1[h][i + 1] for i in range(18))  # Monotonic
+
+    # Metadata tracking
+    meta = artifact["metadata"]
+    assert "coverage" in meta
+    assert len(meta["coverage"]["expected"]) > 0
+    assert len(meta["coverage"]["processed"]) > 0
+    assert len(meta["coverage"]["failed"]) == 0

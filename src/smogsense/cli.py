@@ -99,6 +99,15 @@ def exists(issuance: str = typer.Option("latest", "--issuance")) -> None:
     sys.exit(0)
 
 
+@app_run.command("seed-history")
+def seed_history_cmd() -> None:
+    """Generate empirical residual quantiles (Phase 1a.7)."""
+    from smogsense.pipeline.seed_history import generate_seed_history
+
+    exit_code = generate_seed_history()
+    sys.exit(exit_code)
+
+
 def main() -> None:
     try:
         app()

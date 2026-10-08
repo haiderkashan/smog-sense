@@ -81,7 +81,7 @@ def generate_bulletin_json(
         qf = QuantileFunction(q_arr)
 
         # For simplicity, if step function (all equal), probabilities are 1 or 0
-        def get_prob(thresh: float, q_func=qf) -> float:
+        def get_prob(thresh: float, q_func: Any = qf) -> float:
             import numpy as np
 
             # P(X > thresh)

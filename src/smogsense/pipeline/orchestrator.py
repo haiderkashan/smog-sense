@@ -231,7 +231,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         return 20
 
     baseline_used = "m1_cams_raw" if has_cams else "m0_persistence"
-    stations_data = []
+    stations_data: list[dict[str, Any]] = []
     cams_lead_offset_h = 0.0
     if has_cams and cams_base:
         cams_lead_offset_h = float((issuance_utc - cams_base).total_seconds() / 3600.0)
@@ -396,14 +396,14 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
 
     try:
         Path("gh-pages").mkdir(parents=True, exist_ok=True)
-        stations_metadata = {}
-        for s in stations_data:
-            sid = f"station:{s['location_id']}"
-            stations_metadata[sid] = {
-                "name": s["name"],
-                "lat": s["lat"],
-                "lon": s["lon"],
-                "is_reference": s["is_reference"],
+        stations_meta_dict: dict[str, Any] = {}
+        for s_meta in stations_data:
+            sid = f"station:{s_meta['location_id']}"
+            stations_meta_dict[sid] = {
+                "name": s_meta["name"],
+                "lat": s_meta["lat"],
+                "lon": s_meta["lon"],
+                "is_reference": s_meta["is_reference"],
             }
 
         sources_status = {
@@ -423,7 +423,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             issuance_utc,
             "lahore",
             sources_status,
-            stations_metadata,
+            stations_meta_dict,
         )
         with Path(f"gh-pages/{run_id}.json").open("w", encoding="utf-8") as f:
             json.dump(bulletin, f, indent=2)
