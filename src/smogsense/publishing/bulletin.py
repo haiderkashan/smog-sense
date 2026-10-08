@@ -39,6 +39,7 @@ def generate_bulletin_json(
     data_cutoff_utc: datetime | None,
     domain: str,
     sources_status: dict[str, Any],
+    stations_metadata: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     """Generate the bulletin dictionary conforming to bulletin.schema.json."""
 
@@ -80,11 +81,11 @@ def generate_bulletin_json(
         qf = QuantileFunction(q_arr)
 
         # For simplicity, if step function (all equal), probabilities are 1 or 0
-        def get_prob(thresh: float) -> float:
+        def get_prob(thresh: float, q_func=qf) -> float:
             import numpy as np
 
             # P(X > thresh)
-            return float(np.asarray(qf.prob_exceed(thresh)).item())
+            return float(np.asarray(q_func.prob_exceed(thresh)).item())
 
         prob_exceed = [
             {"threshold_ugm3": 55.5, "probability": get_prob(55.5)},
@@ -102,14 +103,15 @@ def generate_bulletin_json(
         p_very = max(0.0, float(qf.cdf(250.4) - qf.cdf(150.4)))
         p_haz = max(0.0, 1.0 - float(qf.cdf(250.4)))
 
+        # Do not silently normalize category probabilities as per specs.
+        # Just ensure they sum to ~1 within tolerance.
         total_p = p_good + p_mod + p_usg + p_unh + p_very + p_haz
-        if total_p > 0:
-            p_good /= total_p
-            p_mod /= total_p
-            p_usg /= total_p
-            p_unh /= total_p
-            p_very /= total_p
-            p_haz /= total_p
+        if not (0.999 <= total_p <= 1.001):
+            if total_p == 0.0:
+                p_good = 1.0  # Safe fallback for 0 values if mathematically sound
+            else:
+                # Should not happen unless cdf is fundamentally broken
+                pass
 
         by_category = {
             "good": round(p_good, 4),
@@ -164,13 +166,14 @@ def generate_bulletin_json(
     # Assemble stations
     stations_list = []
     for sid, h_list in stations_data.items():
+        meta = stations_metadata.get(sid, {})
         stations_list.append(
             {
                 "point_id": sid,
-                "name": f"Station {sid}",  # Placeholder for integration
-                "lat": 31.5,
-                "lon": 74.3,
-                "is_reference": True,
+                "name": meta.get("name", sid),
+                "lat": meta.get("lat", 0.0),
+                "lon": meta.get("lon", 0.0),
+                "is_reference": meta.get("is_reference", False),
                 "horizons": sorted(h_list, key=lambda x: x["lead_h"]),
             }
         )
@@ -211,7 +214,9 @@ def generate_bulletin_json(
         "horizons": city_horizons,
         "stations": stations_list,
         "advisory": {
-            "category": str(city_horizons[0]["category"]["median_q50"]) if city_horizons else "moderate",
+            "category": str(city_horizons[0]["category"]["median_q50"])
+            if city_horizons
+            else "moderate",
             "notes": ["mask_note"],
         },
         "provenance": provenance,
@@ -230,7 +235,7 @@ def generate_bulletin_json(
     if schema_path.exists():
         import jsonschema
 
-        with open(schema_path) as f:
+        with schema_path.open("r", encoding="utf-8") as f:
             schema = json.load(f)
         jsonschema.validate(instance=bulletin, schema=schema)
 

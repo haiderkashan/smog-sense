@@ -19,7 +19,7 @@ def determine_mode(
 ) -> Mode:
     """Determine the degradation mode based on data availability.
 
-    If no observations and no CAMS, raises an exception (exit 20).
+    If no observations and no CAMS, raises an exception (Level 4).
     """
     if not has_observations and not has_cams:
         raise RuntimeError("No observations and no CAMS available. Level 4 failure.")
@@ -27,10 +27,16 @@ def determine_mode(
     if not has_cams:
         return "observations_only"
 
-    if promoted_model_available:
-        if cams_is_stale:
-            return "stale_cams"
-        return "full"
+    if not promoted_model_available:
+        return "baseline_only"
 
-    # Phase 1a logic or fallback
-    return "baseline_only"
+    if cams_is_stale:
+        return "stale_cams"
+
+    return "full"
+
+
+def get_degradation_level(mode: str) -> int:
+    """Map mode to degradation level according to system-architecture.md."""
+    levels = {"full": 0, "stale_cams": 1, "baseline_only": 2, "observations_only": 3}
+    return levels.get(mode, 4)

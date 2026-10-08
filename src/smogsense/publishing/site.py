@@ -24,7 +24,7 @@ def generate_site(bulletin: dict[str, Any], out_dir: Path) -> None:
 
     # Write JSON API response
     json_path = out_dir / "latest.json"
-    with open(json_path, "w", encoding="utf-8") as f:
+    with json_path.open("w", encoding="utf-8") as f:
         json.dump(bulletin, f, indent=2, ensure_ascii=False)
 
     # Write .nojekyll for GitHub Pages
@@ -85,7 +85,7 @@ def generate_site(bulletin: dict[str, Any], out_dir: Path) -> None:
 </html>
     """
 
-    with open(html_path, "w", encoding="utf-8") as f:
+    with html_path.open("w", encoding="utf-8") as f:
         f.write(html_content)
 
     logger.info(f"Generated minimal site at {out_dir}")

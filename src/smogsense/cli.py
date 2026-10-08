@@ -90,12 +90,12 @@ def exists(issuance: str = typer.Option("latest", "--issuance")) -> None:
     manifest_file = Path(".state/manifests") / f"run_{issuance_utc.strftime('%Y%m%d_%H%M')}.json"
     if manifest_file.exists():
         try:
-            with open(manifest_file) as f:
+            with manifest_file.open("r", encoding="utf-8") as f:
                 data = json.load(f)
             if data.get("published") is True:
                 sys.exit(11)
         except Exception:
-            pass
+            pass  # noqa: S110
     sys.exit(0)
 
 
