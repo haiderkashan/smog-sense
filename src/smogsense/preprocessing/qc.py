@@ -164,7 +164,7 @@ def expand_to_hourly_grid(df: pd.DataFrame) -> pd.DataFrame:
     if not group_col or "ts_utc" not in df.columns:
         return df
 
-    def _expand_group(g):
+    def _expand_group(g: pd.DataFrame) -> pd.DataFrame:
         g = g.set_index("ts_utc").sort_index()
         g = g[~g.index.duplicated(keep="first")]
         if len(g) == 0:

@@ -79,7 +79,7 @@ def extract_stations(
     df_pts = stations.copy()
 
     # 1. Add centroid if missing
-    centroid = get_centroid_from_config(domain, settings)
+    centroid = get_centroid_from_config(domain)
     if not centroid:
         raise ValueError(f"Centroid configuration missing for domain: {domain}")
 
@@ -264,6 +264,7 @@ def extract_stations(
                     )
 
                 step_val = steps[i_sample]
+                lead_hrs: Any = None
                 if pd.notna(step_val) and hasattr(step_val, "astype"):
                     # convert timedelta64[ns] to hours
                     lead_hrs = int(step_val.astype("timedelta64[h]").astype(int))

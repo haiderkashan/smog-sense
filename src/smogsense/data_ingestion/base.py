@@ -189,8 +189,8 @@ def _parse_time_header(val: str) -> float:
     except ValueError:
         try:
             dt = email.utils.parsedate_to_datetime(val)
-            now = datetime.datetime.now(datetime.UTC)
-            return min(max(0.0, (dt - now).total_seconds()), 300.0)
+            now_dt = datetime.datetime.now(datetime.UTC)
+            return min(max(0.0, (dt - now_dt).total_seconds()), 300.0)
         except (TypeError, ValueError):
             return 0.0
 

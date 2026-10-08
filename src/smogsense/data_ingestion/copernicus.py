@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 class CamsClient:
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any]) -> None:
+        self._last_request_id: str | None = None
         self.config = config
 
     def _get_ads_client(self) -> cdsapi.Client:
