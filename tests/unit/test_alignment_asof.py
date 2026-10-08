@@ -88,7 +88,7 @@ def test_stitch_cams_series_continuous():
     22Z -> current 12Z, lead 10h
     """
     df = stitch_cams_series(datetime(2026, 1, 2, 12, 0, tzinfo=UTC), window_hours=24)
-    assert len(df) == 25
+    assert len(df) == 24
     assert df["target_hour_utc"].is_monotonic_increasing
 
     # Check t = 10Z (T=12Z)
@@ -98,8 +98,8 @@ def test_stitch_cams_series_continuous():
 
     # Check t = 09Z
     row_9 = df[df["target_hour_utc"] == datetime(2026, 1, 2, 9, 0, tzinfo=UTC)].iloc[0]
-    assert row_9["cams_cycle_utc"] == datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
-    assert row_9["lead_time_hours"] == 21
+    assert row_9["cams_cycle_utc"] == datetime(2026, 1, 2, 0, 0, tzinfo=UTC)
+    assert row_9["lead_time_hours"] == 9
 
 
 def test_stitch_cams_invalid_window():
@@ -109,9 +109,7 @@ def test_stitch_cams_invalid_window():
 
 def test_stitch_cams_window_zero():
     df = stitch_cams_series(datetime(2026, 1, 2, 12, 0, tzinfo=UTC), window_hours=0)
-    assert len(df) == 1
-    assert df.iloc[0]["target_hour_utc"] == datetime(2026, 1, 2, 12, 0, tzinfo=UTC)
-    assert df.iloc[0]["lead_time_hours"] == 12
+    assert len(df) == 0
 
 
 def test_stitch_cams_schema():
@@ -127,7 +125,7 @@ def test_stitch_cams_series_invariant():
     window = 500
     df = stitch_cams_series(issuance, window_hours=window)
 
-    assert len(df) == window + 1
+    assert len(df) == window
 
     for _, row in df.iterrows():
         t = row["target_hour_utc"]
@@ -139,7 +137,9 @@ def test_stitch_cams_series_invariant():
         assert b.second == 0
 
         # 2. B + 10h <= t
-        assert b + timedelta(hours=10) <= t
+        assert b <= t
+        b_star = asof_cams_run(issuance)
+        assert b <= b_star
 
         # 3. t <= issuance
         assert t <= issuance
@@ -156,6 +156,4 @@ def test_stitch_cams_non_hour_issuance():
     df = stitch_cams_series(issuance, window_hours=0)
 
     # It floors to 12:00:00Z
-    assert len(df) == 1
-    assert df.iloc[0]["target_hour_utc"] == datetime(2026, 1, 2, 12, 0, 0, tzinfo=UTC)
-    assert df.iloc[0]["cams_cycle_utc"] == datetime(2026, 1, 2, 0, 0, 0, tzinfo=UTC)
+    assert len(df) == 0

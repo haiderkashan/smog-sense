@@ -62,11 +62,24 @@ def stitch_cams_series(issuance: datetime, window_hours: int = 72) -> pd.DataFra
 
     records = []
 
-    for i in range(window_hours, -1, -1):
+    b_star = asof_cams_run(issuance)
+
+    for i in range(window_hours, 0, -1):
         t = issuance - timedelta(hours=i)
 
-        # B = max { cycle : B + 10h <= t }
-        selected_b = asof_cams_run(t)
+        # B = latest cycle with B <= t and B <= B*(T)
+        max_b = min(t, b_star)
+
+        cycle_12z = max_b.replace(hour=12, minute=0, second=0, microsecond=0)
+        cycle_00z = max_b.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if cycle_12z <= max_b:
+            selected_b = cycle_12z
+        elif cycle_00z <= max_b:
+            selected_b = cycle_00z
+        else:
+            prev_day = max_b - timedelta(days=1)
+            selected_b = prev_day.replace(hour=12, minute=0, second=0, microsecond=0)
 
         records.append(
             {
@@ -76,6 +89,6 @@ def stitch_cams_series(issuance: datetime, window_hours: int = 72) -> pd.DataFra
             }
         )
 
-    df = pd.DataFrame(records)
+    df = pd.DataFrame(records, columns=["target_hour_utc", "cams_cycle_utc", "lead_time_hours"])
     df["lead_time_hours"] = df["lead_time_hours"].astype("Int64")
     return df
