@@ -12,6 +12,7 @@ Specification: docs/data-engineering.md -> 'Copernicus ADS: CAMS global forecast
 from pathlib import Path
 from typing import Any
 
+import cfgrib
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -63,7 +64,7 @@ def _normalize_longitudes(pts_lon: np.ndarray, grid_lon: np.ndarray) -> np.ndarr
 
 
 def extract_stations(
-    grib_path: Path, stations: pd.DataFrame, domain: str = "lahore"
+    grib_path: Path, stations: pd.DataFrame, domain: str = "lahore", settings: Any = None
 ) -> pd.DataFrame:
     """Extract station and centroid series from GRIB via bilinear interpolation."""
     required_cols = {"location_id", "lat", "lon"}
@@ -78,7 +79,7 @@ def extract_stations(
     df_pts = stations.copy()
 
     # 1. Add centroid if missing
-    centroid = get_centroid_from_config(domain)
+    centroid = get_centroid_from_config(domain, settings)
     if not centroid:
         raise ValueError(f"Centroid configuration missing for domain: {domain}")
 
@@ -92,7 +93,11 @@ def extract_stations(
     pts_lon = np.asarray(df_pts["lon"], dtype=float)
 
     # 2. Open GRIB
-    with xr.open_dataset(grib_path, engine="cfgrib") as ds:
+    datasets = cfgrib.open_datasets(str(grib_path))
+    if not datasets:
+        raise ValueError("No datasets found in GRIB")
+    ds = xr.merge(datasets, compat="override")
+    with ds:
         # Find spatial dimensions
         lat_dim = next((d for d in ds.dims if d in ("latitude", "lat")), None)
         lon_dim = next((d for d in ds.dims if d in ("longitude", "lon")), None)
@@ -140,21 +145,30 @@ def extract_stations(
         non_spatial_dims = [d for d in ds.dims if d not in (lat_dim, lon_dim)]
 
         if non_spatial_dims:
-            ds_stacked = ds.stack(sample=non_spatial_dims)
+            ds_stacked = ds.stack(sample=non_spatial_dims)  # noqa: PD013
         else:
             ds_stacked = ds.expand_dims("sample")
 
         ds_stacked = ds_stacked.transpose("sample", lat_dim, lon_dim)
         num_samples = ds_stacked.sizes["sample"]
 
-        if "valid_time" in ds_stacked.coords:
+        if "time" in ds_stacked.coords and "step" in ds_stacked.coords:
+            base_times = np.atleast_1d(ds_stacked["time"].to_numpy())
+            steps = np.atleast_1d(ds_stacked["step"].to_numpy())
+            valid_times = base_times + steps
+        elif "valid_time" in ds_stacked.coords:
             valid_times = np.atleast_1d(ds_stacked["valid_time"].to_numpy())
-        elif "time" in ds_stacked.coords and "step" in ds_stacked.coords:
-            valid_times = np.atleast_1d(
-                ds_stacked["time"].to_numpy() + ds_stacked["step"].to_numpy()
-            )
+            base_times = np.array([pd.NaT] * len(valid_times))
+            steps = np.array([pd.NaT] * len(valid_times))
         else:
             valid_times = np.array([pd.NaT] * num_samples)
+            base_times = np.array([pd.NaT] * num_samples)
+            steps = np.array([pd.NaT] * num_samples)
+
+        if len(base_times) == 1 and num_samples > 1:
+            base_times = np.repeat(base_times, num_samples)
+        if len(steps) == 1 and num_samples > 1:
+            steps = np.repeat(steps, num_samples)
 
         if len(valid_times) == 1 and num_samples > 1:
             valid_times = np.repeat(valid_times, num_samples)
@@ -239,9 +253,28 @@ def extract_stations(
 
             # Build records for this timestamp
             for i_loc, loc_id in enumerate(df_pts["location_id"]):
+                bt_obj = (
+                    pd.Timestamp(base_times[i_sample]) if pd.notna(base_times[i_sample]) else pd.NaT
+                )
+                if not pd.isna(bt_obj):
+                    bt_obj = (
+                        bt_obj.tz_localize("UTC")
+                        if bt_obj.tzinfo is None
+                        else bt_obj.tz_convert("UTC")
+                    )
+
+                step_val = steps[i_sample]
+                if pd.notna(step_val) and hasattr(step_val, "astype"):
+                    # convert timedelta64[ns] to hours
+                    lead_hrs = int(step_val.astype("timedelta64[h]").astype(int))
+                else:
+                    lead_hrs = pd.NA
+
                 rec = {
                     "location_id": loc_id,
-                    "ts_utc": ts_utc,
+                    "target_hour_utc": ts_utc,
+                    "cams_cycle_utc": bt_obj,
+                    "lead_time_hours": lead_hrs,
                     "grid_distance_km": df_pts["grid_distance_km"].iloc[i_loc],
                 }
                 # Quality indicator for out-of-domain stations

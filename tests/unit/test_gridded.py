@@ -42,10 +42,10 @@ def mock_grib_simple():
     return ds
 
 
-@patch("smogsense.preprocessing.gridded.xr.open_dataset")
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
 @patch("smogsense.preprocessing.gridded.get_centroid_from_config")
 def test_extract_stations_bilinear(mock_centroid, mock_open_ds, mock_grib_simple):
-    mock_open_ds.return_value.__enter__.return_value = mock_grib_simple
+    mock_open_ds.return_value = [mock_grib_simple]
     mock_centroid.return_value = {"lat": 31.5, "lon": 74.5}
 
     stations = pd.DataFrame(
@@ -110,10 +110,10 @@ def mock_grib_time_step():
     return ds
 
 
-@patch("smogsense.preprocessing.gridded.xr.open_dataset")
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
 @patch("smogsense.preprocessing.gridded.get_centroid_from_config")
 def test_extract_stations_time_step(mock_centroid, mock_open_ds, mock_grib_time_step):
-    mock_open_ds.return_value.__enter__.return_value = mock_grib_time_step
+    mock_open_ds.return_value = [mock_grib_time_step]
     mock_centroid.return_value = {"lat": 31.5, "lon": 74.5}
 
     stations = pd.DataFrame([{"location_id": "loc1", "lat": 31.5, "lon": 74.5}])
@@ -123,7 +123,7 @@ def test_extract_stations_time_step(mock_centroid, mock_open_ds, mock_grib_time_
     assert len(df) == 8
 
     # Verify the cross-product of time+step generated correct ts_utc
-    times = df["ts_utc"].unique()
+    times = df["target_hour_utc"].unique()
     assert len(times) == 4
 
     # Data is all 1.0, and units were C, so temp should be 1.0
@@ -150,10 +150,10 @@ def mock_grib_360():
     return ds
 
 
-@patch("smogsense.preprocessing.gridded.xr.open_dataset")
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
 @patch("smogsense.preprocessing.gridded.get_centroid_from_config")
 def test_extract_stations_longitude_normalization(mock_centroid, mock_open_ds, mock_grib_360):
-    mock_open_ds.return_value.__enter__.return_value = mock_grib_360
+    mock_open_ds.return_value = [mock_grib_360]
     # Station uses standard -180/180 convention.
     # 358.5 in [0, 360] is -1.5 in [-180, 180].
     mock_centroid.return_value = {"lat": 31.5, "lon": -1.5}
