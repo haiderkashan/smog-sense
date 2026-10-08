@@ -3,6 +3,7 @@
 Specification: docs/system-architecture.md
 """
 
+import contextlib
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -148,7 +149,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
     is_rerun = False
 
     if manifest_file.exists():
-        try:
+        with contextlib.suppress(Exception):
             with manifest_file.open("r", encoding="utf-8") as f:
                 prev = json.load(f)
             if prev.get("published") is True:
@@ -157,8 +158,6 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                     return 11
                 else:
                     is_rerun = True
-        except Exception:
-            pass
 
     from smogsense.data_ingestion.base import CircuitBreaker, RateBudget
 
@@ -311,7 +310,9 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                     if match.empty:
                         continue
                     val = float(match.iloc[0]["pm25_ugm3"])
-                    qf_out = m1.predict(val)
+                    city_q = seed_history.get("centroid", {}).get(str(h))
+                    city_m1 = M1Cams(city_q)
+                    qf_out = city_m1.predict(val)
                     if isinstance(qf_out, QuantileFunction):
                         quantiles = qf_out.q.tolist()
                     else:

@@ -28,7 +28,16 @@ logger = logging.getLogger(__name__)
 async def determine_cutoff_dates(
     start_utc: datetime, end_utc: datetime, settings: dict[str, Any]
 ) -> tuple[datetime, pd.DataFrame, pd.DataFrame]:
-    """Fetch OpenAQ and determine the resolved historical period."""
+    """Fetch OpenAQ and determine the resolved historical period.
+
+    Cutoff Rule (Point-in-Time Correctness & Common Data Support):
+    An issuance at reference time T requires observations at T+24h, T+48h, and T+72h.
+    Therefore, the maximum usable historical issuance date is bounded by:
+    T_issuance_max <= t_obs_max - 72h.
+    Furthermore, T_issuance_max cannot exceed the execution cutoff (end_utc / now_utc),
+    and the corresponding CAMS as-of cycle B*(T) must be knowable at execution time:
+    B*(T) + 10h <= end_utc.
+    """
     ac = httpx.AsyncClient(timeout=30.0)
     rb = RateBudget()
     cb = CircuitBreaker()
@@ -53,29 +62,50 @@ async def determine_cutoff_dates(
 
     t_obs_max = valid_obs["ts_utc"].max()
     t_obs_max = t_obs_max.to_pydatetime() if hasattr(t_obs_max, "to_pydatetime") else t_obs_max
+    if t_obs_max.tzinfo is None:
+        t_obs_max = t_obs_max.replace(tzinfo=UTC)
 
-    logger.info(f"Latest valid OpenAQ observation: {t_obs_max}")
+    # 1. Guard against future leakage if observations have timestamps beyond execution time
+    t_obs_effective = min(end_utc, t_obs_max)
 
-    # The latest issuance time we can evaluate targets for (requires +72h observation)
-    t_issuance_max = t_obs_max - timedelta(hours=72)
-    # Align to 00:00
+    logger.info(f"Latest valid OpenAQ observation: {t_obs_effective}")
+
+    # 2. An issuance T requires +72h observation for horizon 72
+    t_issuance_max = min(end_utc, t_obs_effective - timedelta(hours=72))
+    # Align to 00:00 UTC
     t_issuance_max = t_issuance_max.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # 3. CAMS availability check: issuance T requires CAMS run B*(T) knowable as of end_utc
+    b_star_now = asof_cams_run(end_utc)
+    while t_issuance_max >= start_utc and asof_cams_run(t_issuance_max) > b_star_now:
+        t_issuance_max -= timedelta(days=1)
+
+    if t_issuance_max < start_utc:
+        raise ValueError(
+            f"Resolved historical issuance end date {t_issuance_max} is earlier than start date {start_utc}. "
+            "Insufficient observations or CAMS history to evaluate 72h horizons."
+        )
 
     logger.info(f"Resolved historical issuance end date: {t_issuance_max}")
     return t_issuance_max, obs_clean, stations_df
 
 
 def generate_seed_history(
-    test_start_utc: datetime | None = None, test_now_utc: datetime | None = None
+    start_utc: datetime | None = None,
+    end_utc: datetime | None = None,
+    output_path: Path | None = None,
+    test_start_utc: datetime | None = None,
+    test_now_utc: datetime | None = None,
 ) -> int:
     logging.basicConfig(level=logging.INFO, force=True)
     settings = Settings.load("configs")
 
-    start_utc = test_start_utc if test_start_utc else datetime(2026, 8, 20, 0, 0, tzinfo=UTC)
-    now_utc = test_now_utc if test_now_utc else datetime.now(UTC)
+    start_dt = test_start_utc or start_utc or datetime(2026, 8, 20, 0, 0, tzinfo=UTC)
+    now_dt = test_now_utc or end_utc or datetime.now(UTC)
+    out_file = output_path or Path(".state/artifacts/seed_history.json")
 
     end_issuance, obs_df, stations_df = asyncio.run(
-        determine_cutoff_dates(start_utc, now_utc, settings.model_dump())
+        determine_cutoff_dates(start_dt, now_dt, settings.model_dump())
     )
 
     cams_client = CamsClient(settings.model_dump())
@@ -85,7 +115,7 @@ def generate_seed_history(
     coverage: dict[str, list[str]] = {"expected": [], "processed": [], "missing": [], "failed": []}
 
     # Loop over issuance times daily
-    current_issuance = start_utc
+    current_issuance = start_dt
     while current_issuance <= end_issuance:
         cams_base = asof_cams_run(current_issuance)
         coverage["expected"].append(current_issuance.isoformat())
@@ -197,12 +227,12 @@ def generate_seed_history(
 
     artifact: dict[str, Any] = {
         "metadata": {
-            "requested_start": start_utc.isoformat(),
-            "requested_end": now_utc.isoformat(),
-            "resolved_start": start_utc.isoformat(),
+            "requested_start": start_dt.isoformat(),
+            "requested_end": now_dt.isoformat(),
+            "resolved_start": start_dt.isoformat(),
             "resolved_end_issuance": end_issuance.isoformat(),
             "resolved_end_target": (end_issuance + timedelta(hours=72)).isoformat(),
-            "generated_at": now_utc.isoformat(),
+            "generated_at": now_dt.isoformat(),
             "horizons": [24, 48, 72],
             "quantile_levels": [
                 0.05,
@@ -257,7 +287,7 @@ def generate_seed_history(
         for key, group in res_df.groupby(["location_id", "horizon"]):
             if not isinstance(key, tuple) or len(key) != 2:
                 continue
-            loc_h, _horiz = key
+            loc_h, horiz_val = key
             loc_str_val = str(loc_h)
             if loc_str_val.lower() == "nan" or loc_h is None:
                 continue
@@ -270,18 +300,21 @@ def generate_seed_history(
                 artifact["quantiles"][loc_str] = {}
                 artifact["counts"][loc_str] = {}
             if len(group) > 0:
+                h_str = str(int(float(str(horiz_val))))
                 vals = np.quantile(group["residual"], qs, method="linear").tolist()
-                # Ensure monotonicity just in case
-                vals = sorted(vals)
-                artifact["quantiles"][loc_str][str(int(h))] = vals
-                artifact["counts"][loc_str][str(int(h))] = len(group)
+                # Strict monotonicity check without silent sorting repair:
+                if not all(vals[i] <= vals[i + 1] for i in range(len(vals) - 1)):
+                    raise ValueError(
+                        f"Non-monotonic quantiles computed for {loc_str} horizon {h_str}: {vals}"
+                    )
+                artifact["quantiles"][loc_str][h_str] = vals
+                artifact["counts"][loc_str][h_str] = len(group)
 
-    out_path = Path(".state/artifacts/seed_history.json")
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", encoding="utf-8") as f:
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    with out_file.open("w", encoding="utf-8") as f:
         json.dump(artifact, f, indent=2)
 
-    logger.info(f"Seed history saved to {out_path} with {len(res_df)} total residuals.")
+    logger.info(f"Seed history saved to {out_file} with {len(res_df)} total residuals.")
     return 0
 
 

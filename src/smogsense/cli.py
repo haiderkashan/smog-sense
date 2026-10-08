@@ -3,6 +3,7 @@
 Specification: docs/system-architecture.md -> 'Component responsibilities and CLI contract'
 """
 
+import contextlib
 import sys
 from datetime import UTC
 
@@ -89,22 +90,37 @@ def exists(issuance: str = typer.Option("latest", "--issuance")) -> None:
 
     manifest_file = Path(".state/manifests") / f"run_{issuance_utc.strftime('%Y%m%d_%H%M')}.json"
     if manifest_file.exists():
-        try:
+        with contextlib.suppress(Exception):
             with manifest_file.open("r", encoding="utf-8") as f:
                 data = json.load(f)
             if data.get("published") is True:
                 sys.exit(11)
-        except Exception:
-            pass
     sys.exit(0)
 
 
 @app_run.command("seed-history")
-def seed_history_cmd() -> None:
+def seed_history_cmd(
+    start: str | None = typer.Option(
+        None, "--start", help="Start date ISO-8601 (default: 2026-08-20T00:00:00Z)"
+    ),
+    end: str | None = typer.Option(
+        None, "--end", help="End date ISO-8601 (default: current execution time)"
+    ),
+    output: str | None = typer.Option(
+        None, "--output", help="Output path (default: .state/artifacts/seed_history.json)"
+    ),
+) -> None:
     """Generate empirical residual quantiles (Phase 1a.7)."""
+    from datetime import datetime
+    from pathlib import Path
+
     from smogsense.pipeline.seed_history import generate_seed_history
 
-    exit_code = generate_seed_history()
+    start_dt = datetime.fromisoformat(start).replace(tzinfo=UTC) if start else None
+    end_dt = datetime.fromisoformat(end).replace(tzinfo=UTC) if end else None
+    out_path = Path(output) if output else None
+
+    exit_code = generate_seed_history(start_utc=start_dt, end_utc=end_dt, output_path=out_path)
     sys.exit(exit_code)
 
 

@@ -1,5 +1,6 @@
 """smogsense.tests.integration.test_daily_run"""
 
+import contextlib
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,9 +16,14 @@ from smogsense.pipeline.orchestrator import run_daily_pipeline
 
 @pytest.fixture
 def clean_state():
-    # File removal disabled due to permission issues on Windows
-    # Just yield to let the test run
+    seed_path = Path(".state/artifacts/seed_history.json")
+    if seed_path.exists():
+        with contextlib.suppress(Exception):
+            seed_path.unlink()
     yield
+    if seed_path.exists():
+        with contextlib.suppress(Exception):
+            seed_path.unlink()
 
 
 @respx.mock
@@ -79,16 +85,15 @@ def test_run_daily_full(mock_extract, mock_cams_fetch, clean_state):
     # Mock extract_stations (it normally uses cfgrib to read the grib and xarray to interpolate)
     # We return a dummy CAMS timeseries DataFrame
     # Note: For M1Cams, extract_stations must return target_hour_utc and pm25_ugm3
-    cams_rows = []
-    for loc in [1, "centroid"]:
-        for h in [24, 48, 72]:
-            cams_rows.append(
-                {
-                    "location_id": loc,
-                    "target_hour_utc": issuance + timedelta(hours=h),
-                    "pm25_ugm3": 55.0,
-                }
-            )
+    cams_rows = [
+        {
+            "location_id": loc,
+            "target_hour_utc": issuance + timedelta(hours=h),
+            "pm25_ugm3": 55.0,
+        }
+        for loc in [1, "centroid"]
+        for h in [24, 48, 72]
+    ]
     mock_extract.return_value = pd.DataFrame(cams_rows)
 
     # Execute
@@ -100,7 +105,7 @@ def test_run_daily_full(mock_extract, mock_cams_fetch, clean_state):
     # Verify Manifest
     manifest_path = Path(f".state/manifests/{run_id}.json")
     assert manifest_path.exists()
-    with open(manifest_path) as f:
+    with manifest_path.open("r", encoding="utf-8") as f:
         manifest = json.load(f)
     assert manifest["published"] is True
     assert manifest["degradation_level"] == 2
@@ -118,7 +123,7 @@ def test_run_daily_full(mock_extract, mock_cams_fetch, clean_state):
     # Verify Bulletin
     bulletin_path = Path(f"gh-pages/{run_id}.json")
     assert bulletin_path.exists()
-    with open(bulletin_path) as f:
+    with bulletin_path.open("r", encoding="utf-8") as f:
         bulletin = json.load(f)
     assert bulletin["mode"] == "baseline_only"
     assert len(bulletin["horizons"]) == 3
@@ -130,6 +135,6 @@ def test_run_daily_full(mock_extract, mock_cams_fetch, clean_state):
     # Verify Force rerun -> exit 10
     exit_code3 = run_daily_pipeline(issuance, force=True)
     assert exit_code3 == 10
-    with open(manifest_path) as f:
+    with manifest_path.open("r", encoding="utf-8") as f:
         manifest3 = json.load(f)
     assert manifest3["is_rerun"] is True
