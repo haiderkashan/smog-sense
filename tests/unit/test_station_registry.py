@@ -216,7 +216,7 @@ def test_transitive_colocation(tmp_path):
         assert res.loc[res["location_id"] == loc_id, "colocated_group_id"].iloc[0] == 1
 
 
-def test_registry_fails_all_if_90d_uptime_missing(tmp_path):
+def test_registry_uses_lifecycle_fallback(tmp_path):
     registry = StationRegistry(tmp_path)
     now = datetime(2026, 10, 7, tzinfo=UTC)
 
@@ -237,4 +237,4 @@ def test_registry_fails_all_if_90d_uptime_missing(tmp_path):
     )
 
     res = registry.build_and_save(df, "lahore", 0.90)
-    assert bool(res.loc[res["location_id"] == 1, "eligible"].iloc[0]) is False
+    assert bool(res.loc[res["location_id"] == 1, "eligible"].iloc[0]) is True

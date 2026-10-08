@@ -94,12 +94,12 @@ async def test_list_locations_semantics(client, mock_settings):
                             },
                             {
                                 "id": 31,
-                                "parameter": {"id": 100, "name": "rh"},
+                                "parameter": {"id": 98, "name": "rh"},
                                 "coverage": {"percentComplete": 90.0},
                             },
                             {
                                 "id": 32,
-                                "parameter": {"id": 19, "name": "temp"},
+                                "parameter": {"id": 100, "name": "temp"},
                                 "coverage": {"percentComplete": 90.0},
                             },
                         ],
@@ -174,7 +174,7 @@ async def test_fetch_hourly_pivot(client):
             200,
             json={
                 "meta": {"found": 1},
-                "results": [{"datetime": {"utc": "2026-01-01T00:00:00Z"}, "value": 50.0}],
+                "results": [{"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 50.0}],
             },
         )
     )
@@ -183,7 +183,7 @@ async def test_fetch_hourly_pivot(client):
             200,
             json={
                 "meta": {"found": 1},
-                "results": [{"datetime": {"utc": "2026-01-01T00:00:00Z"}, "value": 60.0}],
+                "results": [{"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 60.0}],
             },
         )
     )
@@ -192,7 +192,7 @@ async def test_fetch_hourly_pivot(client):
             200,
             json={
                 "meta": {"found": 1},
-                "results": [{"datetime": {"utc": "2026-01-01T00:00:00Z"}, "value": 25.0}],
+                "results": [{"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 25.0}],
             },
         )
     )

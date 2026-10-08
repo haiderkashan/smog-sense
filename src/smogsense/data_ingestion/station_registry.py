@@ -121,7 +121,9 @@ class StationRegistry:
             df["registry_version"] = version
 
         path = self.data_dir / f"registry_{domain}.parquet"
-        df.to_parquet(path, index=False)
+        tmp_path = path.with_suffix(".parquet.tmp")
+        df.to_parquet(tmp_path, index=False)
+        tmp_path.replace(path)
         logger.info("registry_saved", domain=domain, path=str(path), count=len(df))
         return df
 

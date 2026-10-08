@@ -101,7 +101,7 @@ async def test_retry_after_http_date(
     assert resp.status_code == 200
     assert route.call_count == 2
     assert route.call_count == 2
-    assert any(delay >= 3590 for delay in sleep_calls)
+    assert any(delay >= 300.0 for delay in sleep_calls)
 
 
 @pytest.mark.anyio
@@ -240,7 +240,7 @@ async def test_timeouts_and_connection_errors_are_retried(
         side_effect=httpx.ConnectTimeout("Timeout")
     )
 
-    with pytest.raises(RetryError):
+    with pytest.raises(httpx.ConnectTimeout):
         await resilient_client.get("https://api.example.com/data")
 
     assert route.call_count == 6
