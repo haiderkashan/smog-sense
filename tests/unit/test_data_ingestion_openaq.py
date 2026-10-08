@@ -174,7 +174,9 @@ async def test_fetch_hourly_pivot(client):
             200,
             json={
                 "meta": {"found": 1},
-                "results": [{"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 50.0}],
+                "results": [
+                    {"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 50.0}
+                ],
             },
         )
     )
@@ -183,7 +185,9 @@ async def test_fetch_hourly_pivot(client):
             200,
             json={
                 "meta": {"found": 1},
-                "results": [{"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 60.0}],
+                "results": [
+                    {"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 60.0}
+                ],
             },
         )
     )
@@ -192,7 +196,9 @@ async def test_fetch_hourly_pivot(client):
             200,
             json={
                 "meta": {"found": 1},
-                "results": [{"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 25.0}],
+                "results": [
+                    {"period": {"datetimeFrom": {"utc": "2026-01-01T00:00:00Z"}}, "value": 25.0}
+                ],
             },
         )
     )
