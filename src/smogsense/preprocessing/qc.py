@@ -99,17 +99,31 @@ def apply_qc(df: pd.DataFrame, rules: dict[str, Any] | None = None) -> pd.DataFr
             tmp_val_nodup = tmp_val[~tmp.index.duplicated(keep="first")]
             tmp_val_full = tmp_val_nodup.reindex(full_idx)
 
-            rolling_med = tmp_val_full.rolling(window=7, center=True, min_periods=7).median()
-
             def calc_mad(x: np.ndarray) -> float:
                 m = np.nanmedian(x)
                 if np.isnan(m):
                     return np.nan
                 return float(np.nanmedian(np.abs(x - m)))
 
-            rolling_mad = tmp_val_full.rolling(window=7, center=True, min_periods=7).apply(
+            c_med = tmp_val_full.rolling(window=7, center=True, min_periods=7).median()
+            c_mad = tmp_val_full.rolling(window=7, center=True, min_periods=7).apply(
                 calc_mad, raw=True
             )
+
+            t_med = tmp_val_full.rolling(window=7, min_periods=4).median()
+            t_mad = tmp_val_full.rolling(window=7, min_periods=4).apply(calc_mad, raw=True)
+
+            # backward rolling for the start edges
+            b_med = tmp_val_full.iloc[::-1].rolling(window=7, min_periods=4).median().iloc[::-1]
+            b_mad = (
+                tmp_val_full.iloc[::-1]
+                .rolling(window=7, min_periods=4)
+                .apply(calc_mad, raw=True)
+                .iloc[::-1]
+            )
+
+            rolling_med = c_med.combine_first(t_med).combine_first(b_med)
+            rolling_mad = c_mad.combine_first(t_mad).combine_first(b_mad)
 
             med_aligned = rolling_med.reindex(tmp.index)
             mad_aligned = rolling_mad.reindex(tmp.index)
@@ -138,6 +152,36 @@ def apply_qc(df: pd.DataFrame, rules: dict[str, Any] | None = None) -> pd.DataFr
     return out
 
 
+def expand_to_hourly_grid(df: pd.DataFrame) -> pd.DataFrame:
+    if len(df) == 0:
+        return df
+
+    group_col = (
+        "sensor_id"
+        if "sensor_id" in df.columns
+        else ("location_id" if "location_id" in df.columns else None)
+    )
+    if not group_col or "ts_utc" not in df.columns:
+        return df
+
+    def _expand_group(g):
+        g = g.set_index("ts_utc").sort_index()
+        g = g[~g.index.duplicated(keep="first")]
+        if len(g) == 0:
+            return g
+        full_idx = pd.date_range(g.index.min(), g.index.max(), freq="h")
+        g = g.reindex(full_idx)
+        # Forward fill the group identifier
+        g[group_col] = g[group_col].ffill().bfill()
+        # Fill qc_flags with 0 for new rows
+        if "qc_flags" in g.columns:
+            g["qc_flags"] = g["qc_flags"].fillna(0).astype(int)
+        g.index.name = "ts_utc"
+        return g.reset_index()
+
+    return df.groupby(group_col, group_keys=False).apply(_expand_group).reset_index(drop=True)
+
+
 def clean_observations(df: pd.DataFrame, rules: dict[str, Any] | None = None) -> pd.DataFrame:
     """
     Unified pipeline:
@@ -145,7 +189,8 @@ def clean_observations(df: pd.DataFrame, rules: dict[str, Any] | None = None) ->
     2. Impute short internal gaps.
     3. Accumulate IMPUTED bit (512) into qc_flags.
     """
-    out = apply_qc(df, rules)
+    df_expanded = expand_to_hourly_grid(df)
+    out = apply_qc(df_expanded, rules)
 
     if "pm25_ugm3" not in out.columns:
         return out
