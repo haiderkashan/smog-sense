@@ -1,0 +1,225 @@
+{
+  "schema_version": "1.0",
+  "issuance_utc": "2026-10-08T00:00:00+00:00",
+  "generated_at_utc": "2026-10-08T09:54:15+00:00",
+  "data_cutoff_utc": "2026-10-08T00:00:00+00:00",
+  "domain": {
+    "id": "lahore",
+    "name": {
+      "en": "Lahore",
+      "ur": "لاہور"
+    },
+    "centroid": {
+      "lat": 31.5204,
+      "lon": 74.3587
+    },
+    "timezone": "Asia/Karachi"
+  },
+  "mode": "baseline_only",
+  "mode_reason": "Automated pipeline run",
+  "model": {
+    "id": "m1_cams_raw",
+    "version": "baseline",
+    "git_sha": "0000000",
+    "calibrated": false,
+    "adaptation_status": "unadapted"
+  },
+  "aqi_scheme": "us_epa_2024_pm25_24h",
+  "horizons": [
+    {
+      "lead_h": 24,
+      "window_start_utc": "2026-10-08T00:00:00+00:00",
+      "window_end_utc": "2026-10-09T00:00:00+00:00",
+      "window_start_local": "2026-10-08T05:00:00+00:00",
+      "window_end_local": "2026-10-09T05:00:00+00:00",
+      "quantiles_ugm3": {
+        "q05": 40.0,
+        "q10": 41.111111111111114,
+        "q25": 44.44444444444444,
+        "q50": 50.0,
+        "q75": 55.55555555555556,
+        "q90": 58.888888888888886,
+        "q95": 60.0
+      },
+      "category": {
+        "lower_q10": "usg",
+        "median_q50": "usg",
+        "upper_q90": "unhealthy"
+      },
+      "probabilities": {
+        "by_category": {
+          "good": 0.0,
+          "moderate": 0.0028,
+          "usg": 0.7402,
+          "unhealthy": 0.257,
+          "very_unhealthy": 0.0,
+          "hazardous": 0.0
+        },
+        "exceed": [
+          {
+            "threshold_ugm3": 55.5,
+            "probability": 0.25249999999999995
+          },
+          {
+            "threshold_ugm3": 125.5,
+            "probability": 0.0
+          },
+          {
+            "threshold_ugm3": 225.5,
+            "probability": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "lead_h": 48,
+      "window_start_utc": "2026-10-09T00:00:00+00:00",
+      "window_end_utc": "2026-10-10T00:00:00+00:00",
+      "window_start_local": "2026-10-09T05:00:00+00:00",
+      "window_end_local": "2026-10-10T05:00:00+00:00",
+      "quantiles_ugm3": {
+        "q05": 40.0,
+        "q10": 41.111111111111114,
+        "q25": 44.44444444444444,
+        "q50": 50.0,
+        "q75": 55.55555555555556,
+        "q90": 58.888888888888886,
+        "q95": 60.0
+      },
+      "category": {
+        "lower_q10": "usg",
+        "median_q50": "usg",
+        "upper_q90": "unhealthy"
+      },
+      "probabilities": {
+        "by_category": {
+          "good": 0.0,
+          "moderate": 0.0028,
+          "usg": 0.7402,
+          "unhealthy": 0.257,
+          "very_unhealthy": 0.0,
+          "hazardous": 0.0
+        },
+        "exceed": [
+          {
+            "threshold_ugm3": 55.5,
+            "probability": 0.25249999999999995
+          },
+          {
+            "threshold_ugm3": 125.5,
+            "probability": 0.0
+          },
+          {
+            "threshold_ugm3": 225.5,
+            "probability": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "lead_h": 72,
+      "window_start_utc": "2026-10-10T00:00:00+00:00",
+      "window_end_utc": "2026-10-11T00:00:00+00:00",
+      "window_start_local": "2026-10-10T05:00:00+00:00",
+      "window_end_local": "2026-10-11T05:00:00+00:00",
+      "quantiles_ugm3": {
+        "q05": 40.0,
+        "q10": 41.111111111111114,
+        "q25": 44.44444444444444,
+        "q50": 50.0,
+        "q75": 55.55555555555556,
+        "q90": 58.888888888888886,
+        "q95": 60.0
+      },
+      "category": {
+        "lower_q10": "usg",
+        "median_q50": "usg",
+        "upper_q90": "unhealthy"
+      },
+      "probabilities": {
+        "by_category": {
+          "good": 0.0,
+          "moderate": 0.0028,
+          "usg": 0.7402,
+          "unhealthy": 0.257,
+          "very_unhealthy": 0.0,
+          "hazardous": 0.0
+        },
+        "exceed": [
+          {
+            "threshold_ugm3": 55.5,
+            "probability": 0.25249999999999995
+          },
+          {
+            "threshold_ugm3": 125.5,
+            "probability": 0.0
+          },
+          {
+            "threshold_ugm3": 225.5,
+            "probability": 0.0
+          }
+        ]
+      }
+    }
+  ],
+  "stations": [
+    {
+      "point_id": "station:1",
+      "name": "Station station:1",
+      "lat": 31.5,
+      "lon": 74.3,
+      "is_reference": true,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 41.111111111111114,
+          "q50": 50.0,
+          "q90": 58.888888888888886,
+          "category_median": "usg"
+        },
+        {
+          "lead_h": 48,
+          "q10": 41.111111111111114,
+          "q50": 50.0,
+          "q90": 58.888888888888886,
+          "category_median": "usg"
+        },
+        {
+          "lead_h": 72,
+          "q10": 41.111111111111114,
+          "q50": 50.0,
+          "q90": 58.888888888888886,
+          "category_median": "usg"
+        }
+      ]
+    }
+  ],
+  "advisory": {
+    "category": "usg",
+    "notes": [
+      "mask_note"
+    ]
+  },
+  "provenance": {
+    "sources": [
+      {
+        "id": "openaq",
+        "status": "ok",
+        "as_of_utc": "2026-10-08T00:00:00+00:00"
+      },
+      {
+        "id": "cams_global",
+        "status": "ok",
+        "as_of_utc": "2026-10-07T12:00:00+00:00"
+      }
+    ]
+  },
+  "disclaimer_key": "research_only",
+  "valid_until_utc": "2026-10-09T06:00:00+00:00",
+  "basis": {
+    "n_panel": 1,
+    "n_reference": 1,
+    "n_lowcost": 0,
+    "aggregation": "mean"
+  }
+}

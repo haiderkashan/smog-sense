@@ -4,6 +4,7 @@ Specification: docs/system-architecture.md -> 'Component responsibilities and CL
 """
 
 import sys
+from datetime import UTC
 
 import typer
 
@@ -53,9 +54,49 @@ def live() -> None:
 
 
 @app_run.command()
-def daily(issuance: str = typer.Option("latest", "--issuance", help="Issuance time")) -> None:
+def daily(
+    issuance: str = typer.Option("latest", "--issuance", help="Issuance time"),
+    force: bool = typer.Option(False, "--force", help="Force run even if already published"),
+) -> None:
     """Run the full daily cycle."""
-    pass
+    from datetime import datetime
+
+    from smogsense.pipeline.orchestrator import run_daily_pipeline
+
+    if issuance == "latest":
+        # Get start of today in UTC
+        now = datetime.now(UTC)
+        issuance_utc = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        issuance_utc = datetime.fromisoformat(issuance).replace(tzinfo=UTC)
+
+    exit_code = run_daily_pipeline(issuance_utc, force=force)
+    sys.exit(exit_code)
+
+
+@app_state.command()
+def exists(issuance: str = typer.Option("latest", "--issuance")) -> None:
+    """Check if state exists and is published."""
+    import json
+    from datetime import datetime
+    from pathlib import Path
+
+    if issuance == "latest":
+        now = datetime.now(UTC)
+        issuance_utc = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        issuance_utc = datetime.fromisoformat(issuance).replace(tzinfo=UTC)
+
+    manifest_file = Path(".state/manifests") / f"run_{issuance_utc.strftime('%Y%m%d_%H%M')}.json"
+    if manifest_file.exists():
+        try:
+            with open(manifest_file) as f:
+                data = json.load(f)
+            if data.get("published") is True:
+                sys.exit(11)
+        except Exception:
+            pass
+    sys.exit(0)
 
 
 def main() -> None:
