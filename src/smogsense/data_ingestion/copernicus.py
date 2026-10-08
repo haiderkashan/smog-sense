@@ -95,11 +95,19 @@ class CamsClient:
 
         logger.info("Submitting ADS request to %s for %s", dataset, base_time)
         try:
-            result = client.retrieve(dataset, request)
+            import cdsapi.api
+
+            if hasattr(self, "_last_request_id") and getattr(self, "_last_request_id", None):
+                logger.info("Reattaching to ADS request %s", self._last_request_id)
+                result = cdsapi.api.Result(client, {"request_id": self._last_request_id})
+            else:
+                result = client.retrieve(dataset, request)
+                if result.reply and "request_id" in result.reply:
+                    self._last_request_id = result.reply["request_id"]
         except Exception as e:
             msg = str(e).lower()
             if "accept the terms" in msg or "licence" in msg or "license" in msg:
-                raise SourceUnavailable("Accept the dataset licence on the ADS website once") from e
+                raise PermissionError("Accept the dataset licence on the ADS website once") from e
             raise SourceUnavailable(f"ADS retrieve failed: {e}") from e
 
         queue_conf = ads_conf.get("queue", {})
@@ -153,6 +161,8 @@ class CamsClient:
             temp_path.replace(dest_path)
         except Exception as e:
             raise SourceUnavailable(f"Failed to download GRIB: {e}") from e
+        else:
+            self._last_request_id = None
         finally:
             if temp_path.exists():
                 temp_path.unlink()

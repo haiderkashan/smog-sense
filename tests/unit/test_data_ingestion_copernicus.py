@@ -65,7 +65,7 @@ def test_fetch_cams_403_licence_error(base_config):
         mock_cds.retrieve.side_effect = Exception("please accept the terms of the dataset")
 
         with pytest.raises(
-            SourceUnavailable, match="Accept the dataset licence on the ADS website once"
+            PermissionError, match="Accept the dataset licence on the ADS website once"
         ):
             client.fetch_cams(
                 datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
