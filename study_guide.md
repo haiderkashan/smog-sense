@@ -13,7 +13,7 @@ By passing Gate 0 (G0), we proved that the foundational infrastructure works aut
 ## 2. Core Infrastructure & Dependency Management
 
 ### 2.1 Lightning-Fast Dependencies with `uv`
-Instead of using standard `pip` or `poetry`, the project was configured to use `uv`, an extremely fast Rust-based Python package installer. 
+Instead of using standard `pip` or `poetry`, the project was configured to use `uv`, an extremely fast Rust-based Python package installer.
 * We created a `pyproject.toml` file that explicitly lists all dependencies (like `torch`, `lightgbm`, `pandera`, `typer`).
 * We generated a frozen `uv.lock` file. This guarantees reproducible builds across environments.
 * **Why it matters**: In serverless CI/CD environments (like GitHub Actions), saving 3-4 minutes on dependency installation on every single run is crucial for staying within the free tier budget.
@@ -34,7 +34,7 @@ We created several bash scripts in the `scripts/` directory to automate GitHub A
 We laid out the `src/smogsense/` package. Even though there is no real machine learning logic yet, the "interfaces" (contracts) are fully defined.
 
 ### 3.1 CLI Framework (`cli.py`)
-We used **Typer** to build the command-line interface. 
+We used **Typer** to build the command-line interface.
 * We scaffolded all the commands the system will eventually need: `ingest`, `train`, `forecast`, `site build`, etc.
 * We implemented the `doctor` command. Running `smogsense doctor --online` tests the application's configuration and network connectivity, which was a strict requirement for passing Gate 0.
 
@@ -109,7 +109,7 @@ The Resilient HTTP Foundation provides the core networking layer for the entire 
 
 **Architecture and Core Mechanisms:**
 *   **Async I/O (`httpx.AsyncClient`)**: Chosen for high-throughput, non-blocking network calls required when fetching thousands of sensor hours concurrently.
-*   **Explicit Timeouts**: 
+*   **Explicit Timeouts**:
     *   Connect: 10s. Read: 60s. Write/Pool: Standard fallback bounds.
     *   *Why*: Cloud APIs often drop connections. Infinite hang on a `read` operation freezes the daily workflow, burning Action minutes silently.
 *   **RateBudget**:
@@ -118,13 +118,13 @@ The Resilient HTTP Foundation provides the core networking layer for the entire 
     *   Protects against concurrent callers overdrawing tokens via an `asyncio.Lock()`.
 *   **Deterministic Rate-Limit Reconciliation**:
     *   APIs return `x-ratelimit-remaining`. We reconcile our internal token bucket with this header to ensure we do not overspend if another process uses the same API key.
-    *   *Invariant*: We only reconcile if the API's `x-ratelimit-limit` exactly matches our known `per_minute` or `per_hour` published capacity. 
+    *   *Invariant*: We only reconcile if the API's `x-ratelimit-limit` exactly matches our known `per_minute` or `per_hour` published capacity.
     *   *Why heuristics were rejected*: If we assumed any reset > 60 seconds meant the hourly bucket, or any limit * 5 meant the minute bucket, a non-standard API (like FIRMS' 10-minute window) could trick us into collapsing the hourly bucket down to 2 tokens, destroying throughput.
     *   *Ambiguous Windows*: If the window is ambiguous, we completely ignore the header. This mathematically bounds the error to our local token budget. Copernicus polling APIs do not even map cleanly to token buckets, reinforcing the need to ignore unknown headers.
 *   **Circuit Breaker**:
     *   Opens after exactly 3 consecutive `429` (Too Many Requests) responses.
     *   Stays open for exactly 900 seconds (15 minutes).
-    *   *Why*: APIs will ban keys for repeated 429 violations. 
+    *   *Why*: APIs will ban keys for repeated 429 violations.
     *   *Recovery*: The breaker recovers automatically, and a single successful request immediately resets the consecutive 429 counter.
 *   **Tenacity Retry Policy**:
     *   Exactly 6 *maximum total attempts* (1 initial + 5 retries). It is critical to distinguish "6 attempts" from "6 retries" (which means 7 attempts).
@@ -133,10 +133,10 @@ The Resilient HTTP Foundation provides the core networking layer for the entire 
     *   *Early Termination*: The circuit breaker can forcefully terminate retries before attempt 6 if 3 consecutive 429s hit.
     *   *Delay Math*: Exponential full jitter `U(0,1) * min(120, 2 * 2^n)`.
 *   **HTTP-Date Retry-After Handling**:
-    *   The standard allows `Retry-After: Wed, 21 Oct 2015 07:28:00 GMT`. 
+    *   The standard allows `Retry-After: Wed, 21 Oct 2015 07:28:00 GMT`.
     *   *Why*: Naive integer parsing throws exceptions and crashes the pipeline. We use `email.utils.parsedate_to_datetime` to parse HTTP dates strictly against UTC.
 *   **Audit Logging**:
-    *   Every request emits structured JSON with a SHA-256 hash of the response body. 
+    *   Every request emits structured JSON with a SHA-256 hash of the response body.
     *   *Why*: Cryptographic guarantee of reproducibility and provenance.
     *   *Failure Isolation*: If audit JSON encoding crashes, the HTTP request silently succeeds. It is unacceptable to let an observability failure destroy a successful data fetch. We assume standard stdout/stderr persistence handles the durable storage.
 *   **Credential Sanitization**:
@@ -153,7 +153,7 @@ During implementation, several critical bugs were written, identified during str
     *   *Why it looked reasonable*: It logically serialized token consumption.
     *   *Why it was wrong*: It blocked all 100+ concurrent coroutines from even evaluating their states. Fetching 100 stations effectively became completely synchronous.
     *   *Production Failure*: Destroys concurrency.
-    *   *Fix*: Compute the required sleep, release the lock, sleep, then `while True` loop to reacquire the lock and re-evaluate. 
+    *   *Fix*: Compute the required sleep, release the lock, sleep, then `while True` loop to reacquire the lock and re-evaluate.
     *   *Regression test*: `test_concurrent_refill` executes 150 tasks concurrently.
 2.  **Heuristic rate-limit-window classification**
     *   *Original*: Assumed `reset_seconds > 60` implied the hourly bucket.
@@ -225,7 +225,7 @@ The test suite must be understood as an immovable architectural guardrail.
 *   `/v3/locations`: Fetches metadata for all stations in a bounding box (from `domains.yaml`).
 *   `/v3/sensors/{id}/hours`: Fetches the actual hourly measurements for a specific sensor.
 *   **Pagination Termination**: We strictly calculate `limit * page >= found`. We never use empty-page guessing, but we do use `if not data.get("results"): break` to prevent catastrophic infinite loops if the metadata lies.
-*   **Parameter Identification**: 
+*   **Parameter Identification**:
     *   *Authoritative*: PM2.5 = `2`, Temperature = `19`, RH = `100`. We never use string matching like `name == "pm25"` because provider strings vary.
 *   **Sensor Selection**:
     *   If a location has multiple PM2.5 sensors, we employ a deterministic policy: highest `coverage.percentComplete` wins. If tied, lowest `sensor_id` wins.
@@ -238,7 +238,7 @@ The test suite must be understood as an immovable architectural guardrail.
     *   Receives the registry mapping dataframe.
     *   Spawns concurrent tasks utilizing the P1-01 `ResilientClient` to fetch each individual parameter sensor.
     *   **Pivoting**: Pivots the independent results into a wide format.
-    *   Returns: `location_id | ts_utc | pm25_ugm3 | rh_pct | temperature_c`. 
+    *   Returns: `location_id | ts_utc | pm25_ugm3 | rh_pct | temperature_c`.
     *   All timestamps explicitly mapped to `UTC` timezone awareness.
     *   Returns *raw* data. Quality control flags are applied in later pipeline phases.
 
@@ -262,19 +262,19 @@ The test suite must be understood as an immovable architectural guardrail.
 
 **THIS IS A PERMANENT ENGINEERING INVARIANT. DO NOT VIOLATE IT.**
 
-The project specification requires a station to have a specific **90-day PM2.5 uptime** to be eligible for machine learning. 
+The project specification requires a station to have a specific **90-day PM2.5 uptime** to be eligible for machine learning.
 
-The OpenAQ `/v3/locations` metadata payload provides a field named `coverage.percentComplete`. 
+The OpenAQ `/v3/locations` metadata payload provides a field named `coverage.percentComplete`.
 
 *   **The Difference**: `coverage.percentComplete` reflects the data density over the sensor's *entire historical lifecycle*. It is NOT a rolling 90-day metric.
-*   **The Invariant Rule**: 
+*   **The Invariant Rule**:
     1.  The OpenAQ coverage field is retained and renamed explicitly to `lifecycle_uptime`.
     2.  It MUST NOT be renamed or interpreted as `pm25_uptime_90d`.
-    3.  `lifecycle_uptime` alone **cannot satisfy** the 90-day requirement. 
+    3.  `lifecycle_uptime` alone **cannot satisfy** the 90-day requirement.
     4.  If the column `pm25_uptime_90d` is missing, the station **strictly fails** the eligibility gate.
 *   **Where Calculation Occurs**: The actual `pm25_uptime_90d` must be mathematically calculated from the appropriate historical observation window. The **historical backfill pipelines (P1-07 and P1-13)** are exclusively responsible for fetching that data, computing the true ratio, and injecting `pm25_uptime_90d` into the registry pipeline.
-*   **Testing**: 
-    *   `test_registry_fails_all_if_90d_uptime_missing`: Explicitly asserts that the raw `list_locations` dataframe (which lacks the 90-day column) fails the eligibility check for 100% of stations, regardless of their `lifecycle_uptime`. 
+*   **Testing**:
+    *   `test_registry_fails_all_if_90d_uptime_missing`: Explicitly asserts that the raw `list_locations` dataframe (which lacks the 90-day column) fails the eligibility check for 100% of stations, regardless of their `lifecycle_uptime`.
     *   `test_registry_colocation_and_eligibility`: Adds an assertion that explicitly testing missing `pm25_uptime_90d` alongside high `lifecycle_uptime` yields False.
 
 ---
