@@ -17,7 +17,7 @@ import pandas as pd
 import xarray as xr
 import yaml
 from pyproj import Geod
-from scipy.interpolate import RegularGridInterpolator
+from scipy.interpolate import RegularGridInterpolator  # type: ignore
 
 PM25_ALIASES = {"pm2p5", "particulate_matter_2.5um", "pm25"}
 TEMP_ALIASES = {"t2m", "2m_temperature"}
@@ -163,7 +163,7 @@ def extract_stations(
             t_val = valid_times[i_sample]
             ts_obj = pd.Timestamp(t_val) if pd.notnull(t_val) else pd.NaT
             if pd.isnull(ts_obj):
-                ts_utc = pd.NaT  # type: ignore
+                ts_utc = pd.NaT
             elif ts_obj.tzinfo is None:
                 ts_utc = ts_obj.tz_localize("UTC")  # type: ignore
             else:
