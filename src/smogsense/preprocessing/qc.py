@@ -12,16 +12,18 @@ Public contract (implemented in Phase 1):
 Specification: docs/data-engineering.md -> 'Quality control and low-cost sensor handling'
 """
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
+
+from smogsense.preprocessing.imputation import impute_short_gaps
 
 RANGE_REJECT = 1
 NEGATIVE_CLIPPED = 2
 FLATLINE = 4
 SPIKE = 8
 IMPUTED = 512
-
-from typing import Any
 
 
 def apply_qc(df: pd.DataFrame, rules: dict[str, Any] | None = None) -> pd.DataFrame:
@@ -134,9 +136,6 @@ def apply_qc(df: pd.DataFrame, rules: dict[str, Any] | None = None) -> pd.DataFr
     # The prompt: "Follow the project's DataFrame index contract. If the repository's Pandera contract requires a reset index, reset it before returning."
     # We will just preserve the index.
     return out
-
-
-from smogsense.preprocessing.imputation import impute_short_gaps
 
 
 def clean_observations(df: pd.DataFrame, rules: dict[str, Any] | None = None) -> pd.DataFrame:

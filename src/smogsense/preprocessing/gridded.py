@@ -29,7 +29,7 @@ def get_centroid_from_config(domain: str = "lahore") -> dict[str, Any]:
     config_path = project_root / "configs" / "domains.yaml"
     if not config_path.exists():
         return {}
-    with open(config_path, encoding="utf-8") as f:
+    with config_path.open(encoding="utf-8") as f:
         conf = yaml.safe_load(f)
         if conf is None:
             conf = {}
@@ -82,7 +82,7 @@ def extract_stations(
     if not centroid:
         raise ValueError(f"Centroid configuration missing for domain: {domain}")
 
-    if "centroid" not in df_pts["location_id"].values:
+    if "centroid" not in df_pts["location_id"].to_numpy():
         cent_row = pd.DataFrame(
             [{"location_id": "centroid", "lat": centroid["lat"], "lon": centroid["lon"]}]
         )
@@ -100,8 +100,8 @@ def extract_stations(
         if not lat_dim or not lon_dim:
             raise ValueError("Could not identify spatial dimensions (latitude/longitude) in GRIB.")
 
-        grid_lats = ds[lat_dim].values
-        grid_lons = ds[lon_dim].values
+        grid_lats = ds[lat_dim].to_numpy()
+        grid_lons = ds[lon_dim].to_numpy()
 
         pts_lon = _normalize_longitudes(pts_lon, grid_lons)
 
@@ -148,9 +148,11 @@ def extract_stations(
         num_samples = ds_stacked.sizes["sample"]
 
         if "valid_time" in ds_stacked.coords:
-            valid_times = np.atleast_1d(ds_stacked["valid_time"].values)
+            valid_times = np.atleast_1d(ds_stacked["valid_time"].to_numpy())
         elif "time" in ds_stacked.coords and "step" in ds_stacked.coords:
-            valid_times = np.atleast_1d(ds_stacked["time"].values + ds_stacked["step"].values)
+            valid_times = np.atleast_1d(
+                ds_stacked["time"].to_numpy() + ds_stacked["step"].to_numpy()
+            )
         else:
             valid_times = np.array([pd.NaT] * num_samples)
 
@@ -161,8 +163,8 @@ def extract_stations(
 
         for i_sample in range(num_samples):
             t_val = valid_times[i_sample]
-            ts_obj = pd.Timestamp(t_val) if pd.notnull(t_val) else pd.NaT
-            if pd.isnull(ts_obj):
+            ts_obj = pd.Timestamp(t_val) if pd.notna(t_val) else pd.NaT
+            if pd.isna(ts_obj):
                 ts_utc = pd.NaT
             elif ts_obj.tzinfo is None:
                 ts_utc = ts_obj.tz_localize("UTC")  # type: ignore
@@ -177,16 +179,13 @@ def extract_stations(
                 v = str(v_obj)
                 da = ds_stacked[v]
 
-                if "sample" in da.dims:
-                    da_slice = da.isel(sample=i_sample)
-                else:
-                    da_slice = da
+                da_slice = da.isel(sample=i_sample) if "sample" in da.dims else da
 
                 if lat_dim not in da_slice.dims or lon_dim not in da_slice.dims:
                     continue
 
                 da_slice = da_slice.transpose(lat_dim, lon_dim)
-                data = da_slice.values
+                data = da_slice.to_numpy()
 
                 if flip_lat:
                     data = data[::-1, :]

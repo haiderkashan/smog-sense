@@ -34,7 +34,7 @@ def pchip_impute(series: pd.Series, max_gap: int = 3) -> pd.Series:
     if len(out) == 0:
         return out
 
-    arr = out.values
+    arr = out.to_numpy()
     mask_na = pd.isna(arr)
 
     valid_idx = np.where(~mask_na)[0]
@@ -56,7 +56,7 @@ def pchip_impute(series: pd.Series, max_gap: int = 3) -> pd.Series:
         return out
 
     if isinstance(out.index, pd.DatetimeIndex):
-        x_all = out.index.astype(np.int64).values
+        x_all = out.index.astype(np.int64).to_numpy()
     else:
         x_all = np.arange(len(out))
 

@@ -59,22 +59,21 @@ def test_fetch_cams_validation(base_config):
 def test_fetch_cams_403_licence_error(base_config):
     client = CamsClient(base_config)
 
-    with patch.dict("os.environ", {"ADS_API_KEY": "123"}):
-        with patch("cdsapi.Client") as MockClient:
-            mock_cds = MagicMock()
-            MockClient.return_value = mock_cds
-            mock_cds.retrieve.side_effect = Exception("please accept the terms of the dataset")
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as mock_client:
+        mock_cds = MagicMock()
+        mock_client.return_value = mock_cds
+        mock_cds.retrieve.side_effect = Exception("please accept the terms of the dataset")
 
-            with pytest.raises(
-                SourceUnavailable, match="Accept the dataset licence on the ADS website once"
-            ):
-                client.fetch_cams(
-                    datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
-                    [0, 1],
-                    ["var1"],
-                    [10, 0, 0, 10],
-                    Path("test.grib"),
-                )
+        with pytest.raises(
+            SourceUnavailable, match="Accept the dataset licence on the ADS website once"
+        ):
+            client.fetch_cams(
+                datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
+                [0, 1],
+                ["var1"],
+                [10, 0, 0, 10],
+                Path("test.grib"),
+            )
 
 
 @patch("time.sleep", return_value=None)
@@ -82,9 +81,9 @@ def test_fetch_cams_403_licence_error(base_config):
 def test_fetch_cams_queue_timeout(mock_mono, mock_sleep, base_config):
     client = CamsClient(base_config)
 
-    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as mock_client:
         mock_cds = MagicMock()
-        MockClient.return_value = mock_cds
+        mock_client.return_value = mock_cds
         mock_result = MagicMock()
         mock_cds.retrieve.return_value = mock_result
         mock_result.reply = {"state": "running"}
@@ -103,9 +102,9 @@ def test_atomic_landing(tmp_path, base_config):
     client = CamsClient(base_config)
     dest_path = tmp_path / "final.grib"
 
-    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as mock_client:
         mock_cds = MagicMock()
-        MockClient.return_value = mock_cds
+        mock_client.return_value = mock_cds
         mock_result = MagicMock()
         mock_cds.retrieve.return_value = mock_result
         mock_result.reply = {"state": "completed"}
@@ -130,9 +129,9 @@ def test_atomic_landing_cleanup_on_fail(tmp_path, base_config):
     client = CamsClient(base_config)
     dest_path = tmp_path / "final.grib"
 
-    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as mock_client:
         mock_cds = MagicMock()
-        MockClient.return_value = mock_cds
+        mock_client.return_value = mock_cds
         mock_result = MagicMock()
         mock_cds.retrieve.return_value = mock_result
         mock_result.reply = {"state": "completed"}
@@ -143,11 +142,13 @@ def test_atomic_landing_cleanup_on_fail(tmp_path, base_config):
 
         mock_result.download.side_effect = fake_download_fail
 
-        with patch("time.monotonic", return_value=0):
-            with pytest.raises(SourceUnavailable, match="Failed to download GRIB"):
-                client.fetch_cams(
-                    datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], ["var1"], [10, 0, 0, 10], dest_path
-                )
+        with (
+            patch("time.monotonic", return_value=0),
+            pytest.raises(SourceUnavailable, match="Failed to download GRIB"),
+        ):
+            client.fetch_cams(
+                datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], ["var1"], [10, 0, 0, 10], dest_path
+            )
 
         assert not dest_path.exists()
         assert len(list(tmp_path.glob("*.tmp.grib"))) == 0
@@ -164,9 +165,9 @@ def test_concurrent_atomic_landing(tmp_path, base_config):
     # To ensure they overlap, we'll make the mock download sleep slightly,
     # then write to its specific target_path.
 
-    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as MockClient:
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as mock_client:
         mock_cds = MagicMock()
-        MockClient.return_value = mock_cds
+        mock_client.return_value = mock_cds
         mock_result = MagicMock()
         mock_cds.retrieve.return_value = mock_result
         mock_result.reply = {"state": "completed"}

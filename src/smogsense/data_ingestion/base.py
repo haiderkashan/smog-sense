@@ -244,7 +244,7 @@ class ResilientClient:
             resp.raise_for_status()
 
             remaining = resp.headers.get("x-ratelimit-remaining")
-            reset = resp.headers.get("x-ratelimit-reset")
+            resp.headers.get("x-ratelimit-reset")
             if remaining is not None:
                 with contextlib.suppress(ValueError):
                     limit_val = (

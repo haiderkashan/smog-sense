@@ -150,7 +150,7 @@ class CamsClient:
 
         try:
             result.download(str(temp_path))
-            os.replace(temp_path, dest_path)
+            temp_path.replace(dest_path)
         except Exception as e:
             raise SourceUnavailable(f"Failed to download GRIB: {e}") from e
         finally:
