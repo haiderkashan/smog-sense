@@ -401,3 +401,8 @@ Subphase 1a.3 implements CAMS forecast fetching, strict bitemporal alignment, an
    - Detects and strictly flips ascending/descending orientation before providing coordinate pairs to `scipy`'s `RegularGridInterpolator(method='linear')`.
    - Modulo arithmetic securely wraps `-180/180` and `0/360` domains.
 4. **Centroids and Geodesics:** WGS84 great-circle distance `grid_distance_km` calculates exact range from the point target to the physically *nearest* grid node, avoiding interpolation-distance confusion. `outside_grid` is recorded natively.
+
+### Distribution and CRPS (Phase 1a.5)
+1. **Tail formulations:** The lower tail uses a log-linear shape from the lowest two percentiles (`0.05`, `0.10`) capped at 0. The upper tail projects linearly on a transformed space `-\ln(1-	au)` using the top two percentiles (`0.90`, `0.95`). Vectorizing inverse evaluation properly clamps values directly to prevent `log(0)` overflows on extremes.
+2. **CRPS Numeric Integrity:** Numerical pinball integration exactly aligns mathematically to the `scoringrules` implementation without relying on R code integrations. The 19-knot trapezoidal approximation precisely meets `< 0.5%` absolute error targets compared to exact Normal distributions evaluated across extreme endpoints.
+3. **Monotonicity:** The `QuantileFunction` intrinsically applies ascending sorts (`np.sort`) on init to guarantee submodular ordering of probabilities and crossing boundaries, minimizing potential losses before any metric queries.

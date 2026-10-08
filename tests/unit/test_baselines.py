@@ -9,7 +9,7 @@ def test_m0_persistence_n_zero() -> None:
     # N=0 means residual_quantiles is None
     m0 = M0Persistence(None)
     obs = pd.Series([10.0, 20.0, 30.0])
-    
+
     with pytest.raises(ValueError, match="undefined at N=0"):
         m0.predict(obs)
 
@@ -18,11 +18,11 @@ def test_m0_persistence_probabilistic() -> None:
     # Create fake 19 residual quantiles (e.g. from -10 to +10)
     residuals = np.linspace(-10, 10, 19)
     m0 = M0Persistence(residuals)
-    
-    obs = pd.Series([10.0, 20.0, 30.0, np.nan]) # mean of valid is 20.0
-    
+
+    obs = pd.Series([10.0, 20.0, 30.0, np.nan])  # mean of valid is 20.0
+
     qf = m0.predict(obs)
-    
+
     # 20.0 + (-10) = 10
     assert np.isclose(qf.ppf(0.05), 10.0)
     # 20.0 + 10 = 30
@@ -32,7 +32,7 @@ def test_m0_persistence_probabilistic() -> None:
 def test_m1_cams_n_zero() -> None:
     m1 = M1Cams(None)
     cams_val = 50.0
-    
+
     res = m1.predict(cams_val)
     # Deterministic at N=0
     assert isinstance(res, float)
@@ -42,10 +42,11 @@ def test_m1_cams_n_zero() -> None:
 def test_m1_cams_probabilistic() -> None:
     residuals = np.linspace(-5, 5, 19)
     m1 = M1Cams(residuals)
-    
+
     cams_val = 50.0
     qf = m1.predict(cams_val)
     from smogsense.models.distribution import QuantileFunction
+
     assert isinstance(qf, QuantileFunction)
     # Probabilistic output
     assert np.isclose(qf.ppf(0.05), 45.0)
