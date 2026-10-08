@@ -10,25 +10,49 @@
       "id": 1001,
       "name": "US Embassy Lahore",
       "isMonitor": true,
-      "provider": {"name": "State Department"},
-      "coordinates": {"latitude": 31.55, "longitude": 74.33},
-      "datetimeFirst": {"utc": "2020-01-01T00:00:00+00:00"},
-      "datetimeLast": {"utc": "2026-10-07T12:00:00+00:00"},
+      "provider": {
+        "name": "State Department"
+      },
+      "coordinates": {
+        "latitude": 31.55,
+        "longitude": 74.33
+      },
+      "datetimeFirst": {
+        "utc": "2020-01-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-07T12:00:00+00:00"
+      },
       "sensors": [
         {
           "id": 5001,
-          "parameter": {"id": 2, "name": "pm25"},
-          "coverage": {"percentComplete": 95.0}
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 95.0
+          }
         },
         {
           "id": 5002,
-          "parameter": {"id": 100, "name": "relativehumidity"},
-          "coverage": {"percentComplete": 90.0}
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 90.0
+          }
         },
         {
           "id": 5003,
-          "parameter": {"id": 19, "name": "temperature"},
-          "coverage": {"percentComplete": 90.0}
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 90.0
+          }
         }
       ]
     }

@@ -69,6 +69,12 @@ async def test_openaq_fetch_hourly_contract(resilient_client: ResilientClient) -
     route = respx.get("https://api.openaq.org/v3/sensors/5001/hours").mock(
         return_value=httpx.Response(200, json=data)
     )
+    respx.get("https://api.openaq.org/v3/sensors/5002/hours").mock(
+        return_value=httpx.Response(200, json=data)
+    )
+    respx.get("https://api.openaq.org/v3/sensors/5003/hours").mock(
+        return_value=httpx.Response(200, json=data)
+    )
 
     start_utc = datetime(2026, 10, 7, 10, 0, tzinfo=UTC)
     end_utc = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
