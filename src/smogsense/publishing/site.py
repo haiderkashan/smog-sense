@@ -27,6 +27,19 @@ def generate_site(bulletin: dict[str, Any], out_dir: Path) -> None:
     with json_path.open("w", encoding="utf-8") as f:
         json.dump(bulletin, f, indent=2, ensure_ascii=False)
 
+    forecast_dir = out_dir / "forecast"
+    forecast_dir.mkdir(parents=True, exist_ok=True)
+    forecast_latest_path = forecast_dir / "latest.json"
+    with forecast_latest_path.open("w", encoding="utf-8") as f:
+        json.dump(bulletin, f, indent=2, ensure_ascii=False)
+
+    run_id = bulletin.get("run_id")
+    if run_id:
+        with (out_dir / f"{run_id}.json").open("w", encoding="utf-8") as f:
+            json.dump(bulletin, f, indent=2, ensure_ascii=False)
+        with (forecast_dir / f"{run_id}.json").open("w", encoding="utf-8") as f:
+            json.dump(bulletin, f, indent=2, ensure_ascii=False)
+
     # Write .nojekyll for GitHub Pages
     (out_dir / ".nojekyll").touch()
 

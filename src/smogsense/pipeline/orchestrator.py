@@ -276,7 +276,8 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
 
     try:
         cams_base = asof_cams_run(issuance_utc)
-        cams_client = CamsClient(settings.model_dump())
+        cams_conf = settings.sources if "ads" in settings.sources else settings.model_dump()
+        cams_client = CamsClient(cams_conf)
         # CAMS GRIB files stored in data/raw/cams, outside the .state git branch
         cams_path = Path("data/raw/cams") / f"cams_{cams_base.strftime('%Y%m%d_%H')}.grib"
 
@@ -629,9 +630,22 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             git_sha=git_sha,
         )
 
-        # Write bulletin first
-        with Path(f"gh-pages/{run_id}.json").open("w", encoding="utf-8") as f:
+        # Write bulletin and site outputs under site/ (mounted writable volume)
+        site_dir = Path("site")
+        site_dir.mkdir(parents=True, exist_ok=True)
+        forecast_dir = site_dir / "forecast"
+        forecast_dir.mkdir(parents=True, exist_ok=True)
+        with (forecast_dir / f"{run_id}.json").open("w", encoding="utf-8") as f:
             json.dump(bulletin, f, indent=2)
+        with (site_dir / f"{run_id}.json").open("w", encoding="utf-8") as f:
+            json.dump(bulletin, f, indent=2)
+
+        # Also write to gh-pages if writable (for local test parity)
+        with contextlib.suppress(OSError):
+            gh_pages_dir = Path("gh-pages")
+            gh_pages_dir.mkdir(parents=True, exist_ok=True)
+            with (gh_pages_dir / f"{run_id}.json").open("w", encoding="utf-8") as f:
+                json.dump(bulletin, f, indent=2)
 
         # Write forecast log ONLY after bulletin successfully generated and validated
         Path(".state/forecasts").mkdir(parents=True, exist_ok=True)
@@ -654,7 +668,9 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         return 50
 
     try:
-        generate_site(bulletin, Path("gh-pages"))
+        generate_site(bulletin, site_dir)
+        with contextlib.suppress(OSError):
+            generate_site(bulletin, Path("gh-pages"))
     except Exception as e:
         logger.error(f"Failed to generate site: {e}")
         write_manifest(

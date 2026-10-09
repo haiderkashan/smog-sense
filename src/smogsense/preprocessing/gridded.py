@@ -67,27 +67,26 @@ def extract_stations(
     grib_path: Path, stations: pd.DataFrame, domain: str = "lahore", settings: Any = None
 ) -> pd.DataFrame:
     """Extract station and centroid series from GRIB via bilinear interpolation."""
-    required_cols = {"location_id", "lat", "lon"}
-    if not required_cols.issubset(stations.columns):
-        raise ValueError(
-            f"Station DataFrame missing required columns: {required_cols - set(stations.columns)}"
-        )
-
-    if stations.empty:
-        return pd.DataFrame()
-
-    df_pts = stations.copy()
-
-    # 1. Add centroid if missing
     centroid = get_centroid_from_config(domain)
     if not centroid:
         raise ValueError(f"Centroid configuration missing for domain: {domain}")
 
-    if "centroid" not in df_pts["location_id"].to_numpy():
-        cent_row = pd.DataFrame(
+    if stations is None or stations.empty:
+        df_pts = pd.DataFrame(
             [{"location_id": "centroid", "lat": centroid["lat"], "lon": centroid["lon"]}]
         )
-        df_pts = pd.concat([df_pts, cent_row], ignore_index=True)
+    else:
+        required_cols = {"location_id", "lat", "lon"}
+        if not required_cols.issubset(stations.columns):
+            raise ValueError(
+                f"Station DataFrame missing required columns: {required_cols - set(stations.columns)}"
+            )
+        df_pts = stations.copy()
+        if "centroid" not in df_pts["location_id"].to_numpy():
+            cent_row = pd.DataFrame(
+                [{"location_id": "centroid", "lat": centroid["lat"], "lon": centroid["lon"]}]
+            )
+            df_pts = pd.concat([df_pts, cent_row], ignore_index=True)
 
     pts_lat = np.asarray(df_pts["lat"], dtype=float)
     pts_lon = np.asarray(df_pts["lon"], dtype=float)

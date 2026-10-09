@@ -17,11 +17,13 @@ import asyncio
 from datetime import datetime
 from typing import Any
 
+import httpx
 import pandas as pd
 from structlog import get_logger
 
 from smogsense.config import Settings
-from smogsense.data_ingestion.base import ResilientClient
+from smogsense.data_ingestion.base import CircuitBreakerError, ResilientClient
+from smogsense.errors import QuotaExceeded
 
 logger = get_logger(__name__)
 
@@ -230,8 +232,17 @@ async def fetch_hourly(
             columns=["location_id", "ts_utc", "pm25_ugm3", "rh_pct", "temperature_c"]
         )
 
-    dfs = await asyncio.gather(*tasks)
-    valid_dfs = [df for df in dfs if not df.empty]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    valid_dfs: list[pd.DataFrame] = []
+    for res in results:
+        if isinstance(res, (CircuitBreakerError, QuotaExceeded)) or (
+            isinstance(res, httpx.HTTPStatusError) and res.response.status_code == 429
+        ):
+            raise res
+        elif isinstance(res, Exception):
+            logger.warning("sensor_hourly_fetch_failed", error=str(res))
+        elif isinstance(res, pd.DataFrame) and not res.empty:
+            valid_dfs.append(res)
 
     if not valid_dfs:
         return pd.DataFrame(

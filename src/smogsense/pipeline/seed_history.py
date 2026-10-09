@@ -133,7 +133,8 @@ def generate_seed_history(
         determine_cutoff_dates(start_dt, now_dt, settings.model_dump())
     )
 
-    cams_client = CamsClient(settings.model_dump())
+    cams_conf = settings.sources if "ads" in settings.sources else settings.model_dump()
+    cams_client = CamsClient(cams_conf)
 
     residuals: list[dict[str, Any]] = []
     m0_residuals: list[dict[str, Any]] = []

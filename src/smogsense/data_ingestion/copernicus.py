@@ -12,7 +12,7 @@ import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import cdsapi
 import requests.exceptions
@@ -28,8 +28,15 @@ class CamsClient:
         self._last_request_id: str | None = None
         self.config = config
 
+    def _get_ads_conf(self) -> dict[str, Any]:
+        if "ads" in self.config:
+            return cast(dict[str, Any], self.config["ads"])
+        if "sources" in self.config and "ads" in self.config["sources"]:
+            return cast(dict[str, Any], self.config["sources"]["ads"])
+        raise KeyError("ads configuration not found in config")
+
     def _get_ads_client(self) -> cdsapi.Client:
-        ads_conf = self.config["ads"]
+        ads_conf = self._get_ads_conf()
         url = ads_conf["url"]
         key_env = ads_conf["key_env"]
         key = os.environ.get(key_env)
@@ -78,7 +85,7 @@ class CamsClient:
         if not variables:
             raise ValueError("variables must not be empty")
 
-        ads_conf = self.config["ads"]
+        ads_conf = self._get_ads_conf()
         dataset = ads_conf["dataset"]
         req_conf = ads_conf.get("request", {})
 
