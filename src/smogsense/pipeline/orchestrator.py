@@ -581,7 +581,6 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         return 20
 
     try:
-        Path("gh-pages").mkdir(parents=True, exist_ok=True)
         stations_meta_dict: dict[str, Any] = {}
         for s_meta in stations_data:
             sid = f"station:{s_meta['location_id']}"
