@@ -83,6 +83,7 @@ columns:
   data_cutoff_utc:
     description: Latest observation time that was knowable at generation.
     dtype: datetime64[ns, UTC]
+    nullable: true
     coerce: true
   git_sha:
     description: Code version.

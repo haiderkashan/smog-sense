@@ -17,16 +17,16 @@ from smogsense.models.distribution import QuantileFunction
 
 
 def determine_aqi_category(pm25: float) -> str:
-    """Return AQI category based on US EPA breaks for PM2.5."""
-    if pm25 <= 12.0:
+    """Return AQI category based on US EPA 2024 breaks for PM2.5."""
+    if pm25 <= 9.0:
         return "good"
     elif pm25 <= 35.4:
         return "moderate"
     elif pm25 <= 55.4:
         return "usg"
-    elif pm25 <= 150.4:
+    elif pm25 <= 125.4:
         return "unhealthy"
-    elif pm25 <= 250.4:
+    elif pm25 <= 225.4:
         return "very_unhealthy"
     return "hazardous"
 
@@ -40,6 +40,7 @@ def generate_bulletin_json(
     domain: str,
     sources_status: dict[str, Any],
     stations_metadata: dict[str, dict[str, Any]],
+    git_sha: str | None = None,
 ) -> dict[str, Any]:
     """Generate the bulletin dictionary conforming to bulletin.schema.json."""
 
@@ -93,15 +94,13 @@ def generate_bulletin_json(
             {"threshold_ugm3": 225.5, "probability": get_prob(225.5)},
         ]
 
-        # Category probabilities (good, moderate, etc.)
-        # P(good) = P(X <= 12.0) = qf.cdf(12.0)
-        # P(moderate) = P(12.0 < X <= 35.4) = qf.cdf(35.4) - qf.cdf(12.0)
-        p_good = max(0.0, float(qf.cdf(12.0)))
-        p_mod = max(0.0, float(qf.cdf(35.4) - qf.cdf(12.0)))
+        # Category probabilities (good, moderate, etc.) per US EPA 2024
+        p_good = max(0.0, float(qf.cdf(9.0)))
+        p_mod = max(0.0, float(qf.cdf(35.4) - qf.cdf(9.0)))
         p_usg = max(0.0, float(qf.cdf(55.4) - qf.cdf(35.4)))
-        p_unh = max(0.0, float(qf.cdf(150.4) - qf.cdf(55.4)))
-        p_very = max(0.0, float(qf.cdf(250.4) - qf.cdf(150.4)))
-        p_haz = max(0.0, 1.0 - float(qf.cdf(250.4)))
+        p_unh = max(0.0, float(qf.cdf(125.4) - qf.cdf(55.4)))
+        p_very = max(0.0, float(qf.cdf(225.4) - qf.cdf(125.4)))
+        p_haz = max(0.0, 1.0 - float(qf.cdf(225.4)))
 
         # Do not silently normalize category probabilities as per specs.
         # Just ensure they sum to ~1 within tolerance.
@@ -163,9 +162,12 @@ def generate_bulletin_json(
     # Assemble horizons for city
     city_horizons = [city_data[h] for h in sorted(city_data.keys())]
 
-    # Assemble stations
+    # Assemble stations - dropping any station with fewer than 3 horizons
     stations_list = []
     for sid, h_list in stations_data.items():
+        if len(h_list) != 3:
+            # Per schema & FR-38: drop stations with incomplete horizons instead of failing bulletin
+            continue
         meta = stations_metadata.get(sid, {})
         stations_list.append(
             {
@@ -188,6 +190,10 @@ def generate_bulletin_json(
             }
         )
 
+    from smogsense.utils.io import get_git_sha
+
+    resolved_git_sha = git_sha or get_git_sha()
+
     bulletin = {
         "schema_version": "1.0",
         "issuance_utc": issuance_utc.isoformat(timespec="seconds"),
@@ -206,7 +212,7 @@ def generate_bulletin_json(
         "model": {
             "id": model,
             "version": "baseline",
-            "git_sha": "0000000",
+            "git_sha": resolved_git_sha,
             "calibrated": False,
             "adaptation_status": "unadapted",
         },
@@ -232,11 +238,17 @@ def generate_bulletin_json(
 
     # Validate against schema
     schema_path = Path("data/schemas/bulletin.schema.json")
+    if not schema_path.exists():
+        schema_path = Path(__file__).resolve().parents[3] / "data/schemas/bulletin.schema.json"
     if schema_path.exists():
         import jsonschema
 
         with schema_path.open("r", encoding="utf-8") as f:
             schema = json.load(f)
-        jsonschema.validate(instance=bulletin, schema=schema)
+        jsonschema.validate(
+            instance=bulletin,
+            schema=schema,
+            format_checker=jsonschema.FormatChecker(),
+        )
 
     return bulletin

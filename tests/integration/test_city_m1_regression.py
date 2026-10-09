@@ -23,20 +23,34 @@ from smogsense.pipeline.orchestrator import run_daily_pipeline
 
 @pytest.fixture
 def clean_state():
-    paths = [
+    dirs = [
         Path(".state/manifests"),
         Path(".state/forecasts"),
+    ]
+    files = [
         Path(".state/artifacts/seed_history.json"),
     ]
-    for p in paths:
-        if p.is_file():
+    for d in dirs:
+        if d.is_dir():
+            for f in d.glob("*"):
+                if f.is_file():
+                    with contextlib.suppress(Exception):
+                        f.unlink()
+    for f in files:
+        if f.is_file():
             with contextlib.suppress(Exception):
-                p.unlink()
+                f.unlink()
     yield
-    for p in paths:
-        if p.is_file():
+    for d in dirs:
+        if d.is_dir():
+            for f in d.glob("*"):
+                if f.is_file():
+                    with contextlib.suppress(Exception):
+                        f.unlink()
+    for f in files:
+        if f.is_file():
             with contextlib.suppress(Exception):
-                p.unlink()
+                f.unlink()
 
 
 @respx.mock

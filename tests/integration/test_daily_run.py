@@ -16,14 +16,36 @@ from smogsense.pipeline.orchestrator import run_daily_pipeline
 
 @pytest.fixture
 def clean_state():
-    seed_path = Path(".state/artifacts/seed_history.json")
-    if seed_path.exists():
-        with contextlib.suppress(Exception):
-            seed_path.unlink()
+    dirs = [
+        Path(".state/manifests"),
+        Path(".state/forecasts"),
+        Path(".state/inputs/lahore"),
+        Path("gh-pages"),
+    ]
+    files = [
+        Path(".state/artifacts/seed_history.json"),
+    ]
+    for d in dirs:
+        if d.is_dir():
+            for f in d.glob("*"):
+                if f.is_file():
+                    with contextlib.suppress(Exception):
+                        f.unlink()
+    for f in files:
+        if f.is_file():
+            with contextlib.suppress(Exception):
+                f.unlink()
     yield
-    if seed_path.exists():
-        with contextlib.suppress(Exception):
-            seed_path.unlink()
+    for d in dirs:
+        if d.is_dir():
+            for f in d.glob("*"):
+                if f.is_file():
+                    with contextlib.suppress(Exception):
+                        f.unlink()
+    for f in files:
+        if f.is_file():
+            with contextlib.suppress(Exception):
+                f.unlink()
 
 
 @respx.mock
@@ -135,6 +157,12 @@ def test_run_daily_full(mock_extract, mock_cams_fetch, clean_state):
     # Verify Force rerun -> exit 10
     exit_code3 = run_daily_pipeline(issuance, force=True)
     assert exit_code3 == 10
-    with manifest_path.open("r", encoding="utf-8") as f:
+    rerun_manifests = sorted(Path(".state/manifests").glob(f"{run_id}_rerun_*.json"))
+    assert len(rerun_manifests) == 1
+    with rerun_manifests[0].open("r", encoding="utf-8") as f:
         manifest3 = json.load(f)
     assert manifest3["is_rerun"] is True
+    # Verify original first issuance manifest is preserved and not overwritten
+    with manifest_path.open("r", encoding="utf-8") as f:
+        orig_manifest = json.load(f)
+    assert orig_manifest["is_rerun"] is False

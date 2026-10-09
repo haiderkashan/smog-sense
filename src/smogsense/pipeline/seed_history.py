@@ -10,12 +10,16 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import httpx
 import numpy as np
 import pandas as pd
 
 from smogsense.config import Settings
-from smogsense.data_ingestion.base import CircuitBreaker, RateBudget, ResilientClient
+from smogsense.data_ingestion.base import (
+    CircuitBreaker,
+    RateBudget,
+    ResilientClient,
+    create_client,
+)
 from smogsense.data_ingestion.copernicus import CamsClient
 from smogsense.data_ingestion.openaq import fetch_hourly, list_locations
 from smogsense.preprocessing.alignment import asof_cams_run
@@ -38,7 +42,15 @@ async def determine_cutoff_dates(
     and the corresponding CAMS as-of cycle B*(T) must be knowable at execution time:
     B*(T) + 10h <= end_utc.
     """
-    ac = httpx.AsyncClient(timeout=30.0)
+    raw_key = settings.get("openaq_api_key")
+    api_key: str | None = None
+    if raw_key is not None:
+        api_key = (
+            str(raw_key.get_secret_value())
+            if hasattr(raw_key, "get_secret_value")
+            else str(raw_key)
+        )
+    ac = create_client(api_key=api_key)
     rb = RateBudget()
     cb = CircuitBreaker()
     client = ResilientClient(ac, rb, cb)
@@ -126,7 +138,7 @@ def generate_seed_history(
         cams_base = asof_cams_run(current_issuance)
         coverage["expected"].append(current_issuance.isoformat())
 
-        cams_path = Path(".state/inputs") / f"cams_hist_{cams_base.strftime('%Y%m%d_%H')}.grib"
+        cams_path = Path("data/raw/cams") / f"cams_hist_{cams_base.strftime('%Y%m%d_%H')}.grib"
 
         # We need targets at T+24, T+48, T+72
         targets = [current_issuance + timedelta(hours=h) for h in [24, 48, 72]]
@@ -158,6 +170,8 @@ def generate_seed_history(
                 current_issuance += timedelta(days=1)
                 continue
 
+            cams_df["location_id"] = cams_df["location_id"].astype(str)
+
             day_processed = False
             for h in [24, 48, 72]:
                 target = current_issuance + timedelta(hours=h)
@@ -176,8 +190,8 @@ def generate_seed_history(
                     continue
 
                 for loc_id in stations_df["location_id"].unique():
-                    o_match = obs_target[obs_target["location_id"] == loc_id]
-                    c_match = cams_target[cams_target["location_id"] == loc_id]
+                    o_match = obs_target[obs_target["location_id"].astype(str) == str(loc_id)]
+                    c_match = cams_target[cams_target["location_id"].astype(str) == str(loc_id)]
 
                     if not o_match.empty and not c_match.empty:
                         o_val = o_match.iloc[0]["pm25_ugm3"]
@@ -202,7 +216,7 @@ def generate_seed_history(
                     obs_target["location_id"].isin(stations_df["location_id"])
                 ]
                 valid_o_vals = valid_station_obs["pm25_ugm3"].dropna()
-                c_match_cent = cams_target[cams_target["location_id"] == "centroid"]
+                c_match_cent = cams_target[cams_target["location_id"].astype(str) == "centroid"]
                 if len(valid_o_vals) >= min_city_stations and not c_match_cent.empty:
                     o_val_cent = float(valid_o_vals.mean())
                     c_val_cent = float(c_match_cent.iloc[0]["pm25_ugm3"])

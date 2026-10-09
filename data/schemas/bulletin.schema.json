@@ -34,7 +34,10 @@
       "format": "date-time"
     },
     "data_cutoff_utc": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time",
       "description": "Latest observation time that was knowable when the forecast was produced."
     },

@@ -30,6 +30,7 @@ dependencies = [
   "shapely>=2.1",
   # --- data acquisition ---
   "httpx>=0.28",
+  "requests>=2.31",
   "tenacity>=9.0",
   "cdsapi>=0.7.6",
   # --- contracts, config, CLI ---
@@ -72,6 +73,7 @@ dev = [
   "pandas-stubs>=2.3",
   "types-PyYAML>=6.0",
   "types-jsonschema>=4.23",
+  "types-requests>=2.31",
   "pre-commit>=4.2",
   "check-jsonschema>=0.33",
   "yamllint>=1.37",
