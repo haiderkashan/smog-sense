@@ -538,6 +538,100 @@ def test_missing_target_observation_not_counted(mock_fetch_cams, mock_open_datas
 
     # Only 1 issuance had full +72h coverage (2026-08-20 00:00:00)
     assert artifact["counts"]["1"]["72"] == 1
+    # Verify no M0 residual is fabricated without lookback observations
+    assert artifact.get("m0_quantiles", {}) == {}
+
+
+@respx.mock
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
+@patch("smogsense.pipeline.seed_history.CamsClient.fetch_cams")
+def test_min_residuals_per_group_enforcement(mock_fetch_cams, mock_open_datasets, clean_state):
+    """Verify that groups with fewer than required residuals are omitted from quantiles."""
+    start_utc = datetime(2026, 8, 20, 0, 0, tzinfo=UTC)
+    now_utc = datetime(2026, 8, 26, 12, 0, tzinfo=UTC)
+
+    respx.get(url__regex=r".*/v3/locations.*").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "id": 1,
+                        "name": "Station A",
+                        "coordinates": {"latitude": 31.5, "longitude": 74.3},
+                        "sensors": [{"id": 10, "parameter": {"id": 2, "name": "pm25"}}],
+                    }
+                ],
+                "meta": {"found": 1},
+            },
+        )
+    )
+
+    dates = pd.date_range(start_utc - timedelta(hours=24), now_utc, freq="h")
+    obs = [
+        {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 50.0 + (i % 2)}
+        for i, dt in enumerate(dates)
+    ]
+    respx.get(url__regex=r".*/v3/sensors/10/hours.*").mock(
+        return_value=httpx.Response(200, json={"results": obs, "meta": {"found": len(obs)}})
+    )
+
+    mock_fetch_cams.side_effect = lambda *a, **kw: kw.get("dest_path")
+
+    import xarray as xr
+
+    def fake_open_datasets(grib_path):
+        base_str = Path(grib_path).stem.replace("cams_hist_", "")
+        cams_base = datetime.strptime(base_str, "%Y%m%d_%H")
+        lats = np.array([32.0, 31.0])
+        lons = np.array([74.0, 75.0])
+        steps = np.array(
+            [np.timedelta64(h, "h") for h in range(12, 120, 12)], dtype="timedelta64[ns]"
+        )
+        data = np.full((1, len(steps), 2, 2), 40.0 / 1e9)
+        ds = xr.Dataset(
+            {"pm2p5": (["time", "step", "latitude", "longitude"], data, {"units": "kg m**-3"})},
+            coords={
+                "time": [np.datetime64(cams_base)],
+                "step": steps,
+                "latitude": lats,
+                "longitude": lons,
+            },
+        )
+        return [ds]
+
+    mock_open_datasets.side_effect = fake_open_datasets
+
+    out_file = Path(".state/artifacts/seed_history_test.json")
+    # Call with min_residuals_per_group=30 (which exceeds the 1-2 available days)
+    exit_code = generate_seed_history(
+        start_utc=start_utc,
+        end_utc=now_utc,
+        output_path=out_file,
+        min_residuals_per_group=30,
+    )
+    assert exit_code == 0
+
+    with out_file.open("r", encoding="utf-8") as f:
+        artifact = json.load(f)
+
+    # Counts are tracked
+    assert artifact["counts"]["1"]["24"] < 30
+    # But quantiles are omitted because sample count < 30
+    assert "24" not in artifact["quantiles"].get("1", {})
+
+    # Call with min_residuals_per_group=1 -> quantiles and m0_quantiles are generated
+    exit_code_min1 = generate_seed_history(
+        start_utc=start_utc,
+        end_utc=now_utc,
+        output_path=out_file,
+        min_residuals_per_group=1,
+    )
+    assert exit_code_min1 == 0
+    with out_file.open("r", encoding="utf-8") as f:
+        artifact_min1 = json.load(f)
+    assert "24" in artifact_min1["quantiles"]["1"]
+    assert "24" in artifact_min1["m0_quantiles"]["1"]
 
 
 # -----------------------------------------------------------------------------
