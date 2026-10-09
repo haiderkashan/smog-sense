@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class CamsClient:
     def __init__(self, config: dict[str, Any]) -> None:
+        self._active_requests: dict[str, str] = {}
         self._last_request_id: str | None = None
         self.config = config
 
@@ -92,20 +93,28 @@ class CamsClient:
             "area": area,
         }
 
+        # Unique key for isolating reattachment per exact request parameters
+        req_key = f"{dataset}:{base_time.isoformat()}:{sorted(leadtime_hours)}:{sorted(variables)}:{area}"
+
         client = self._get_ads_client()
 
         logger.info("Submitting ADS request to %s for %s", dataset, base_time)
         try:
             import cdsapi.api
 
-            if hasattr(self, "_last_request_id") and getattr(self, "_last_request_id", None):
-                logger.info("Reattaching to ADS request %s", self._last_request_id)
-                result = cdsapi.api.Result(client, {"request_id": self._last_request_id})
+            existing_id = self._active_requests.get(req_key)
+            if existing_id:
+                logger.info("Reattaching to ADS request %s for %s", existing_id, req_key)
+                result = cdsapi.api.Result(client, {"request_id": existing_id})
             else:
                 result = client.retrieve(dataset, request)
                 if result.reply and "request_id" in result.reply:
-                    self._last_request_id = result.reply["request_id"]
+                    req_id = result.reply["request_id"]
+                    self._active_requests[req_key] = req_id
+                    self._last_request_id = req_id
         except Exception as e:
+            self._active_requests.pop(req_key, None)
+            self._last_request_id = None
             msg = str(e).lower()
             if "accept the terms" in msg or "licence" in msg or "license" in msg:
                 raise PermissionError("Accept the dataset licence on the ADS website once") from e
@@ -121,6 +130,8 @@ class CamsClient:
             elapsed = time.monotonic() - start_time
             remaining = max_wall_seconds - elapsed
             if remaining <= 0:
+                self._active_requests.pop(req_key, None)
+                self._last_request_id = None
                 raise SourceUnavailable(f"ADS queue timeout: exceeded {max_wall_minutes} minutes")
 
             try:
@@ -133,6 +144,8 @@ class CamsClient:
             except Exception as e:
                 # terminal API error from cdsapi itself (not a network level request error)
                 if "unknown api state" in str(e).lower():
+                    self._active_requests.pop(req_key, None)
+                    self._last_request_id = None
                     raise SourceUnavailable(f"ADS request failed: terminal error: {e}") from e
                 logger.warning("Error updating ADS result status: %s", e)
                 time.sleep(min(poll_interval, remaining))
@@ -142,6 +155,8 @@ class CamsClient:
             if state == "completed":
                 break
             elif state in ("failed", "deleted"):
+                self._active_requests.pop(req_key, None)
+                self._last_request_id = None
                 error_msg = result.reply.get("error", {}).get("message", "Unknown error")
                 raise SourceUnavailable(f"ADS request failed: {state} - {error_msg}")
 
@@ -162,9 +177,9 @@ class CamsClient:
             temp_path.replace(dest_path)
         except Exception as e:
             raise SourceUnavailable(f"Failed to download GRIB: {e}") from e
-        else:
-            self._last_request_id = None
         finally:
+            self._active_requests.pop(req_key, None)
+            self._last_request_id = None
             if temp_path.exists():
                 temp_path.unlink()
 

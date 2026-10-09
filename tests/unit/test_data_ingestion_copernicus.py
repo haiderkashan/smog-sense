@@ -204,3 +204,39 @@ def test_concurrent_atomic_landing(tmp_path, base_config):
             assert dest_path.exists()
             assert dest_path.read_text() == "grib_data_thread"
             assert len(list(tmp_path.glob("*.tmp.grib"))) == 0
+
+
+def test_request_isolation_and_cleanup(tmp_path, base_config):
+    client = CamsClient(base_config)
+    dest1 = tmp_path / "day1.grib"
+    dest2 = tmp_path / "day2.grib"
+
+    with patch.dict("os.environ", {"ADS_API_KEY": "123"}), patch("cdsapi.Client") as mock_client:
+        mock_cds = MagicMock()
+        mock_client.return_value = mock_cds
+
+        res1 = MagicMock()
+        res1.reply = {"state": "completed", "request_id": "req-1"}
+        res1.download.side_effect = lambda p: Path(p).write_text("day1")
+
+        res2 = MagicMock()
+        res2.reply = {"state": "completed", "request_id": "req-2"}
+        res2.download.side_effect = lambda p: Path(p).write_text("day2")
+
+        mock_cds.retrieve.side_effect = [res1, res2]
+
+        with patch("time.monotonic", return_value=0):
+            client.fetch_cams(
+                datetime(2026, 1, 1, 0, 0, tzinfo=UTC), [0], ["var1"], [10, 0, 0, 10], dest1
+            )
+            # Second call for a different date
+            client.fetch_cams(
+                datetime(2026, 1, 2, 0, 0, tzinfo=UTC), [0], ["var1"], [10, 0, 0, 10], dest2
+            )
+
+        # Ensure both issued distinct retrieve calls rather than reattaching
+        assert mock_cds.retrieve.call_count == 2
+        # After completion, active requests should be empty
+        assert len(client._active_requests) == 0
+        assert client._last_request_id is None
+
