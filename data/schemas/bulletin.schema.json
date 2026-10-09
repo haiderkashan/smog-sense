@@ -119,7 +119,7 @@
         },
         "git_sha": {
           "type": "string",
-          "pattern": "^[0-9a-f]{7,40}$"
+          "pattern": "^([0-9a-f]{7,40}|unknown)$"
         },
         "calibrated": {
           "type": "boolean"

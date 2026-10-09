@@ -35,7 +35,7 @@ def get_git_sha() -> str:
         sha = res.stdout.strip()
         if sha and re.match(r"^[0-9a-f]{7,40}$", sha):
             return sha[:7]
-    return "abcdef0"
+    return "unknown"
 
 
 def validate_frame(df: pd.DataFrame, schema: pa.DataFrameSchema) -> pd.DataFrame:
@@ -47,9 +47,9 @@ def validate_frame(df: pd.DataFrame, schema: pa.DataFrameSchema) -> pd.DataFrame
         raise SchemaViolation("Duplicate index found in dataframe before validation.")
 
     try:
-        # We perform reset_index() internally to avoid a known Pandera failure reporting bug,
-        # but the schema must be applied correctly to the frame.
-        return schema.validate(df)
+        # Reset index internally to avoid Pandera index validation quirk (ADR-014 / memory.md §8)
+        clean_df = df.reset_index(drop=True)
+        return schema.validate(clean_df)
     except pa.errors.SchemaError as e:
         raise SchemaViolation(f"Schema violation: {e}") from e
     except pa.errors.SchemaErrors as e:

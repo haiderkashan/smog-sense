@@ -31,3 +31,21 @@ def test_validate_frame_success() -> None:
     )
     validated = validate_frame(df, schema)
     assert validated.equals(df)
+
+
+def test_validate_frame_resets_index() -> None:
+    df = pd.DataFrame({"val": [10, 20]}, index=[5, 9])
+    schema = pa.DataFrameSchema({"val": pa.Column(int)})  # type: ignore[no-untyped-call]
+    validated = validate_frame(df, schema)
+    assert list(validated.index) == [0, 1]
+
+
+def test_get_git_sha_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+    from smogsense.utils.io import get_git_sha
+
+    def mock_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("git not found")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    assert get_git_sha() == "unknown"
