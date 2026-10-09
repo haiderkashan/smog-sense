@@ -94,7 +94,9 @@ class CamsClient:
         }
 
         # Unique key for isolating reattachment per exact request parameters
-        req_key = f"{dataset}:{base_time.isoformat()}:{sorted(leadtime_hours)}:{sorted(variables)}:{area}"
+        req_key = (
+            f"{dataset}:{base_time.isoformat()}:{sorted(leadtime_hours)}:{sorted(variables)}:{area}"
+        )
 
         client = self._get_ads_client()
 

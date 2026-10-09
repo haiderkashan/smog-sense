@@ -239,4 +239,3 @@ def test_request_isolation_and_cleanup(tmp_path, base_config):
         # After completion, active requests should be empty
         assert len(client._active_requests) == 0
         assert client._last_request_id is None
-

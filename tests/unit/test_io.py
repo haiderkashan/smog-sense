@@ -42,6 +42,7 @@ def test_validate_frame_resets_index() -> None:
 
 def test_get_git_sha_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     import subprocess
+
     from smogsense.utils.io import get_git_sha
 
     def mock_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:

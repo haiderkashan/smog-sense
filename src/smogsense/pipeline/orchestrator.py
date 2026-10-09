@@ -472,9 +472,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             for _, s in stations_df.iterrows():
                 loc_id = s["location_id"]
                 s_obs = (
-                    obs_df[obs_df["location_id"] == loc_id]
-                    if not obs_df.empty
-                    else pd.DataFrame()
+                    obs_df[obs_df["location_id"] == loc_id] if not obs_df.empty else pd.DataFrame()
                 )
                 if s_obs.empty:
                     continue
