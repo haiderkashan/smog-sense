@@ -234,8 +234,20 @@ def test_seed_history_data_semantics_and_separation(
                             }
                         ],
                     },
+                    {
+                        "id": 3,
+                        "name": "Station 3",
+                        "coordinates": {"latitude": 31.55, "longitude": 74.35},
+                        "sensors": [
+                            {
+                                "id": 12,
+                                "parameter": {"id": 2, "name": "pm25"},
+                                "coverage": {"percentComplete": 100},
+                            }
+                        ],
+                    },
                 ],
-                "meta": {"found": 2},
+                "meta": {"found": 3},
             },
         )
     )
@@ -243,6 +255,7 @@ def test_seed_history_data_semantics_and_separation(
     # Observations:
     # Station 1 has obs = 60.0 (+/- 1 to avoid flatline QC)
     # Station 2 has obs = 30.0 (+/- 1 to avoid flatline QC)
+    # Station 3 has obs = 45.0 (+/- 1 to avoid flatline QC)
     dates = pd.date_range(start_utc, now_utc, freq="h")
     obs_10 = [
         {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 60.0 + (i % 2)}
@@ -252,11 +265,18 @@ def test_seed_history_data_semantics_and_separation(
         {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 30.0 + (i % 2)}
         for i, dt in enumerate(dates)
     ]
+    obs_12 = [
+        {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 45.0 + (i % 2)}
+        for i, dt in enumerate(dates)
+    ]
     respx.get(url__regex=r".*/v3/sensors/10/hours.*").mock(
         return_value=httpx.Response(200, json={"results": obs_10, "meta": {"found": len(obs_10)}})
     )
     respx.get(url__regex=r".*/v3/sensors/11/hours.*").mock(
         return_value=httpx.Response(200, json={"results": obs_11, "meta": {"found": len(obs_11)}})
+    )
+    respx.get(url__regex=r".*/v3/sensors/12/hours.*").mock(
+        return_value=httpx.Response(200, json={"results": obs_12, "meta": {"found": len(obs_12)}})
     )
 
     def fake_fetch(*args, **kwargs):
@@ -305,6 +325,7 @@ def test_seed_history_data_semantics_and_separation(
     # 1. Station separation:
     assert "1" in quantiles
     assert "2" in quantiles
+    assert "3" in quantiles
     assert "centroid" in quantiles
 
     # Station 1: obs (~60) - CAMS (40) = ~+20.0 (strictly positive)
@@ -315,12 +336,16 @@ def test_seed_history_data_semantics_and_separation(
     q2_24 = quantiles["2"]["24"]
     assert all(-11.0 <= v <= -9.0 for v in q2_24)
 
+    # Station 3: obs (~45) - CAMS (40) = ~+5.0
+    q3_24 = quantiles["3"]["24"]
+    assert all(4.0 <= v <= 6.0 for v in q3_24)
+
     # Centroid: obs mean(~45) - CAMS (40) = ~+5.0
     qc_24 = quantiles["centroid"]["24"]
     assert all(4.0 <= v <= 6.0 for v in qc_24)
 
     # 2. Horizon separation:
-    for loc in ["1", "2", "centroid"]:
+    for loc in ["1", "2", "3", "centroid"]:
         for h in ["24", "48", "72"]:
             assert h in quantiles[loc]
             q_h = quantiles[loc][h]
@@ -330,6 +355,109 @@ def test_seed_history_data_semantics_and_separation(
             assert all(q_h[i] <= q_h[i + 1] for i in range(18))
             # Counts match
             assert counts[loc][h] > 0
+
+
+@respx.mock
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
+@patch("smogsense.pipeline.seed_history.CamsClient.fetch_cams")
+def test_centroid_residual_omitted_when_fewer_than_min_city_stations(
+    mock_fetch_cams, mock_open_datasets, clean_state
+):
+    """Verify FR-38: centroid residual is omitted when fewer than min_city_stations (3) valid stations exist."""
+    import xarray as xr
+
+    start_utc = datetime(2026, 8, 20, 0, 0, tzinfo=UTC)
+    now_utc = start_utc + timedelta(days=6)
+
+    # Provide only 2 stations
+    respx.get(url__regex=r".*/v3/locations.*").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "id": 1,
+                        "name": "Station 1",
+                        "coordinates": {"latitude": 31.5, "longitude": 74.3},
+                        "sensors": [{"id": 10, "parameter": {"id": 2, "name": "pm25"}}],
+                    },
+                    {
+                        "id": 2,
+                        "name": "Station 2",
+                        "coordinates": {"latitude": 31.6, "longitude": 74.4},
+                        "sensors": [{"id": 11, "parameter": {"id": 2, "name": "pm25"}}],
+                    },
+                ],
+                "meta": {"found": 2},
+            },
+        )
+    )
+
+    dates = pd.date_range(start_utc, now_utc, freq="h")
+    obs_10 = [
+        {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 60.0 + (i % 2)}
+        for i, dt in enumerate(dates)
+    ]
+    obs_11 = [
+        {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 30.0 + (i % 2)}
+        for i, dt in enumerate(dates)
+    ]
+    respx.get(url__regex=r".*/v3/sensors/10/hours.*").mock(
+        return_value=httpx.Response(200, json={"results": obs_10, "meta": {"found": len(obs_10)}})
+    )
+    respx.get(url__regex=r".*/v3/sensors/11/hours.*").mock(
+        return_value=httpx.Response(200, json={"results": obs_11, "meta": {"found": len(obs_11)}})
+    )
+
+    mock_fetch_cams.side_effect = lambda *a, **kw: kw.get("dest_path")
+
+    def fake_open_datasets(grib_path):
+        base_str = Path(grib_path).stem.replace("cams_hist_", "")
+        cams_base = datetime.strptime(base_str, "%Y%m%d_%H")
+        lats = np.array([32.0, 31.0])
+        lons = np.array([74.0, 75.0])
+        steps = np.array(
+            [np.timedelta64(h, "h") for h in range(12, 120, 12)], dtype="timedelta64[ns]"
+        )
+        data = np.full((1, len(steps), 2, 2), 40.0 / 1e9)
+        ds = xr.Dataset(
+            {"pm2p5": (["time", "step", "latitude", "longitude"], data, {"units": "kg m**-3"})},
+            coords={
+                "time": [np.datetime64(cams_base)],
+                "step": steps,
+                "latitude": lats,
+                "longitude": lons,
+            },
+        )
+        return [ds]
+
+    mock_open_datasets.side_effect = fake_open_datasets
+
+    # Test 1: Default min_city_stations=3 -> centroid must be omitted
+    out_file = Path(".state/artifacts/seed_history_test.json")
+    exit_code = generate_seed_history(
+        test_start_utc=start_utc, test_now_utc=now_utc, output_path=out_file
+    )
+    assert exit_code == 0
+    with out_file.open("r", encoding="utf-8") as f:
+        artifact = json.load(f)
+
+    assert "1" in artifact["quantiles"]
+    assert "2" in artifact["quantiles"]
+    assert "centroid" not in artifact["quantiles"]
+
+    # Test 2: If min_city_stations is explicitly overridden to 2, centroid is included
+    exit_code = generate_seed_history(
+        test_start_utc=start_utc,
+        test_now_utc=now_utc,
+        output_path=out_file,
+        min_city_stations=2,
+    )
+    assert exit_code == 0
+    with out_file.open("r", encoding="utf-8") as f:
+        artifact = json.load(f)
+
+    assert "centroid" in artifact["quantiles"]
 
 
 # -----------------------------------------------------------------------------

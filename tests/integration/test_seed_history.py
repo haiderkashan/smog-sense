@@ -65,17 +65,30 @@ def test_seed_history_integration(mock_fetch_cams, mock_open_datasets, clean_sta
                             }
                         ],
                     },
+                    {
+                        "id": 3,
+                        "name": "Station C",
+                        "coordinates": {"latitude": 31.55, "longitude": 74.35},
+                        "sensors": [
+                            {
+                                "id": 12,
+                                "parameter": {"id": 2, "name": "pm25"},
+                                "coverage": {"percentComplete": 100},
+                            }
+                        ],
+                    },
                 ],
-                "meta": {"found": 2},
+                "meta": {"found": 3},
             },
         )
     )
 
     # 2. Fake OpenAQ observations
-    # For simplicity, both stations have continuous data
+    # For simplicity, all stations have continuous data
     dates = pd.date_range(start_utc, now_utc, freq="h")
     obs_results_10 = []
     obs_results_11 = []
+    obs_results_12 = []
     for i, dt in enumerate(dates):
         obs_results_10.append(
             {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 50.0 + (i % 2)}
@@ -83,6 +96,9 @@ def test_seed_history_integration(mock_fetch_cams, mock_open_datasets, clean_sta
         obs_results_11.append(
             {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 20.0 + (i % 2)}
         )  # Station B obs = 20
+        obs_results_12.append(
+            {"period": {"datetimeFrom": {"utc": dt.isoformat()}}, "value": 35.0 + (i % 2)}
+        )  # Station C obs = 35
 
     respx.get(url__regex=r".*/v3/sensors/10/hours.*").mock(
         return_value=httpx.Response(
@@ -92,6 +108,11 @@ def test_seed_history_integration(mock_fetch_cams, mock_open_datasets, clean_sta
     respx.get(url__regex=r".*/v3/sensors/11/hours.*").mock(
         return_value=httpx.Response(
             200, json={"results": obs_results_11, "meta": {"found": len(obs_results_11)}}
+        )
+    )
+    respx.get(url__regex=r".*/v3/sensors/12/hours.*").mock(
+        return_value=httpx.Response(
+            200, json={"results": obs_results_12, "meta": {"found": len(obs_results_12)}}
         )
     )
 
@@ -175,6 +196,7 @@ def test_seed_history_integration(mock_fetch_cams, mock_open_datasets, clean_sta
 
     q_1 = artifact["quantiles"].get("1")
     q_2 = artifact["quantiles"].get("2")
+    q_3 = artifact["quantiles"].get("3")
     q_c = artifact["quantiles"].get("centroid")
 
     # Station A: obs 50, cams 40 => residual +10
@@ -185,7 +207,11 @@ def test_seed_history_integration(mock_fetch_cams, mock_open_datasets, clean_sta
     assert q_2 is not None
     assert all(-20.0 <= v <= -19.0 for v in q_2["24"])
 
-    # Centroid: obs mean(50, 20)=35, cams 40 => residual -5
+    # Station C: obs 35, cams 40 => residual -5
+    assert q_3 is not None
+    assert all(-5.0 <= v <= -4.0 for v in q_3["24"])
+
+    # Centroid: obs mean(50, 20, 35)=35, cams 40 => residual -5
     assert q_c is not None
     assert all(-5.0 <= v <= -4.0 for v in q_c["24"])
 

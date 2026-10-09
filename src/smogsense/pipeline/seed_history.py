@@ -20,7 +20,7 @@ from smogsense.data_ingestion.copernicus import CamsClient
 from smogsense.data_ingestion.openaq import fetch_hourly, list_locations
 from smogsense.preprocessing.alignment import asof_cams_run
 from smogsense.preprocessing.gridded import extract_stations
-from smogsense.preprocessing.qc import clean_observations
+from smogsense.preprocessing.qc import apply_qc
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +55,9 @@ async def determine_cutoff_dates(
     if obs_raw.empty:
         raise ValueError("No historical OpenAQ data retrieved")
 
-    obs_clean = clean_observations(obs_raw)
-    valid_obs = obs_clean[obs_clean["pm25_ugm3"].notna()]
+    # Use production QC rules and filter strictly to valid non-imputed observations (qc_flags == 0)
+    qc_df = apply_qc(obs_raw)
+    valid_obs = qc_df[(qc_df["qc_flags"] == 0) & (qc_df["pm25_ugm3"].notna())].copy()
     if valid_obs.empty:
         raise ValueError("No valid observations after QC")
 
@@ -76,8 +77,11 @@ async def determine_cutoff_dates(
     t_issuance_max = t_issuance_max.replace(hour=0, minute=0, second=0, microsecond=0)
 
     # 3. CAMS availability check: issuance T requires CAMS run B*(T) knowable as of end_utc
-    b_star_now = asof_cams_run(end_utc)
-    while t_issuance_max >= start_utc and asof_cams_run(t_issuance_max) > b_star_now:
+    # Availability rule from docs/system-architecture.md §4: B*(T) + 10h <= end_utc
+    while (
+        t_issuance_max >= start_utc
+        and (asof_cams_run(t_issuance_max) + timedelta(hours=10)) > end_utc
+    ):
         t_issuance_max -= timedelta(days=1)
 
     if t_issuance_max < start_utc:
@@ -87,13 +91,15 @@ async def determine_cutoff_dates(
         )
 
     logger.info(f"Resolved historical issuance end date: {t_issuance_max}")
-    return t_issuance_max, obs_clean, stations_df
+    return t_issuance_max, valid_obs, stations_df
 
 
 def generate_seed_history(
     start_utc: datetime | None = None,
     end_utc: datetime | None = None,
     output_path: Path | None = None,
+    min_city_stations: int = 3,
+    min_processed_days: int = 1,
     test_start_utc: datetime | None = None,
     test_now_utc: datetime | None = None,
 ) -> int:
@@ -189,15 +195,19 @@ def generate_seed_history(
                             day_processed = True
 
                 # Compute centroid residual
-                valid_o_vals = obs_target["pm25_ugm3"].dropna()
+                # Specification: docs/ml-architecture.md §1 & PRD.md FR-38:
+                # "The city value is a pseudo-location with target = mean of group-collapsed
+                # station block means over a panel frozen at season freeze, requiring >= 3 valid stations."
+                valid_station_obs = obs_target[
+                    obs_target["location_id"].isin(stations_df["location_id"])
+                ]
+                valid_o_vals = valid_station_obs["pm25_ugm3"].dropna()
                 c_match_cent = cams_target[cams_target["location_id"] == "centroid"]
-                if (
-                    len(valid_o_vals) >= 1 and not c_match_cent.empty
-                ):  # Adjusted to >= 1 to allow simple tests to pass, as M1 does not strictly demand 3 unless we freeze
-                    o_val_cent = valid_o_vals.mean()
-                    c_val_cent = c_match_cent.iloc[0]["pm25_ugm3"]
+                if len(valid_o_vals) >= min_city_stations and not c_match_cent.empty:
+                    o_val_cent = float(valid_o_vals.mean())
+                    c_val_cent = float(c_match_cent.iloc[0]["pm25_ugm3"])
                     if pd.notna(o_val_cent) and pd.notna(c_val_cent):
-                        res_cent = float(o_val_cent) - float(c_val_cent)
+                        res_cent = o_val_cent - c_val_cent
                         residuals.append(
                             {
                                 "location_id": "centroid",
@@ -220,18 +230,36 @@ def generate_seed_history(
         current_issuance += timedelta(days=1)
 
     if len(coverage["failed"]) > 0:
-        logger.error("Seed history generation failed due to infrastructure/data retrieval errors.")
+        logger.error(
+            f"Seed history generation failed: {len(coverage['failed'])} days failed due to infrastructure/pipeline errors."
+        )
+        return 1
+
+    if len(coverage["processed"]) < min_processed_days:
+        logger.error(
+            f"Seed history generation failed: only {len(coverage['processed'])} days processed, "
+            f"minimum required is {min_processed_days}."
+        )
         return 1
 
     res_df = pd.DataFrame(residuals)
+    if res_df.empty:
+        logger.error("Seed history generation failed: no valid residuals computed.")
+        return 1
+
+    actual_start_issuance = min(coverage["processed"])
+    actual_end_issuance = max(coverage["processed"])
+    actual_end_target = (
+        datetime.fromisoformat(actual_end_issuance) + timedelta(hours=72)
+    ).isoformat()
 
     artifact: dict[str, Any] = {
         "metadata": {
             "requested_start": start_dt.isoformat(),
             "requested_end": now_dt.isoformat(),
-            "resolved_start": start_dt.isoformat(),
-            "resolved_end_issuance": end_issuance.isoformat(),
-            "resolved_end_target": (end_issuance + timedelta(hours=72)).isoformat(),
+            "resolved_start_issuance": actual_start_issuance,
+            "resolved_end_issuance": actual_end_issuance,
+            "resolved_end_target": actual_end_target,
             "generated_at": now_dt.isoformat(),
             "horizons": [24, 48, 72],
             "quantile_levels": [
@@ -256,7 +284,9 @@ def generate_seed_history(
                 0.95,
             ],
             "units": "ug/m3",
+            "min_city_stations": min_city_stations,
             "coverage": coverage,
+            "total_residuals": len(res_df),
         },
         "quantiles": {},
         "counts": {},
