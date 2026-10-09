@@ -19,6 +19,7 @@ import pandera.pandas as pa
 from smogsense.config import Settings
 from smogsense.data_ingestion.base import (
     CircuitBreaker,
+    CircuitBreakerError,
     RateBudget,
     ResilientClient,
     create_client,
@@ -48,7 +49,7 @@ def generate_forecast_log(
     city_forecasts: dict[int, list[float]],
     cams_lead_offset_h: float = 0.0,
     run_id: str = "unknown",
-    git_sha: str = "abcdef0",
+    git_sha: str = "unknown",
     config_hash: str = "unknown",
     data_cutoff_utc: datetime | None = None,
     n_available_stations: int = 0,
@@ -138,7 +139,7 @@ def write_manifest(
     mode: str,
     level: int,
     exit_code: int,
-    git_sha: str = "abcdef0",
+    git_sha: str = "unknown",
     config_hash: str = "unknown",
 ) -> None:
     manifest = {
@@ -148,25 +149,27 @@ def write_manifest(
         "published": published,
         "adaptation_status": "unadapted",
         "observed_latency": 0.0,
-        "git_sha": git_sha,
-        "config_hash": config_hash,
-        "issuance": issuance_utc.isoformat(timespec="seconds"),
+        "degradation_mode": mode,
         "degradation_level": level,
         "exit_code": exit_code,
+        "git_sha": git_sha,
+        "config_hash": config_hash,
     }
-    with Path(path).open("w", encoding="utf-8") as f:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
 
 
 async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) -> int:
+    """Execute daily forecast pipeline for the given issuance time."""
     settings = Settings.load("configs")
-    git_sha = get_git_sha()
-    config_hash = settings.hash()
 
     run_id = f"run_{issuance_utc.strftime('%Y%m%d_%H%M')}"
     manifest_dir = Path(".state/manifests")
-    manifest_dir.mkdir(parents=True, exist_ok=True)
     manifest_file = manifest_dir / f"{run_id}.json"
+
+    git_sha = get_git_sha()
+    config_hash = settings.hash()
 
     is_rerun = False
 
@@ -197,9 +200,9 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         try:
             stations_df = await list_locations(client, "lahore")
             if not stations_df.empty:
-                # Point-in-time as-of rule (OpenAQ API latency ≈ 1 h from configs/sources.yaml)
-                # Anchoring to issuance reference time T_0 ensures retries see identical data
-                end_utc = issuance_utc - timedelta(hours=1)
+                # Point-in-time as-of rule (assumed 3h latency + 1h block end)
+                # Anchoring to T - 4h ensures 00:17, 02:47, and 05:47 retries see identical observations
+                end_utc = issuance_utc - timedelta(hours=4)
                 start_utc = end_utc - timedelta(hours=72)
                 raw_obs_df = await fetch_hourly(client, stations_df, start_utc, end_utc)
                 if not raw_obs_df.empty:
@@ -211,6 +214,14 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                     if not valid_obs.empty:
                         has_obs = True
                         obs_df = valid_obs
+                        # Persist observation snapshot under .state/inputs/lahore
+                        snap_dir = Path(".state/inputs/lahore")
+                        snap_dir.mkdir(parents=True, exist_ok=True)
+                        obs_df.to_parquet(
+                            snap_dir
+                            / f"obs_snapshot_{issuance_utc.strftime('%Y%m%d_%H%M')}.parquet",
+                            index=False,
+                        )
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 logger.error("OpenAQ quota exceeded (HTTP 429). Exiting with code 40.")
@@ -227,9 +238,12 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                     config_hash=config_hash,
                 )
                 return 40
-            logger.warning(f"OpenAQ fetch failed: {e}")
-        except QuotaExceeded:
-            logger.error("Rate budget / quota exhausted. Exiting with code 40.")
+            elif e.response.status_code in (401, 403):
+                logger.warning(f"OpenAQ authentication failed ({e.response.status_code}): {e}")
+            else:
+                logger.warning(f"OpenAQ HTTP error: {e}")
+        except (QuotaExceeded, CircuitBreakerError):
+            logger.error("Rate budget / circuit breaker exhausted. Exiting with code 40.")
             write_manifest(
                 manifest_file,
                 run_id,
@@ -246,9 +260,18 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         except Exception as e:
             logger.warning(f"OpenAQ fetch failed: {e}")
 
+    # Fallback to cached station registry if OpenAQ failed but registry exists
+    if stations_df.empty:
+        cached_registry_files = list(Path(".state/registry").glob("*.parquet")) + list(
+            Path("data").glob("*registry*.parquet")
+        )
+        if cached_registry_files:
+            with contextlib.suppress(Exception):
+                stations_df = pd.read_parquet(cached_registry_files[0])
+
     has_cams = False
     cams_is_stale = False
-    cams_base = None
+    cams_base: datetime | None = None
     cams_df = pd.DataFrame()
 
     try:
@@ -282,7 +305,8 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 dest_path=cams_path,
             )
 
-        if cams_path.exists() and not stations_df.empty:
+        # Allow Level 2 (CAMS only / centroid fallback) even if stations_df is empty
+        if cams_path.exists():
             cams_df = extract_stations(
                 cams_path, stations_df, domain="lahore", settings=settings.model_dump()
             )
@@ -335,71 +359,85 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
     n_available_stations = len(obs_df["location_id"].unique()) if not obs_df.empty else 0
 
     try:
-        seed_history = {}
+        seed_history: dict[str, Any] = {}
+        m0_seed_history: dict[str, Any] = {}
         seed_path = Path(".state/artifacts/seed_history.json")
         if seed_path.exists():
             with seed_path.open("r", encoding="utf-8") as f:
-                seed_history = json.load(f).get("quantiles", {})
+                seed_data = json.load(f)
+                seed_history = seed_data.get("quantiles", {})
+                m0_seed_history = seed_data.get("m0_quantiles", {})
 
-        if has_cams:
-            for _, s in stations_df.iterrows():
-                loc_id = s["location_id"]
-                station_cams = (
-                    cams_df[cams_df["location_id"].astype(str) == str(loc_id)]
-                    if not cams_df.empty
-                    else pd.DataFrame()
-                )
-                if station_cams.empty:
-                    continue
+        if baseline_used == "m1_cams_raw":
+            if has_cams and not cams_df.empty:
+                for _, s in stations_df.iterrows():
+                    loc_id = s["location_id"]
+                    s_name = s.get("name", str(loc_id))
+                    lat = float(s["lat"])
+                    lon = float(s["lon"])
+                    is_ref = bool(s.get("is_monitor") is True)
 
-                s_name = s.get("name", str(loc_id))
-                lat, lon = float(s["lat"]), float(s["lon"])
-                is_ref = bool(s.get("is_monitor") is True)
-                forecasts = {}
+                    # Calculate per-station data cutoff
+                    station_cutoff = real_data_cutoff
+                    if not obs_df.empty:
+                        st_obs = obs_df[obs_df["location_id"].astype(str) == str(loc_id)]
+                        if not st_obs.empty:
+                            st_max = st_obs["ts_utc"].max()
+                            if hasattr(st_max, "to_pydatetime"):
+                                station_cutoff = st_max.to_pydatetime()
+                            elif isinstance(raw_max, datetime):
+                                station_cutoff = st_max
 
-                for h in [24, 48, 72]:
-                    # 24-hour block [T+h-24, T+h)
-                    block_hours = [issuance_utc + timedelta(hours=h - 24 + i) for i in range(24)]
-                    if "target_hour_utc" in station_cams.columns:
-                        match = station_cams[station_cams["target_hour_utc"].isin(block_hours)]
-                        if match.empty:
-                            target = issuance_utc + timedelta(hours=h)
-                            match = station_cams[station_cams["target_hour_utc"] == target]
-                    else:
-                        match = pd.DataFrame()
-
-                    if match.empty:
+                    cams_station = cams_df[cams_df["location_id"] == str(loc_id)]
+                    if cams_station.empty:
                         continue
 
-                    # 24-hour block mean
-                    val = float(match["pm25_ugm3"].mean())
+                    forecasts = {}
+                    for h in [24, 48, 72]:
+                        block_hours = [
+                            issuance_utc + timedelta(hours=h - 24 + i) for i in range(24)
+                        ]
+                        if "target_hour_utc" in cams_station.columns:
+                            match = cams_station[cams_station["target_hour_utc"].isin(block_hours)]
+                            if match.empty:
+                                target = issuance_utc + timedelta(hours=h)
+                                match = cams_station[cams_station["target_hour_utc"] == target]
+                        else:
+                            match = pd.DataFrame()
 
-                    q = seed_history.get(str(loc_id), {}).get(str(h))
-                    if q is None:
-                        # Fall back to centroid residual quantiles if station is missing
-                        q = seed_history.get("centroid", {}).get(str(h))
+                        if match.empty:
+                            continue
 
-                    m1 = M1Cams(q)
-                    qf_out = m1.predict(val)
-                    if isinstance(qf_out, QuantileFunction):
-                        quantiles = qf_out.q.tolist()
-                    else:
-                        quantiles = [float(qf_out)] * 19
-                    forecasts[h] = quantiles
+                        # 24-hour block mean
+                        val = float(match["pm25_ugm3"].mean())
 
-                # Drop station if fewer than 3 horizons per bulletin schema
-                if len(forecasts) == 3:
-                    stations_data.append(
-                        {
-                            "location_id": loc_id,
-                            "name": s_name,
-                            "lat": lat,
-                            "lon": lon,
-                            "is_reference": is_ref,
-                            "forecasts": forecasts,
-                            "data_cutoff_utc": real_data_cutoff,
-                        }
-                    )
+                        q = seed_history.get(str(loc_id), {}).get(str(h))
+                        if q is None:
+                            # Fall back to centroid residual quantiles if station is missing
+                            q = seed_history.get("centroid", {}).get(str(h))
+
+                        m1 = M1Cams(q)
+                        qf_out = m1.predict(val)
+                        if isinstance(qf_out, QuantileFunction):
+                            # Floor quantiles at 0.0 (ADR-012)
+                            quantiles = np.maximum(0.0, qf_out.q).tolist()
+                        else:
+                            quantiles = [max(0.0, float(qf_out))] * 19
+                        forecasts[h] = quantiles
+
+                    # Drop station if fewer than 3 horizons per bulletin schema
+                    if len(forecasts) == 3:
+                        stations_data.append(
+                            {
+                                "location_id": loc_id,
+                                "name": s_name,
+                                "lat": lat,
+                                "lon": lon,
+                                "is_reference": is_ref,
+                                "forecasts": forecasts,
+                                "data_cutoff_utc": station_cutoff,
+                            }
+                        )
 
             # City pseudo-location forecast for M1 CAMS
             city_cams = (
@@ -425,41 +463,54 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                     city_m1 = M1Cams(city_q)
                     qf_out = city_m1.predict(val)
                     if isinstance(qf_out, QuantileFunction):
-                        quantiles = qf_out.q.tolist()
+                        quantiles = np.maximum(0.0, qf_out.q).tolist()
                     else:
-                        quantiles = [float(qf_out)] * 19
+                        quantiles = [max(0.0, float(qf_out))] * 19
                     city_forecasts[h] = quantiles
         else:
             # Mode: observations_only (M0 Persistence)
             for _, s in stations_df.iterrows():
                 loc_id = s["location_id"]
                 s_obs = (
-                    obs_df[obs_df["location_id"] == loc_id] if not obs_df.empty else pd.DataFrame()
+                    obs_df[obs_df["location_id"] == loc_id]
+                    if not obs_df.empty
+                    else pd.DataFrame()
                 )
                 if s_obs.empty:
                     continue
 
                 s_obs = s_obs.sort_values("ts_utc")
-                # 24-hour block ending at T_0
+                # 24-hour block ending at observation cutoff
+                cutoff_ref = real_data_cutoff or issuance_utc
                 recent_24h = s_obs[
-                    (s_obs["ts_utc"] > (issuance_utc - timedelta(hours=24)))
-                    & (s_obs["ts_utc"] <= issuance_utc)
+                    (s_obs["ts_utc"] > (cutoff_ref - timedelta(hours=24)))
+                    & (s_obs["ts_utc"] <= cutoff_ref)
                 ]
                 # Completeness rule: at least 18 of 24 valid hours (ADR-005)
-                if len(recent_24h) < 18:
+                valid_recent = recent_24h["pm25_ugm3"].dropna()
+                if len(valid_recent) < 18:
                     continue
+
+                station_cutoff = real_data_cutoff
+                st_max = s_obs["ts_utc"].max()
+                if hasattr(st_max, "to_pydatetime"):
+                    station_cutoff = st_max.to_pydatetime()
+                elif isinstance(st_max, datetime):
+                    station_cutoff = st_max
 
                 forecasts = {}
                 for h in [24, 48, 72]:
                     q_m0 = (
-                        seed_history.get("m0", {}).get(str(loc_id), {}).get(str(h))
+                        m0_seed_history.get(str(loc_id), {}).get(str(h))
+                        or m0_seed_history.get("centroid", {}).get(str(h))
+                        or seed_history.get("m0", {}).get(str(loc_id), {}).get(str(h))
                         or seed_history.get(str(loc_id), {}).get(str(h))
                         or seed_history.get("centroid", {}).get(str(h))
                     )
                     try:
                         m0 = M0Persistence(q_m0)
-                        qf_out = m0.predict(recent_24h["pm25_ugm3"])
-                        quantiles = qf_out.q.tolist()
+                        qf_out = m0.predict(valid_recent.to_numpy())
+                        quantiles = np.maximum(0.0, qf_out.q).tolist()
                         forecasts[h] = quantiles
                     except ValueError:
                         continue
@@ -473,7 +524,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                             "lon": float(s["lon"]),
                             "is_reference": bool(s.get("is_monitor") is True),
                             "forecasts": forecasts,
-                            "data_cutoff_utc": real_data_cutoff,
+                            "data_cutoff_utc": station_cutoff,
                         }
                     )
 
@@ -486,13 +537,18 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                         for s in stations_data
                     ]
                     city_mean_val = float(np.mean(station_means))
-                    city_q_m0 = seed_history.get("m0", {}).get("centroid", {}).get(
-                        str(h)
-                    ) or seed_history.get("centroid", {}).get(str(h))
+                    city_q_m0 = (
+                        m0_seed_history.get("centroid", {}).get(str(h))
+                        or seed_history.get("m0", {}).get("centroid", {}).get(str(h))
+                        or seed_history.get("centroid", {}).get(str(h))
+                    )
                     if city_q_m0 is not None:
-                        city_m0 = M0Persistence(city_q_m0)
-                        qf_out = city_m0.predict([city_mean_val] * 24)
-                        city_forecasts[h] = qf_out.q.tolist()
+                        try:
+                            city_m0 = M0Persistence(city_q_m0)
+                            qf_out = city_m0.predict([city_mean_val] * 24)
+                            city_forecasts[h] = np.maximum(0.0, qf_out.q).tolist()
+                        except ValueError:
+                            pass
     except Exception as e:
         logger.error(f"Inference raised an error: {e}")
         write_manifest(
@@ -509,8 +565,9 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         )
         return 50
 
-    if not stations_data:
-        logger.error("No station forecasts generated. Level 4 failure.")
+    # Ensure at least city forecast exists for publication
+    if not city_forecasts:
+        logger.error("No city forecast could be computed. Degrading to level 4.")
         write_manifest(
             manifest_file,
             run_id,
@@ -524,40 +581,6 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             config_hash=config_hash,
         )
         return 20
-
-    try:
-        Path(".state/forecasts").mkdir(parents=True, exist_ok=True)
-        log_df = generate_forecast_log(
-            issuance_utc,
-            cams_base,
-            mode,
-            baseline_used,
-            stations_data,
-            city_forecasts,
-            cams_lead_offset_h,
-            run_id,
-            git_sha=git_sha,
-            config_hash=config_hash,
-            data_cutoff_utc=real_data_cutoff,
-            n_available_stations=n_available_stations,
-            is_rerun=is_rerun,
-        )
-        log_df.to_parquet(f".state/forecasts/forecast_{run_id}.parquet")
-    except Exception as e:
-        logger.error(f"Failed to generate forecast log: {e}")
-        write_manifest(
-            manifest_file,
-            run_id,
-            issuance_utc,
-            False,
-            is_rerun,
-            mode,
-            4,
-            50,
-            git_sha=git_sha,
-            config_hash=config_hash,
-        )
-        return 50
 
     try:
         Path("gh-pages").mkdir(parents=True, exist_ok=True)
@@ -580,6 +603,22 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         if cams_base:
             sources_status["cams_global"]["as_of_utc"] = cams_base.isoformat(timespec="seconds")
 
+        log_df = generate_forecast_log(
+            issuance_utc,
+            cams_base,
+            mode,
+            baseline_used,
+            stations_data,
+            city_forecasts,
+            cams_lead_offset_h,
+            run_id,
+            git_sha=git_sha,
+            config_hash=config_hash,
+            data_cutoff_utc=real_data_cutoff,
+            n_available_stations=n_available_stations,
+            is_rerun=is_rerun,
+        )
+
         bulletin = generate_bulletin_json(
             log_df,
             issuance_utc,
@@ -591,10 +630,17 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             stations_meta_dict,
             git_sha=git_sha,
         )
+
+        # Write bulletin first
         with Path(f"gh-pages/{run_id}.json").open("w", encoding="utf-8") as f:
             json.dump(bulletin, f, indent=2)
+
+        # Write forecast log ONLY after bulletin successfully generated and validated
+        Path(".state/forecasts").mkdir(parents=True, exist_ok=True)
+        log_df.to_parquet(f".state/forecasts/forecast_{run_id}.parquet")
+
     except Exception as e:
-        logger.error(f"Failed to generate bulletin: {e}")
+        logger.error(f"Failed to generate bulletin/log: {e}")
         write_manifest(
             manifest_file,
             run_id,
@@ -603,11 +649,11 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             is_rerun,
             mode,
             4,
-            30,
+            50,
             git_sha=git_sha,
             config_hash=config_hash,
         )
-        return 30
+        return 50
 
     try:
         generate_site(bulletin, Path("gh-pages"))
