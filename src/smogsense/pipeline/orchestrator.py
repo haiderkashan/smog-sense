@@ -297,8 +297,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 bbox["east"] + 0.5,
             ]
 
-            await asyncio.to_thread(
-                cams_client.fetch_cams,
+            cams_client.fetch_cams(
                 base_time=cams_base,
                 leadtime_hours=cams_leadtimes,
                 variables=["particulate_matter_2.5um"],
@@ -704,6 +703,4 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
 
 
 def run_daily_pipeline(issuance_utc: datetime, force: bool = False) -> int:
-    import asyncio
-
     return asyncio.run(run_daily_pipeline_async(issuance_utc, force))

@@ -9,6 +9,7 @@ Public contract (implemented in Phase 1):
 Specification: docs/data-engineering.md -> 'Copernicus ADS: CAMS global forecasts'
 """
 
+import contextlib
 from pathlib import Path
 from typing import Any
 
@@ -25,17 +26,48 @@ TEMP_ALIASES = {"t2m", "2m_temperature"}
 DEWPOINT_ALIASES = {"d2m", "2m_dewpoint_temperature"}
 
 
-def get_centroid_from_config(domain: str = "lahore") -> dict[str, Any]:
-    project_root = Path(__file__).resolve().parents[3]
-    config_path = project_root / "configs" / "domains.yaml"
-    if not config_path.exists():
-        return {}
-    with config_path.open(encoding="utf-8") as f:
-        conf = yaml.safe_load(f)
-        if conf is None:
-            conf = {}
-    res = conf.get("domains", {}).get(domain, {}).get("centroid", {})
-    return dict(res) if res else {}
+def get_centroid_from_config(domain: str = "lahore", settings: Any = None) -> dict[str, Any]:
+    if settings:
+        if isinstance(settings, dict):
+            d_conf = settings.get("domains", {})
+            if "domains" in d_conf and domain in d_conf["domains"]:
+                c = d_conf["domains"][domain].get("centroid")
+                if c:
+                    return dict(c)
+            if domain in d_conf and "centroid" in d_conf[domain]:
+                return dict(d_conf[domain]["centroid"])
+        elif hasattr(settings, "domains"):
+            d_conf = settings.domains
+            if isinstance(d_conf, dict):
+                c = d_conf.get("domains", {}).get(domain, {}).get("centroid") or d_conf.get(
+                    domain, {}
+                ).get("centroid")
+                if c:
+                    return dict(c)
+
+    candidate_paths = [
+        Path("configs/domains.yaml"),
+        Path("/app/configs/domains.yaml"),
+        Path(__file__).resolve().parents[3] / "configs" / "domains.yaml",
+        Path(__file__).resolve().parents[2] / "configs" / "domains.yaml",
+        Path(__file__).resolve().parents[1] / "configs" / "domains.yaml",
+    ]
+    for config_path in candidate_paths:
+        if config_path.exists():
+            with contextlib.suppress(Exception):
+                with config_path.open(encoding="utf-8") as f:
+                    conf = yaml.safe_load(f) or {}
+                res = conf.get("domains", {}).get(domain, {}).get("centroid", {})
+                if res:
+                    return dict(res)
+
+    canonical_centroids: dict[str, dict[str, float]] = {
+        "lahore": {"lat": 31.5204, "lon": 74.3587},
+        "delhi": {"lat": 28.6139, "lon": 77.2090},
+        "amritsar": {"lat": 31.6340, "lon": 74.8723},
+        "ludhiana": {"lat": 30.9010, "lon": 75.8573},
+    }
+    return dict(canonical_centroids.get(domain, {}))
 
 
 def calc_rh(t_c: np.ndarray, td_c: np.ndarray) -> np.ndarray:
@@ -67,7 +99,7 @@ def extract_stations(
     grib_path: Path, stations: pd.DataFrame, domain: str = "lahore", settings: Any = None
 ) -> pd.DataFrame:
     """Extract station and centroid series from GRIB via bilinear interpolation."""
-    centroid = get_centroid_from_config(domain)
+    centroid = get_centroid_from_config(domain, settings=settings)
     if not centroid:
         raise ValueError(f"Centroid configuration missing for domain: {domain}")
 
@@ -96,7 +128,7 @@ def extract_stations(
     if not datasets:
         raise ValueError("No datasets found in GRIB")
     ds = xr.merge(datasets, compat="override")
-    with ds:
+    try:
         # Find spatial dimensions
         lat_dim = next((d for d in ds.dims if d in ("latitude", "lat")), None)
         lon_dim = next((d for d in ds.dims if d in ("longitude", "lon")), None)
@@ -291,6 +323,12 @@ def extract_stations(
                         rec["outside_grid"] = True
 
                 records.append(rec)
+    finally:
+        with contextlib.suppress(Exception):
+            ds.close()
+        for d in datasets:
+            with contextlib.suppress(Exception):
+                d.close()
 
     out_df = pd.DataFrame(records)
     return out_df.reset_index(drop=True)

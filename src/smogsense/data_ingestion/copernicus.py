@@ -6,6 +6,7 @@ ADS (cams-global-atmospheric-composition-forecasts) and CDS (reanalysis-era5-sin
 Specification: docs/data-engineering.md -> 'Copernicus ADS: CAMS global forecasts'
 """
 
+import contextlib
 import logging
 import os
 import tempfile
@@ -189,6 +190,9 @@ class CamsClient:
         finally:
             self._active_requests.pop(req_key, None)
             self._last_request_id = None
+            if hasattr(client, "session") and client.session:
+                with contextlib.suppress(Exception):
+                    client.session.close()
             if temp_path.exists():
                 temp_path.unlink()
 
