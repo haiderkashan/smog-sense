@@ -114,9 +114,13 @@ def daily(
     force: bool = typer.Option(False, "--force", help="Force run even if already published"),
 ) -> None:
     """Run the full daily cycle."""
+    import os
     from datetime import datetime
 
     from smogsense.pipeline.orchestrator import run_daily_pipeline
+
+    if not force and os.getenv("SMOGSENSE_FORCE", "0").lower() in ("1", "true"):
+        force = True
 
     if issuance == "latest":
         # Get start of today in UTC
@@ -142,13 +146,22 @@ def exists(issuance: str = typer.Option("latest", "--issuance")) -> None:
     else:
         issuance_utc = datetime.fromisoformat(issuance).replace(tzinfo=UTC)
 
-    manifest_file = Path(".state/manifests") / f"run_{issuance_utc.strftime('%Y%m%d_%H%M')}.json"
-    if manifest_file.exists():
-        with contextlib.suppress(Exception):
-            with manifest_file.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-            if data.get("published") is True:
-                sys.exit(11)
+    manifest_dir = Path(".state/manifests")
+    issuance_date = issuance_utc.strftime("%Y-%m-%d")
+    canonical_manifest = manifest_dir / f"{issuance_date}.json"
+    compact_date = issuance_utc.strftime("%Y%m%d")
+
+    candidates: list[Path] = [canonical_manifest]
+    if manifest_dir.exists():
+        candidates.extend(sorted(manifest_dir.glob(f"run_{compact_date}*.json")))
+
+    for cand in candidates:
+        if cand.exists():
+            with contextlib.suppress(Exception):
+                with cand.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if data.get("published") is True:
+                    sys.exit(11)
     sys.exit(0)
 
 

@@ -285,7 +285,7 @@ def generate_bulletin_json(
         },
         "provenance": provenance,
         "disclaimer_key": "research_only",
-        "valid_until_utc": valid_until.isoformat(timespec="seconds"),
+        "valid_until_utc": valid_until.isoformat(timespec="seconds").replace("+00:00", "Z"),
         "basis": {
             "n_panel": len(stations_list),
             "n_reference": sum(1 for s in stations_list if s.get("is_reference")),

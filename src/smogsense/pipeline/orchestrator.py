@@ -236,9 +236,23 @@ def write_manifest(
         "git_sha": git_sha,
         "config_hash": config_hash,
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
+    manifest_dir = path.parent
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Timestamped run manifest
+    run_file = manifest_dir / f"{run_id}.json"
+    with run_file.open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
+
+    # 2. Canonical date manifest (YYYY-MM-DD.json per docs/data-engineering.md §14)
+    date_file = manifest_dir / f"{issuance_utc.strftime('%Y-%m-%d')}.json"
+    with date_file.open("w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2)
+
+    # If original target path differs from both, write to it as well
+    if path != run_file and path != date_file:
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
 
 
 async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) -> int:
@@ -248,25 +262,28 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
     run_id = f"run_{issuance_utc.strftime('%Y%m%d_%H%M')}"
     manifest_dir = Path(".state/manifests")
     manifest_file = manifest_dir / f"{run_id}.json"
+    canonical_manifest_file = manifest_dir / f"{issuance_utc.strftime('%Y-%m-%d')}.json"
 
     git_sha = get_git_sha()
     config_hash = settings.hash()
 
     is_rerun = False
 
-    if manifest_file.exists():
-        with contextlib.suppress(Exception):
-            with manifest_file.open("r", encoding="utf-8") as f:
-                prev = json.load(f)
-            if prev.get("published") is True:
-                if not force:
-                    logger.info("Already published. Use --force.")
-                    return 11
-                else:
-                    is_rerun = True
-                    # Deriving distinct run_id for rerun preserves the first issuance on the ledger
-                    run_id = f"run_{issuance_utc.strftime('%Y%m%d_%H%M')}_rerun_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
-                    manifest_file = manifest_dir / f"{run_id}.json"
+    # Check for previous publication using both run_id and canonical date manifests
+    for prev_candidate in [manifest_file, canonical_manifest_file]:
+        if prev_candidate.exists():
+            with contextlib.suppress(Exception):
+                with prev_candidate.open("r", encoding="utf-8") as f:
+                    prev = json.load(f)
+                if prev.get("published") is True:
+                    if not force:
+                        logger.info("Already published. Use --force.")
+                        return 11
+                    else:
+                        is_rerun = True
+                        run_id = f"run_{issuance_utc.strftime('%Y%m%d_%H%M')}_rerun_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
+                        manifest_file = manifest_dir / f"{run_id}.json"
+                        break
 
     has_obs = False
     obs_df = pd.DataFrame()
@@ -788,18 +805,20 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         site_dir = Path("site")
         site_dir.mkdir(parents=True, exist_ok=True)
         forecast_dir = site_dir / "forecast"
-        forecast_dir.mkdir(parents=True, exist_ok=True)
-        with (forecast_dir / f"{run_id}.json").open("w", encoding="utf-8") as f:
-            json.dump(bulletin, f, indent=2)
-        with (site_dir / f"{run_id}.json").open("w", encoding="utf-8") as f:
-            json.dump(bulletin, f, indent=2)
+        issuance_date_str = issuance_utc.strftime("%Y-%m-%d")
+        for f_name in [f"{run_id}.json", f"{issuance_date_str}.json", "latest.json"]:
+            with (forecast_dir / f_name).open("w", encoding="utf-8") as f:
+                json.dump(bulletin, f, indent=2)
+            with (site_dir / f_name).open("w", encoding="utf-8") as f:
+                json.dump(bulletin, f, indent=2)
 
         # Also write to gh-pages if writable (for local test parity)
         with contextlib.suppress(OSError):
             gh_pages_dir = Path("gh-pages")
             gh_pages_dir.mkdir(parents=True, exist_ok=True)
-            with (gh_pages_dir / f"{run_id}.json").open("w", encoding="utf-8") as f:
-                json.dump(bulletin, f, indent=2)
+            for f_name in [f"{run_id}.json", f"{issuance_date_str}.json", "latest.json"]:
+                with (gh_pages_dir / f_name).open("w", encoding="utf-8") as f:
+                    json.dump(bulletin, f, indent=2)
 
         # Write forecast log ONLY after bulletin successfully generated and validated
         print("[DEBUG-TRACE] orchestrator: STEP 11: writing forecast log to parquet", flush=True)

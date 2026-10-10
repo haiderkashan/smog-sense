@@ -98,14 +98,27 @@ jobs:
           if [ "${ISSUANCE_DATE}" = "latest" ] || [ -z "${ISSUANCE_DATE}" ]; then
             ISSUANCE_DATE="$(date -u +%Y-%m-%d)"
           fi
-          MANIFEST_FILE=".state/manifests/${ISSUANCE_DATE}.json"
-          if [ -f "${MANIFEST_FILE}" ] && [ "${SMOGSENSE_FORCE}" != "1" ]; then
-            IS_PUBLISHED="$(grep -o '"published":\s*true' "${MANIFEST_FILE}" || true)"
-            if [ -n "${IS_PUBLISHED}" ]; then
-              echo "Forecast for ${ISSUANCE_DATE} is already published in ${MANIFEST_FILE}."
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "rc=11" >> "$GITHUB_OUTPUT"
-              exit 0
+          COMPACT_DATE="${ISSUANCE_DATE//-/}"
+          FOUND_MANIFEST=""
+          if [ "${SMOGSENSE_FORCE}" != "1" ]; then
+            if [ -f ".state/manifests/${ISSUANCE_DATE}.json" ]; then
+              FOUND_MANIFEST=".state/manifests/${ISSUANCE_DATE}.json"
+            else
+              for f in .state/manifests/run_${COMPACT_DATE}_*.json; do
+                if [ -f "$f" ]; then
+                  FOUND_MANIFEST="$f"
+                  break
+                fi
+              done
+            fi
+            if [ -n "${FOUND_MANIFEST}" ]; then
+              IS_PUBLISHED="$(grep -o '"published":\s*true' "${FOUND_MANIFEST}" || true)"
+              if [ -n "${IS_PUBLISHED}" ]; then
+                echo "Forecast for ${ISSUANCE_DATE} is already published in ${FOUND_MANIFEST}."
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                echo "rc=11" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
             fi
           fi
           echo "Pre-check passed: proceeding with forecast run."
