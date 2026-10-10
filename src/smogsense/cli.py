@@ -57,6 +57,24 @@ def live() -> None:
     pass
 
 
+@app_ingest.command("archive-pilot")
+def archive_pilot_cmd(
+    limit: int = typer.Option(500, "--limit", help="Max archive files to process"),
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (lahore, delhi)"),
+    shard_by: str = typer.Option("year", "--shard-by", help="Sharding strategy"),
+) -> None:
+    """Run historical backfill pilot on OpenAQ archive (Task P1-19)."""
+    from smogsense.data_ingestion.openaq_archive import run_backfill_pilot
+
+    stats = run_backfill_pilot(domain=domain, max_files=limit, shard_by=shard_by)
+    print(
+        f"Archive pilot completed: {stats['records_processed']} records from {stats['files_found']} files."
+    )
+    print(f"Throughput: {stats['download_mb_per_s']} MB/s ({stats['records_per_s']} records/s).")
+    print(f"Output saved to: {stats['output_file']}")
+
+
+
 @app_run.command()
 def daily(
     issuance: str = typer.Option("latest", "--issuance", help="Issuance time"),
