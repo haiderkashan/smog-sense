@@ -215,11 +215,7 @@ class CamsClient:
             if temp_path.exists():
                 with contextlib.suppress(Exception):
                     temp_path.unlink()
-            if hasattr(client, "session") and client.session:
-                print("[DEBUG-TRACE] fetch_cams: closing client.session", flush=True)
-                with contextlib.suppress(Exception):
-                    client.session.close()
-                print("[DEBUG-TRACE] fetch_cams: client.session closed", flush=True)
+
 
         print(f"[DEBUG-TRACE] fetch_cams: returning {dest_path}", flush=True)
         return dest_path

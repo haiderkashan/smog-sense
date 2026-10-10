@@ -173,5 +173,6 @@ jobs:
         with:
           name: state-backup-${{ github.run_id }}
           path: .state
+          include-hidden-files: true
           retention-days: 14
           if-no-files-found: ignore

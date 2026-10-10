@@ -347,16 +347,30 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                     index=False,
                 )
                 print("[DEBUG-TRACE] orchestrator: cams snapshot written to parquet", flush=True)
+                import gc
+
+                print("[DEBUG-TRACE] orchestrator: running gc.collect()", flush=True)
+                gc.collect()
+                print("[DEBUG-TRACE] orchestrator: gc.collect() completed successfully", flush=True)
     except Exception as e:
         print(
             f"[DEBUG-TRACE] orchestrator: CAMS fetch/extract failed with exception: {e}", flush=True
         )
         logger.warning(f"CAMS fetch failed: {e}")
 
+    print(
+        f"[DEBUG-TRACE] orchestrator: STEP 1: determine_mode starting (has_obs={has_obs}, has_cams={has_cams}, cams_is_stale={cams_is_stale})",
+        flush=True,
+    )
     try:
         mode = determine_mode(has_obs, has_cams, cams_is_stale, False)
         degrad_level = get_degradation_level(mode)
+        print(
+            f"[DEBUG-TRACE] orchestrator: STEP 2: determine_mode done (mode={mode}, level={degrad_level})",
+            flush=True,
+        )
     except RuntimeError as e:
+        print(f"[DEBUG-TRACE] orchestrator: determine_mode raised RuntimeError: {e}", flush=True)
         logger.error(str(e))
         write_manifest(
             manifest_file,
@@ -398,10 +412,18 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 seed_history = seed_data.get("quantiles", {})
                 m0_seed_history = seed_data.get("m0_quantiles", {})
 
+        print(
+            f"[DEBUG-TRACE] orchestrator: STEP 3: starting inference (baseline={baseline_used}, stations={len(stations_df) if not stations_df.empty else 0})",
+            flush=True,
+        )
         if baseline_used == "m1_cams_raw":
             if has_cams and not cams_df.empty:
-                for _, s in stations_df.iterrows():
+                for idx_s, (_, s) in enumerate(stations_df.iterrows()):
                     loc_id = s["location_id"]
+                    print(
+                        f"[DEBUG-TRACE] orchestrator: processing station {idx_s+1}/{len(stations_df)}: loc_id={loc_id}",
+                        flush=True,
+                    )
                     s_name = s.get("name", str(loc_id))
                     lat = float(s["lat"])
                     lon = float(s["lon"])
@@ -415,7 +437,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                             st_max = st_obs["ts_utc"].max()
                             if hasattr(st_max, "to_pydatetime"):
                                 station_cutoff = st_max.to_pydatetime()
-                            elif isinstance(raw_max, datetime):
+                            elif isinstance(st_max, datetime):
                                 station_cutoff = st_max
 
                     cams_station = cams_df[cams_df["location_id"] == str(loc_id)]
@@ -470,6 +492,10 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                         )
 
             # City pseudo-location forecast for M1 CAMS
+            print(
+                f"[DEBUG-TRACE] orchestrator: STEP 4: computing city forecast for M1 CAMS (cams_df rows={len(cams_df)})",
+                flush=True,
+            )
             city_cams = (
                 cams_df[cams_df["location_id"] == "centroid"]
                 if not cams_df.empty
@@ -593,8 +619,14 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         )
         return 50
 
+    print(
+        f"[DEBUG-TRACE] orchestrator: STEP 5: inference completed (stations_data={len(stations_data)}, city_forecasts={list(city_forecasts.keys())})",
+        flush=True,
+    )
+
     # Ensure at least city forecast exists for publication
     if not city_forecasts:
+        print("[DEBUG-TRACE] orchestrator: no city forecast, degrading to level 4", flush=True)
         logger.error("No city forecast could be computed. Degrading to level 4.")
         write_manifest(
             manifest_file,
@@ -630,6 +662,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         if cams_base:
             sources_status["cams_global"]["as_of_utc"] = cams_base.isoformat(timespec="seconds")
 
+        print("[DEBUG-TRACE] orchestrator: STEP 6: calling generate_forecast_log", flush=True)
         log_df = generate_forecast_log(
             issuance_utc,
             cams_base,
@@ -645,7 +678,12 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             n_available_stations=n_available_stations,
             is_rerun=is_rerun,
         )
+        print(
+            f"[DEBUG-TRACE] orchestrator: STEP 7: generate_forecast_log completed (shape={log_df.shape})",
+            flush=True,
+        )
 
+        print("[DEBUG-TRACE] orchestrator: STEP 8: calling generate_bulletin_json", flush=True)
         bulletin = generate_bulletin_json(
             log_df,
             issuance_utc,
@@ -657,8 +695,10 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             stations_meta_dict,
             git_sha=git_sha,
         )
+        print("[DEBUG-TRACE] orchestrator: STEP 9: generate_bulletin_json completed", flush=True)
 
         # Write bulletin and site outputs under site/ (mounted writable volume)
+        print("[DEBUG-TRACE] orchestrator: STEP 10: writing bulletin and site files", flush=True)
         site_dir = Path("site")
         site_dir.mkdir(parents=True, exist_ok=True)
         forecast_dir = site_dir / "forecast"
@@ -676,10 +716,13 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 json.dump(bulletin, f, indent=2)
 
         # Write forecast log ONLY after bulletin successfully generated and validated
+        print("[DEBUG-TRACE] orchestrator: STEP 11: writing forecast log to parquet", flush=True)
         Path(".state/forecasts").mkdir(parents=True, exist_ok=True)
         log_df.to_parquet(f".state/forecasts/forecast_{run_id}.parquet")
+        print("[DEBUG-TRACE] orchestrator: STEP 12: forecast log written to parquet", flush=True)
 
     except Exception as e:
+        print(f"[DEBUG-TRACE] orchestrator: bulletin/log generation failed with exception: {e}", flush=True)
         logger.error(f"Failed to generate bulletin/log: {e}")
         write_manifest(
             manifest_file,
@@ -696,10 +739,13 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         return 50
 
     try:
+        print("[DEBUG-TRACE] orchestrator: STEP 13: calling generate_site", flush=True)
         generate_site(bulletin, site_dir)
         with contextlib.suppress(OSError):
             generate_site(bulletin, Path("gh-pages"))
+        print("[DEBUG-TRACE] orchestrator: STEP 14: generate_site completed", flush=True)
     except Exception as e:
+        print(f"[DEBUG-TRACE] orchestrator: generate_site failed with exception: {e}", flush=True)
         logger.error(f"Failed to generate site: {e}")
         write_manifest(
             manifest_file,
@@ -716,6 +762,10 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         return 50
 
     exit_code = 10 if degrad_level in (1, 2, 3) else 0
+    print(
+        f"[DEBUG-TRACE] orchestrator: STEP 15: calling write_manifest (published=True, exit_code={exit_code})",
+        flush=True,
+    )
     write_manifest(
         manifest_file,
         run_id,
@@ -727,6 +777,10 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         exit_code,
         git_sha=git_sha,
         config_hash=config_hash,
+    )
+    print(
+        f"[DEBUG-TRACE] orchestrator: STEP 16: write_manifest complete, returning {exit_code}",
+        flush=True,
     )
     return exit_code
 

@@ -138,7 +138,7 @@ def extract_stations(
     )
     datasets = cfgrib.open_datasets(
         str(grib_path),
-        backend_kwargs={"indexpath": ""},
+        backend_kwargs={"indexpath": "", "cache_geo_coords": False},
     )
     if not datasets:
         raise ValueError("No datasets found in GRIB")
@@ -148,14 +148,12 @@ def extract_stations(
     )
     logger.info("Successfully opened %d dataset(s) from %s", len(datasets), grib_path)
 
-    # Load arrays into memory and close backend file handles to prevent C-level eccodes double-free
+    # Load arrays into memory before processing
     loaded_datasets = []
     for i, d in enumerate(datasets):
         print(f"[DEBUG-TRACE] extract_stations: loading dataset {i}", flush=True)
         loaded_datasets.append(d.load())
         print(f"[DEBUG-TRACE] extract_stations: loaded dataset {i}", flush=True)
-        with contextlib.suppress(Exception):
-            d.close()
     if len(loaded_datasets) == 1:
         ds = loaded_datasets[0]
     else:
@@ -358,10 +356,11 @@ def extract_stations(
 
                 records.append(rec)
     finally:
-        print("[DEBUG-TRACE] extract_stations: in finally block, closing ds", flush=True)
-        with contextlib.suppress(Exception):
-            ds.close()
-        print("[DEBUG-TRACE] extract_stations: ds closed", flush=True)
+        print("[DEBUG-TRACE] extract_stations: closing datasets", flush=True)
+        for d in datasets:
+            with contextlib.suppress(Exception):
+                d.close()
+        print("[DEBUG-TRACE] extract_stations: datasets closed", flush=True)
 
     print(
         f"[DEBUG-TRACE] extract_stations: building out_df with {len(records)} records", flush=True
