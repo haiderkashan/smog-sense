@@ -421,7 +421,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 for idx_s, (_, s) in enumerate(stations_df.iterrows()):
                     loc_id = s["location_id"]
                     print(
-                        f"[DEBUG-TRACE] orchestrator: processing station {idx_s+1}/{len(stations_df)}: loc_id={loc_id}",
+                        f"[DEBUG-TRACE] orchestrator: processing station {idx_s + 1}/{len(stations_df)}: loc_id={loc_id}",
                         flush=True,
                     )
                     s_name = s.get("name", str(loc_id))
@@ -722,7 +722,10 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
         print("[DEBUG-TRACE] orchestrator: STEP 12: forecast log written to parquet", flush=True)
 
     except Exception as e:
-        print(f"[DEBUG-TRACE] orchestrator: bulletin/log generation failed with exception: {e}", flush=True)
+        print(
+            f"[DEBUG-TRACE] orchestrator: bulletin/log generation failed with exception: {e}",
+            flush=True,
+        )
         logger.error(f"Failed to generate bulletin/log: {e}")
         write_manifest(
             manifest_file,

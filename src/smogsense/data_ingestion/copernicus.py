@@ -216,6 +216,5 @@ class CamsClient:
                 with contextlib.suppress(Exception):
                     temp_path.unlink()
 
-
         print(f"[DEBUG-TRACE] fetch_cams: returning {dest_path}", flush=True)
         return dest_path
