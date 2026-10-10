@@ -1,0 +1,13 @@
+{
+  "run_id": "run_20261010_0000",
+  "issued_at_utc": "2026-10-10T00:00:00+00:00",
+  "is_rerun": false,
+  "published": true,
+  "adaptation_status": "skipped_n0",
+  "observed_latency": 0.0,
+  "degradation_mode": "baseline_only",
+  "degradation_level": 2,
+  "exit_code": 10,
+  "git_sha": "unknown",
+  "config_hash": "4f200054c7687c7ed557d733fc476a86d0096eaac23ee77bcd14ea098d997a3f"
+}
