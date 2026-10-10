@@ -288,7 +288,7 @@ def test_seed_history_data_semantics_and_separation(
     mock_fetch_cams.side_effect = fake_fetch
 
     # CAMS forecast = 40.0 everywhere
-    def fake_open_datasets(grib_path):
+    def fake_open_datasets(grib_path, *args, **kwargs):
         base_str = Path(grib_path).stem.replace("cams_hist_", "")
         cams_base = datetime.strptime(base_str, "%Y%m%d_%H")
         lats = np.array([32.0, 31.0])
@@ -411,7 +411,7 @@ def test_centroid_residual_omitted_when_fewer_than_min_city_stations(
 
     mock_fetch_cams.side_effect = lambda *a, **kw: kw.get("dest_path")
 
-    def fake_open_datasets(grib_path):
+    def fake_open_datasets(grib_path, *args, **kwargs):
         base_str = Path(grib_path).stem.replace("cams_hist_", "")
         cams_base = datetime.strptime(base_str, "%Y%m%d_%H")
         lats = np.array([32.0, 31.0])
@@ -505,7 +505,7 @@ def test_missing_target_observation_not_counted(mock_fetch_cams, mock_open_datas
 
     mock_fetch_cams.side_effect = lambda *a, **kw: kw.get("dest_path")
 
-    def fake_open_datasets(grib_path):
+    def fake_open_datasets(grib_path, *args, **kwargs):
         base_str = Path(grib_path).stem.replace("cams_hist_", "")
         cams_base = datetime.strptime(base_str, "%Y%m%d_%H")
         lats = np.array([32.0, 31.0])
@@ -580,7 +580,7 @@ def test_min_residuals_per_group_enforcement(mock_fetch_cams, mock_open_datasets
 
     import xarray as xr
 
-    def fake_open_datasets(grib_path):
+    def fake_open_datasets(grib_path, *args, **kwargs):
         base_str = Path(grib_path).stem.replace("cams_hist_", "")
         cams_base = datetime.strptime(base_str, "%Y%m%d_%H")
         lats = np.array([32.0, 31.0])

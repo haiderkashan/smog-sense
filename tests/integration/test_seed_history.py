@@ -126,7 +126,7 @@ def test_seed_history_integration(mock_fetch_cams, mock_open_datasets, clean_sta
     mock_fetch_cams.side_effect = fake_fetch
 
     # 4. Fake xarray/cfgrib dataset
-    def fake_open_datasets(grib_path):
+    def fake_open_datasets(grib_path, *args, **kwargs):
         # Determine base time from path to align step dimensions
         base_str = Path(grib_path).stem.replace("cams_hist_", "")
         cams_base = datetime.strptime(base_str, "%Y%m%d_%H")
