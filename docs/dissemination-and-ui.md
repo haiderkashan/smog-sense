@@ -1,6 +1,6 @@
 # Dissemination and UI
 
-> **Audience:** whoever builds Phase 4 (templates, cards, site) and the reviewers who will judge it. The model is useless to a person who cannot understand it in five seconds on a phone, in Urdu, on a bad connection.
+> **Audience:** whoever builds Phase 4 (templates, cards, site) and the reviewers who will judge it (revision 2). The model is useless to a person who cannot understand it in five seconds on a phone, in Urdu, on a bad connection.
 > **No framework code is specified here on purpose**; this document fixes *behaviour, content, design tokens, contracts and budgets*.
 
 ## 1. Audiences and communication goals
@@ -9,27 +9,27 @@
 |---|---|---|---|
 | **Citizens** (parents, commuters, workers) | Phone, often Urdu-first, variable bandwidth, WhatsApp-centric | "What should I do today?" in one glance; trust; shareability | Forecast page, WhatsApp card |
 | **Schools, employers, event organisers** | Decide closures/schedules | Next-72-hour outlook; chance of the worst category | Forecast page (3 horizons), JSON |
-| **Journalists** | Quote and cite | Numbers with units, issuance time, provenance, method, track record | Forecast, methodology, accuracy, JSON |
+| **Journalists** | Quote and cite | Numbers with units, issuance time, provenance, method, track record | Forecast, methodology, scorecard, JSON |
 | **Hospital/municipal planners** | Surge planning | Upper-tail risk (`P(exceed 125.5/225.5)`) | Horizon cards, JSON |
-| **Scientists/officials** | Evaluate credibility | Methodology, data sources, verification statistics, honest limitations | Methodology, accuracy |
+| **Scientists/officials** | Evaluate credibility | Methodology, data sources, verification statistics, honest limitations | Methodology, scorecard |
 
 Goals: **(G1)** understand the headline in ≤ 5 seconds; **(G2)** one clear protective action; **(G3)** uncertainty stated honestly and *understood*; **(G4)** every number traceable to data and time; **(G5)** works offline-ish on 2G (small pages), with JavaScript disabled, in both languages.
 
 ## 2. Risk-communication rules for probabilistic forecasts
 
 1. **Lead with category and action, then the number.** A chip ("Hazardous") and one sentence of advice come before any µg m⁻³ value.
-2. **Natural frequencies for uncertainty.** "Real levels fall inside this range on about **8 days out of 10**; about **1 day in 10** is worse." Natural frequencies are understood far better than probabilities or percentiles (Gigerenzer & Hoffrage, 1995). Percentages are reserved for *exceedance* statements ("chance of exceeding 125.5 µg m⁻³: 93 %").
+2. **Natural frequencies for uncertainty.** "Real levels fall inside this range on about **8 days out of 10**; about **1 day in 10** is worse." Natural frequencies are understood far better than probabilities or percentiles (Gigerenzer & Hoffrage, 1995). Percentages are reserved for *exceedance* statements ("chance of exceeding 125.5 µg m⁻³: 90 %"; see rule 12).
 3. **Never "worst case".** $\hat q_{.90}$ is the *bad case* (1 day in 10 is worse), not a bound. The plan's phrase "90th percentile worst-case scenario" is replaced throughout (labels: *Bad case*).
 4. **The interval is 80 %, not 90 %.** $[q_{.10},q_{.90}]$ contains 80 % of outcomes if calibrated; the label says "8 days in 10".
 5. **Never extrapolate an index.** The official EPA AQI ends at 500; dramatic figures such as "AQI 1900" come from consumer apps' extended scales. SmogSense reports **concentration (µg m⁻³) plus category**, and caps nothing artificially: a 400 µg m⁻³ forecast is "Hazardous", full stop.
-6. **One transparent scheme.** US EPA 2024 PM2.5 breakpoints on 24-hour means (below), named on the page. Pakistani authorities may publish their own categories; reconcile with the local authority before launch and show both if they differ.
+6. **One transparent scheme.** US EPA 2024 PM2.5 breakpoints on 24-hour means (below), named on the page. Pakistani authorities may publish their own categories; reconcile with the local authority before launch and show both if they differ (owner decision, gate G-SCI).
 7. **Visible degradation.** Any mode other than `full` shows a banner in plain words (catalogue `mode_banner.*`).
-8. **Time stamps everywhere.** "Issued 05:26 Pakistan time"; a 30-hour `valid_until` with a three-path banner when stale.
+8. **Time stamps and expiry everywhere.** "Issued 05:26 Pakistan time" is the **true generation time**, also after a rerun. Every bulletin states **"valid until"** = issuance + **30 hours** (`valid_until_utc`). Horizons are labelled as **clock windows** ("Tue 06:00 – Wed 06:00, Pakistan time"), never as "+24 h". Once the valid-until time passes, the forecast is replaced by an expiry notice (three paths, §6).
 9. **Calm tone.** The page turns "alarm red" only for ≥ Unhealthy; no exclamation marks, no emojis in advice text; avoid both false reassurance and alarm fatigue.
-10. **Escalate cautiously.** Advice is written for the **next-24-hour median category**, escalated one level if the chance of the next-worse category is ≥ 35 % (`configs/bulletin.yaml → advisory_policy`). Illustration with the fixture's day-2 numbers: a *Very unhealthy* median with a 38.6 % chance of *Hazardous* would escalate the advice to Hazardous.
+10. **Escalate cautiously.** Advice is written for the **next-24-hour median category**, escalated one level if the chance of the next-worse category is ≥ 35 % (`configs/bulletin.yaml → advisory_policy`). Illustration with the fixture's day-2 numbers: a *Very unhealthy* median with a 38.6 % chance of *Hazardous* would escalate the advice to Hazardous. (The 35 % rule uses the unrounded probability; only the *displayed* value is rounded.)
 11. **Attribution and disclaimer** on every page and card: research project, not an official forecast; follow official health guidance; data credits including the Copernicus wording ("Generated using Copernicus Atmosphere Monitoring Service information 2026").
-12. **Exceedance rounding.** Round exceedance to 5 %, clamp to <5 % / >95 %.
-13. **Truth basis.** Clearly state the truth basis.
+12. **Exceedance rounding.** Displayed exceedance probabilities are **rounded to the nearest 5 %** and **clamped**: anything below 5 % is shown as "under 5 %" and anything above 95 % as "over 95 %". Never display 0 % or 100 %, and never a false-precision value such as 93 %. Catalogue keys: `uncertainty.chance_exceed` (value), `uncertainty.chance_exceed_low`, `uncertainty.chance_exceed_high`.
+13. **Truth basis.** Every page states what the forecast is checked against, in one plain sentence (`methodology.truth`): hourly PM2.5 from the OpenAQ network in Lahore; the reference monitor where one is co-located, otherwise the median of corrected low-cost sensors; the city value is the average of a fixed panel of {n} stations ({ref} reference, {lc} low-cost). The panel is frozen for the season.
 
 **AQI categories** (US EPA 2024, 24-hour PM2.5; concentrations truncated to 0.1 µg m⁻³ before categorising):
 
@@ -44,11 +44,10 @@ Goals: **(G1)** understand the headline in ≤ 5 seconds; **(G2)** one clear pro
 ```
 /                       Forecast (English)           /ur/                  Forecast (Urdu)
 /methodology/           How it works                 /ur/methodology/
-/accuracy/              Public scorecard             /ur/accuracy/
-/archive/               Past bulletins               /ur/archive/
-/forecast/latest.json   Machine-readable bulletin   /forecast/YYYY-MM-DD.json
+/forecast/latest.json   Machine-readable bulletin    /forecast/YYYY-MM-DD.json
 /cards/latest/lahore-whatsapp-{en,ur}.png            /cards/YYYY-MM-DD/…   (last 14 days)
 /og/latest-{en,ur}.png  Open Graph preview           /404.html  /robots.txt  /sitemap.xml
+(deferred)  /accuracy/  /ur/accuracy/  /archive/  /ur/archive/   — until built, the scorecard is published as JSON
 ```
 
 Mobile-first home (both languages share the structure; Urdu mirrors inline direction):
@@ -56,7 +55,7 @@ Mobile-first home (both languages share the structure; Urdu mirrors inline direc
 ```
 ┌────────────────────────────────┐
 │ SmogSense Lahore          اردو │   header + language switch
-│ Issued at real generation time  │
+│ Issued 05:26 PKT · valid until  │   true generation time; valid_until
 ├────────────────────────────────┤
 │ [ HAZARDOUS ]                   │   category chip (colour + text)
 │ 243 µg/m³       most likely     │   hero number
@@ -67,9 +66,14 @@ Mobile-first home (both languages share the structure; Urdu mirrors inline direc
 ├────────────────────────────────┤
 │ What to do                      │   headline + 3–4 actions + notes
 ├────────────────────────────────┤
-│ window_start_local to window_end_local │   clock windows replacing horizon cards
+│ ┌──────┐ ┌──────┐ ┌──────┐      │   one horizon card per 24-h block,
+│ │ Tue  │ │ Wed  │ │ Thu  │      │   labelled by clock window:
+│ │06–06 │ │06–06 │ │06–06 │      │   "{start} to {end} Pakistan time"
+│ │chip  │ │chip  │ │chip  │      │   category chip, median, range,
+│ │243   │ │198   │ │160   │      │   chance of exceeding (rounded to 5 %)
+│ └──────┘ └──────┘ └──────┘      │
 ├────────────────────────────────┤
-│ How to read this · Sources      │
+│ How this is checked · Sources   │   truth-basis sentence, how to read, credits
 └────────────────────────────────┘
 ```
 
@@ -116,14 +120,15 @@ Tokens live in `web/static/css/tokens.css`; `configs/bulletin.yaml` mirrors the 
 
 ```
 smogsense run daily ─▶ bulletin render ─▶ site build ─▶ site validate ─▶ (host) scripts/publish_ghpages.sh ─▶ GitHub Pages
-                                                                                      └─▶ optional: Cloudflare Pages direct upload
+                                                                                      └─▶ optional (deferred): Cloudflare Pages direct upload
 ```
 
-* **Output** (`site/`): HTML per language, fingerprinted assets under `/assets/` (immutable cache), `forecast/*.json`, `cards/…`, `og/…`, `sitemap.xml`, `robots.txt`, `404.html`, `.nojekyll`, and for the Cloudflare mirror a `_headers` file carrying the CSP and cache policy.
-* **No framework, no bundler, no Node.** Jinja2 renders pages inside the Python pipeline. JavaScript (≤ 30 KB, vanilla, `defer`) is *progressive enhancement only*: chart tooltips, `navigator.share` with a `wa.me` fallback, remembering language/theme in `localStorage` inside try/catch, the staleness banner.
+* **Output** (`site/`): HTML per language, fingerprinted assets under `/assets/` (immutable cache), `forecast/*.json`, `cards/…`, `og/…`, `sitemap.xml`, `robots.txt`, `404.html`, `.nojekyll`, and for a future Cloudflare mirror a `_headers` file carrying the CSP and cache policy.
+* **No framework, no bundler, no Node.** Jinja2 renders pages inside the Python pipeline. JavaScript (≤ 30 KB, vanilla, `defer`) is *progressive enhancement only*: chart tooltips, `navigator.share` with a `wa.me` fallback, remembering language/theme in `localStorage` inside try/catch, and the expiry banner.
+* **Bulletin expiry — three independent paths.** (1) A **static line** "Valid until {time}" in the HTML itself (works with JavaScript off). (2) A **JavaScript banner**: the script compares `valid_until_utc` with the clock and, when passed, replaces the forecast block with the expiry notice (`status.expired_banner`); it works on a cached page. (3) The **watchdog** (06:07 UTC) publishes a static expiry notice into the site when no bulletin for today exists. Any one path is enough to stop a stale forecast being read as current.
 * **Strict CSP** (`default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'`): no inline script or style, no third-party hosts, no analytics, no cookies, no CDN fonts. GitHub Pages cannot set response headers, so the CSP is also emitted as a `<meta>` tag (note: `frame-ancestors` is ignored in `<meta>`; Cloudflare's `_headers` sets it properly).
 * **No service worker / offline cache** for forecast pages: a stale cached forecast is a safety risk. Pages are served with `max-age=600`.
-* **Open data.** `forecast/latest.json` follows `data/schemas/bulletin.schema.json` for journalists and third-party apps (verify the host's CORS header with `curl -I` in Phase 4; Pages typically allows cross-origin reads of static files).
+* **Open data.** `forecast/latest.json` follows `data/schemas/bulletin.schema.json` (including `valid_until_utc` and `basis`) for journalists and third-party apps (verify the host's CORS header with `curl -I` in Phase 4; Pages typically allows cross-origin reads of static files).
 * **Retention.** JSON for every day (rebuilt from the `state` branch if needed); cards for the last 14 days only, which bounds the site at ≈ 50 MB.
 * **Share cache-busting.** Share links append `?d=YYYYMMDD`, because WhatsApp caches link previews per URL; the daily query value forces a fresh Open Graph preview.
 
@@ -138,11 +143,11 @@ The header comment of every template in `web/templates/` states its context; the
 | `t` | callable | `publishing/i18n.py` (key parity enforced) |
 | `site` | `{base_url, build_id, generated_at_utc, asset(path)}` | `publishing/site.py` |
 | `page` | `{title, canonical_url, og_image_url, alternate_lang_url}` | per page |
-| `bulletin` | dict validated against `bulletin.schema.json` | `publishing/bulletin.py` |
+| `bulletin` | dict validated against `bulletin.schema.json` (incl. `valid_until_utc`, `basis`) | `publishing/bulletin.py` |
 | `categories` | list of `{id, bg, fg, name}` | `configs/bulletin.yaml` + catalogue |
 | `geometry` | chart paths/ticks, pure data | `visualization/fan_chart.py` |
 
-Templates and partials: `base`, `index`, `methodology`, `archive`, `accuracy`, `404`; partials `_aqi_chip`, `_fan_chart.svg` (real `<text>`, never outlined glyphs; `role="img"` with `<title>`/`<desc>`; a visually-hidden data table repeats the numbers), `_advisory_block`, `_uncertainty_legend`, `_language_switch`, `_mode_banner`, `_horizon_card`.
+Templates and partials: `base`, `index`, `methodology`, `archive` and `accuracy` (deferred), `404`; partials `_aqi_chip`, `_fan_chart.svg` (real `<text>`, never outlined glyphs; `role="img"` with `<title>`/`<desc>`; a visually-hidden data table repeats the numbers), `_advisory_block`, `_uncertainty_legend`, `_language_switch`, `_mode_banner`, `_horizon_card`, `_expiry_notice`.
 
 ## 8. WhatsApp-ready cards
 
@@ -163,19 +168,19 @@ Templates and partials: `base`, `index`, `methodology`, `archive`, `accuracy`, `
 │   ░░ range chart, 3 days ░░      │  same geometry as the website
 │   one action sentence            │
 │   "8 days in 10 inside the range"│
-│  SmogSense · research forecast   │  source line + short URL
+│  Valid until … · SmogSense       │  expiry + source line + short URL
 └──────────────────────────────────┘
 ```
 
-* **Rendering:** Pillow, text through **Raqm** with `direction="rtl"`, `language="ur"`; measurement uses the same engine as drawing so wrapping is correct; 3× supersampling then LANCZOS downscale for crisp edges; PNG quantised to a small palette with `optimize=True` to meet the size budget. Colours come from `configs/bulletin.yaml` (tokens parity-tested).
+* **Rendering:** Pillow, text through **Raqm** with `direction="rtl"`, `language="ur"`; measurement uses the same engine as drawing so wrapping is correct; 3× supersampling then LANCZOS downscale for crisp edges; PNG quantised to a small palette with `optimize=True` to meet the size budget. Colours come from `configs/bulletin.yaml` (tokens parity-tested). The card carries the **valid-until** time, so a forwarded card shows its own expiry.
 * **Why PNG + optional JPEG.** WhatsApp recompresses photos sent as images; keeping cards ≤ 400 KB limits recompression artefacts on Nastaliq diacritics. A high-quality JPEG twin is provided for senders who prefer it.
 * **Stable URLs.** `/cards/latest/lahore-whatsapp-{en,ur}.png` always points at today's card, so channel admins can bookmark them; dated copies live under `/cards/YYYY-MM-DD/`.
 * **Share text** (catalogue `card.whatsapp_text`, both languages) and a `wa.me` link are on every page; the card has an alt text in the JSON.
-* **Automation boundary.** Automatic *sending* to WhatsApp subscribers is out of scope (billed; unofficial libraries violate the terms). The free **Telegram Bot API** can post the card to a channel automatically (`publish telegram`).
+* **Automation boundary.** Automatic *sending* to WhatsApp subscribers is out of scope (billed; unofficial libraries violate the terms). Posting the card to a free **Telegram** channel (`publish telegram`) is possible but **deferred**.
 
 ## 9. Message catalog
 
-Single source of truth: `web/i18n/en.yaml` and `ur.yaml` (73 keys each; key, nesting, list-length and `{placeholder}` parity is a CI test). Category names and headlines (draft v0.1 — **gates G-LANG and G-HLTH pending**):
+Single source of truth: `web/i18n/en.yaml` and `ur.yaml`: **73 keys each before revision 2, 79 after** (the 6 new keys below). Key, nesting, list-length and `{placeholder}` parity is a CI test. Category names and headlines (draft v0.1 — **gates G-LANG and G-HLTH pending**):
 
 | Id | English | اردو | Headline (English) |
 |---|---|---|---|
@@ -188,6 +193,17 @@ Single source of truth: `web/i18n/en.yaml` and `ur.yaml` (73 keys each; key, nes
 
 Uncertainty strings (`uncertainty.*`): *Most likely level* · *Likely range (8 days in 10)* · *Bad case (1 day in 10 is worse)* · *Chance of exceeding {threshold} µg/m³: {pct}%*. Notes (`notes.*`): mask effectiveness, indoor smoke, who is most at risk.
 Mode banners (`mode_banner.*`): stale CAMS, observations only, baseline only. Rules: placeholders are never translated; sentences are written natively in Urdu (not literal calques); health claims cite an authority and are reviewed before every season.
+
+**New keys in revision 2** (drafts; same placeholders in both languages; **G-LANG pending**):
+
+| Key | English | اردو |
+|---|---|---|
+| `horizon.window` | {start} to {end}, Pakistan time | {start} سے {end} تک، پاکستانی وقت |
+| `status.valid_until` | Valid until {time} Pakistan time | {time} پاکستانی وقت تک درست |
+| `status.expired_banner` | This forecast has expired. Wait for the next update or follow official sources. | یہ پیش گوئی اب میعاد سے باہر ہے۔ اگلی اپ ڈیٹ کا انتظار کریں یا سرکاری ذرائع دیکھیں۔ |
+| `uncertainty.chance_exceed_low` | Chance of exceeding {threshold} µg/m³: under 5% | {threshold} µg/m³ سے زیادہ ہونے کا امکان: 5 فیصد سے کم |
+| `uncertainty.chance_exceed_high` | Chance of exceeding {threshold} µg/m³: over 95% | {threshold} µg/m³ سے زیادہ ہونے کا امکان: 95 فیصد سے زیادہ |
+| `methodology.truth` | Forecasts are checked against hourly PM2.5 readings from the OpenAQ network in Lahore. Where a reference monitor and low-cost sensors are at the same place, the reference monitor is used; otherwise the middle value of the corrected low-cost sensors. The city value is the average of {n} stations ({ref} reference, {lc} low-cost). | پیش گوئی کو لاہور میں اوپن اے کیو نیٹ ورک کی گھنٹہ وار PM2.5 پیمائشوں سے جانچا جاتا ہے۔ جہاں ایک ہی جگہ ریفرنس مانیٹر اور سستے سینسر ہوں وہاں ریفرنس مانیٹر استعمال ہوتا ہے، ورنہ درست کیے گئے سستے سینسروں کی درمیانی قدر۔ شہر کی قدر {n} اسٹیشنوں ({ref} ریفرنس، {lc} سستے سینسر) کی اوسط ہے۔ |
 
 ## 10. Accessibility and performance budgets
 
@@ -203,19 +219,19 @@ Mode banners (`mode_banner.*`): stale CAMS, observations only, baseline only. Ru
 | Speed | Largest Contentful Paint < 2.5 s on a slow-3G profile; works with JavaScript disabled |
 | Privacy | no cookies, no third-party requests, no analytics |
 
-Automated checks in CI: token contrast computed from `tokens.css`, HTML validity of the rendered pages, link checking, per-page weight, language-tree parity. Manual: screen-reader pass (TalkBack in Urdu and English), print/greyscale pass of the card.
+Automated checks in CI: token contrast computed from `tokens.css`, HTML validity of the rendered pages, link checking, per-page weight, language-tree parity, presence of the "valid until" line and `valid_until_utc` in every rendered bulletin. Manual: screen-reader pass (TalkBack in Urdu and English), print/greyscale pass of the card.
 
 ## 11. Expert review protocol
 
-**Gates (all before public launch; target: December, before the January peak):**
+**Gates (all before public launch; target: Tue 22 December, before the January peak):**
 
 | Gate | Reviewer (by role) | Scope | Pass criterion |
 |---|---|---|---|
-| **G-SCI** | Environmental scientist | Methodology page, uncertainty wording, accuracy page honesty | no scientific objection outstanding |
-| **G-LANG** (= G-LANG) | Native Urdu editor | all `ur.yaml` strings, card typography | approved text; no calques |
+| **G-SCI** | Environmental scientist | Methodology page, uncertainty wording, truth-basis statement, accuracy/scorecard honesty, local AQI convention | no scientific objection outstanding |
+| **G-LANG** | Native Urdu editor | all `ur.yaml` strings (including the 6 new keys), card typography | approved text; no calques |
 | **G-HLTH** | Public-health physician | all `advice.*` and `notes.*` | approved wording per category |
 | **G-UX** | Local climate journalist + 5–8 lay users in Lahore (mixed literacy, phone-only) | comprehension test below | criteria below |
 
-**Comprehension test (15 min per participant, think-aloud, five-second first look):** (1) "What is the air like tomorrow and what would you do?"; (2) "On how many days out of ten will it be *worse* than the upper number?" — correct answer **1**; (3) "Is the upper number the worst possible?" — correct answer **no**; (4) "Which colour/word is worse, orange or purple?"; (5) "Would you share this card? What would you change?"; (6) trust and clarity rating.
-**Success:** ≥ 80 % correct on (2)–(4) and ≥ 80 % choose the protective action in (1). Failures are fixed in wording or layout and the test repeated with new participants.
+**Comprehension test (15 min per participant, think-aloud, five-second first look):** (1) "What is the air like tomorrow and what would you do?"; (2) "On how many days out of ten will it be *worse* than the upper number?" — correct answer **1**; (3) "Is the upper number the worst possible?" — correct answer **no**; (4) "Which colour/word is worse, orange or purple?"; (5) "Until when is this forecast valid, and what should you do after that?"; (6) "Would you share this card? What would you change?"; (7) trust and clarity rating.
+**Success:** ≥ 80 % correct on (2)–(5) and ≥ 80 % choose the protective action in (1). Failures are fixed in wording or layout and the test repeated with new participants.
 **Record:** one closed GitHub issue per gate with reviewer *role*, date and outcome (no personal data). The shadow-run season is also the field test: every issue raised by readers is triaged within 48 hours.

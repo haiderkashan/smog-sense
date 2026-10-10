@@ -1,6 +1,6 @@
 # System Architecture
 
-> **Audience:** engineers implementing or operating SmogSense. **Status:** specification for Phases 0–4.
+> **Audience:** engineers implementing or operating SmogSense. **Status:** specification for Phases 0–4 (revision 2).
 > Companion documents: [data engineering](data-engineering.md) · [ML architecture](ml-architecture.md) ·
 > [evaluation](evaluation-strategy.md) · [deployment & ops](deployment-and-ops.md) · [dissemination & UI](dissemination-and-ui.md) ·
 > [verification log](verification-log.md).
@@ -11,19 +11,20 @@
 |---|---|---|
 | P1 | **Batch, not service.** One forecast per day; nothing runs between runs. | No servers, no databases, no autoscaling. Compute is an ephemeral GitHub Actions runner. |
 | P2 | **Idempotent by construction.** Re-running an issuance must be a safe no-op (or a safe overwrite with `SMOGSENSE_FORCE=1`). | Three schedule triggers can share one workflow; a dropped cron event costs nothing. |
-| P3 | **Point-in-time correctness.** A feature at issuance *T* may use only data that was *knowable* at *T*. | Bitemporal tables (`ts_utc`, `ingested_at_utc`), an explicit as-of rule per source, and a daily input snapshot for honest replay. |
+| P3 | **Point-in-time correctness.** A feature at issuance *T* may use only data whose `available_at` is ≤ *T*. | One as-of rule for every source (§4), derived from the valid time and a per-source latency; a daily input snapshot for honest replay. `ingested_at_utc` is kept for audit only and never decides what a feature may see. |
 | P4 | **Container parity.** Laptop = CI = production. | One Dockerfile, one compose file, one CLI. Resource limits emulate the smallest runner (2 vCPU / 7 GB). |
 | P5 | **Degrade, don't fail.** A degraded forecast labelled as such beats silence. | A four-level degradation ladder (§7) with explicit exit codes and public banners. |
 | P6 | **Static delivery.** The public product is files. | Any static host works (GitHub Pages primary; Cloudflare Pages optional mirror). No runtime to attack or pay for. |
 | P7 | **$0.00, permanently.** Only permanent free tiers; every limit is documented and budgeted. | See the budget in [deployment & ops](deployment-and-ops.md#1-zero-cost-resource-budget). |
+| P8 | **Never show stale as fresh.** Every published bulletin carries its own expiry. | `valid_until_utc` = issuance + 30 h, enforced by three independent paths (§7). |
 
 ## 2. Logical architecture
 
 ```mermaid
 flowchart LR
     subgraph SRC["External sources (all free tier)"]
-        OAQ["OpenAQ API v3<br/>60 req/min, 2,000 req/h"]
-        ARC["OpenAQ AWS archive<br/>72 h lag, backfill only"]
+        OAQ["OpenAQ API v3<br/>60 req/min and 2,000 req/h"]
+        ARC["OpenAQ AWS archive<br/>72-96 h lag, backfill and settled scoring only"]
         ADS["Copernicus ADS<br/>CAMS global forecasts, 0.4 deg"]
         CDS["Copernicus CDS<br/>ERA5, hindcast only"]
         FIR["NASA FIRMS<br/>VIIRS NOAA-21 / NOAA-20"]
@@ -31,7 +32,7 @@ flowchart LR
     subgraph PIPE["Container: smogsense (Ubuntu 24.04, CPU only)"]
         ING["data_ingestion"] --> PRE["preprocessing<br/>QC, imputation, as-of alignment"]
         PRE --> FEA["features<br/>VC, fire exposure, windows"]
-        FEA --> INF["inference<br/>encoder + LightGBM quantiles + calibration"]
+        FEA --> INF["inference<br/>adapt encoder, extract latent,<br/>LightGBM stacker, rearrangement"]
         INF --> BUL["publishing<br/>bulletin JSON, cards, static site"]
     end
     OAQ --> ING
@@ -39,7 +40,7 @@ flowchart LR
     FIR --> ING
     ARC -.-> ING
     CDS -.-> ING
-    REL["GitHub Release<br/>model bundle"] --> INF
+    REL["GitHub Release<br/>model bundle: encoder + bound stacker"] --> INF
     BUL --> ST["state branch<br/>append-only Parquet journals"]
     BUL --> GHP["gh-pages<br/>one orphan commit"]
     GHP --> USERS["Citizens, journalists, scientists"]
@@ -50,7 +51,7 @@ flowchart LR
 ```
 
 Dotted edges are *not* on the live critical path: ERA5 and the AWS archive serve historical backfill and settled
-scoring only (ERA5 lags by about five days; the archive publishes 72 hours after the end of the local day).
+scoring only (ERA5 lags by about five days; the archive publishes 72–96 hours after the end of the local day). The archive is never a feature source.
 
 ### Separation of concerns
 
@@ -67,47 +68,55 @@ or replaced independently, and every stage validates its output before writing i
 `T0 = 00:00 UTC = 05:00 PKT` is the **forecast reference time**. The workflow is *triggered* at 00:17 UTC: GitHub documents that
 scheduled runs can be delayed under load, particularly at the start of every hour, so SmogSense never schedules on minute 0.
 Two further triggers (02:47 and 05:47 UTC) run the same command; if the primary run already published this issuance they exit
-with code 11 after about two minutes.
+with code 11 after about two minutes. A separate **watchdog** runs at 06:07 UTC (§7).
 
-| Offset from trigger | Step | Budget | Notes |
+The offsets below are **worst-case cumulative** from the trigger; a typical run finishes in 15–25 minutes.
+
+| Offset | Step | Budget | Notes |
 |---|---|---|---|
-| +0:00 | Checkout, attach `state` branch, host pre-check | 1 min | If the manifest for the issuance date says `published: true` and FORCE=0, skip the image pull and everything below |
-| +0:01 | Pull image `ghcr.io/<owner>/smogsense:sha-<commit>` | 2 min | Falls back to a local build if the commit has no image yet |
-| +0:03 | `ingest live`: OpenAQ ∥ CAMS ∥ FIRMS (concurrent) | ≤ 20 min | OpenAQ ≈ 60–150 requests at ≤ 48/min; CAMS = one ADS request (queue + download, wall-clock budget 20 min); FIRMS = 2–3 requests |
-| +0:15 | `features build` (as-of aligned, point-in-time) | 2 min | Also writes the input snapshot to `state/inputs/` |
-| +0:17 | `forecast run`: model bundle → 19 quantiles × 3 horizons × (stations + city) | 2 min | Validated against `forecast_log.schema.yaml`, monotone, bounded |
-| +0:19 | `bulletin render`: public JSON, English + Urdu cards, Open Graph images | 2 min | Pillow + Raqm; no browser |
-| +0:21 | `site build` and `site validate` | 1 min | Page-weight, schema, language-parity budgets |
-| +0:22 | Host: commit `state`, force-push `gh-pages`, optional Cloudflare + Telegram | 2 min | Git token never enters the container |
+| +0:00 | Checkout, attach `state` branch (sparse partial clone), **host pre-check** | 1 min | If the manifest for the issuance date says `published: true` and FORCE=0, exit 11 **before any image is pulled** |
+| +0:01 | Pull image `ghcr.io/<owner>/smogsense:img-<hash>` | 2 min | `img-<hash>` is a content hash of Dockerfile + lock file + source (planned, task P0-08); falls back to a local build if no such image exists. A moving tag such as `latest` is never used |
+| +0:03 | `ingest live`: OpenAQ ∥ CAMS ∥ FIRMS (concurrent) | ≤ 20 min | OpenAQ ≈ 60–150 requests at ≤ 48/min; CAMS = one ADS request (queue + download, wall-clock budget 20 min); FIRMS = 2–3 requests. First-seen times are written to `obs_pull_log` |
+| +0:23 | `features build` (as-of aligned, point-in-time) | 2 min | Also writes the input snapshot to `state/inputs/` |
+| +0:25 | `forecast run`: adapt encoder on the support window → accept/reject → latent → stacker → 19 quantiles × 3 horizons × (stations + city) | 3 min | Records `adaptation_status`; validated against `forecast_log.schema.yaml`, monotone, bounded |
+| +0:28 | `bulletin render`: public JSON, English + Urdu cards, Open Graph images | 2 min | Pillow + Raqm; no browser |
+| +0:30 | `site build` and `site validate` | 1 min | Page-weight, schema, language-parity budgets |
+| +0:31 | Host: commit `state`, force-push `gh-pages`, optional Cloudflare + Telegram | 2 min | Git token never enters the container |
 
-Typical wall-clock: **15–25 minutes**; hard cap 40 (`timeout-minutes`). Monthly cost: three runs per day, two of them ~2-minute no-ops,
-daily workflow ≈ 870 min/month, all scheduled workflows ≈ 1,070 (estimates), inside the 2,000-minute free allowance even for a private repository and unmetered for a public one.
+Hard cap 40 minutes (`timeout-minutes`). Monthly cost: three runs per day, two of them ~2-minute no-ops,
+daily workflow ≈ 870 min/month, all scheduled workflows ≈ 1,070 (estimates). Standard runners are unmetered for a public repository (required for Pages on the Free plan); the 2,000-minute allowance would apply only to a private one.
+
+**Quota partitions.** Of the budgeted 1,600 OpenAQ requests/hour, live ingestion may use 60 %, scoring and reconciliation 20 %, discovery and ad-hoc work 10 %; the remaining 10 % is an unassigned reserve (values in `configs/sources.yaml`, see [data engineering §3](data-engineering.md#3-openaq-v3-client)).
 
 ## 4. Data availability and the as-of rule
 
-A forecast issued at time *T* may use only what exists at *T*. Verified publication behaviour (October 2026):
+A forecast issued at time *T* may use only what exists at *T*. **One rule governs every source:**
 
-| Source | Availability | Rule |
-|---|---|---|
-| **CAMS global forecast** (ADS) | 00 UTC run guaranteed by **10:00 UTC**; 12 UTC run by **22:00 UTC** | `B*(T) = max{ B ∈ {00Z, 12Z} : B + 10 h ≤ T }` |
-| OpenAQ API | Provider-dependent, typically 1–3 h behind real time | Use rows with `ingested_at_utc ≤ T`; data cutoff `T_c` = latest complete hour |
-| FIRMS NRT (VIIRS) | ≈ 3 h after overpass | Use detections with `acq_datetime + 3 h ≤ T` |
-| ERA5 | ≈ 5 days (ERA5T) | **Never operational**; hindcast and diagnostics only |
-| OpenAQ AWS archive | 72 h after local end of day | Backfill and settled scoring only |
+> a row is usable at issuance *T* iff `available_at ≤ T`, where `available_at = valid_time_end + L_source` for observation-like data and `available_at = B + 10 h` for a CAMS cycle with base time *B*.
+> `ingested_at_utc` is an audit field; it never decides usability. For live and for backfilled data alike, `available_at` is computed from the same formula, so training and serving see the same information.
 
-For lookback hour t, use the latest cycle B with B ≤ t and B ≤ B*(T).
-00Z: 12Z of day D−1 (δ 12h, level 1 24h)
-06Z: 12Z of day D−1 (δ 18h, level 1 30h)
-12Z: 00Z of day D (δ 12h, level 1 24h)
-18Z: 00Z of day D (δ 18h, level 1 30h)
+| Source | `available_at` | Latency `L` (config in `sources.yaml`) | Notes |
+|---|---|---|---|
+| **CAMS global forecast** (ADS) | `B + 10 h` | 00Z run guaranteed by 10:00 UTC; 12Z run by 22:00 UTC | `B*(T) = max{ B ∈ {00Z, 12Z} : B + 10 h ≤ T }` |
+| OpenAQ API (hourly) | `hour_end + L_oaq` | **3.0 h assumed** until measured; replaced by the measured p95 after ≥ 14 days of first-seen capture (task P1-18) | Hour with label `ts_utc` ends at `ts_utc + 1 h`. The last ~`L_oaq` hours before *T* are therefore absent by design, in training **and** serving |
+| FIRMS NRT (VIIRS) | `acq_datetime + 3 h` | ≈ 3 h after overpass | |
+| ERA5 | – | ≈ 5 days (ERA5T) | **Never operational**; hindcast and diagnostics only |
+| OpenAQ AWS archive | `local_day_end + 72 h` (pipeline waits 96 h for scoring) | 72–96 h | Backfill and settled scoring only |
 
-A single function, `preprocessing/alignment.asof_cams_run`,
-implements it and is unit-tested at all four lattice points.
+**Forecast age δ.** `cams_lead_offset_h = δ = T − B*(T)` is a model input. On the training lattice and in operations:
 
-The **lookback** meteorology and aerosol channels are *stitched*: for each valid hour *t* in `[T − 72 h, T]` take the forecast
-from the most recent cycle that was knowable at *t* and has lead < 12 h (an analysis-like series). Training and serving use the
-same product and the same stitching, so there is **no reanalysis-to-forecast distribution shift** (a risk in the original plan, which
-trained on ERA5 and served from a different NWP model whose boundary-layer height is defined differently).
+| Issuance *T* | As-of cycle *B*\* | δ (level 0) | δ at degradation level 1 (+12 h) |
+|---|---|---|---|
+| 00Z | 12Z of day D−1 | 12 h | 24 h |
+| 06Z | 12Z of day D−1 | 18 h | 30 h |
+| 12Z | 00Z of day D | 12 h | 24 h |
+| 18Z | 00Z of day D | 18 h | 30 h |
+
+Training additionally augments δ with an extra offset of {0, 12, 24} h (probabilities 0.70 / 0.20 / 0.10) so the model has seen stale cycles ([ML architecture §2.2](ml-architecture.md#22-feature-definitions)).
+
+**Stitched lookback.** For each lookback hour *t* in `[T − 72 h, T]`, take the value from the **latest cycle *B* with `B ≤ t` and `B ≤ B*(T)`**. There is no cap on lead: with *T* = 06Z the stitched leads reach 18 h, and a "lead < 12 h" condition would be unsatisfiable. Training and serving use the same product and the same stitching, so there is **no reanalysis-to-forecast distribution shift** (a risk in the original plan, which trained on ERA5 and served from a different NWP model whose boundary-layer height is defined differently).
+
+A single function, `preprocessing/alignment.asof_cams_run`, implements the CAMS rule and is unit-tested at all four lattice points; a second function applies `available_at` to every other source. See [data engineering §11](data-engineering.md#11-temporal-alignment).
 
 ## 5. Component responsibilities and CLI contract
 
@@ -116,13 +125,13 @@ trained on ERA5 and served from a different NWP model whose boundary-layer heigh
 | `data_ingestion` | Talk to the outside world; land raw payloads with manifests. No scientific logic. | APIs | `data/raw/**` |
 | `preprocessing` | QC, imputation, units, as-of alignment, grid → station extraction | raw | `data/interim/**` |
 | `features` | Physics-informed features, targets, windows, sparse-network simulation | interim | `data/processed/feature_store/**` |
-| `models` | Encoders, heads, LightGBM ensemble, meta-learning, calibration, baselines | feature store | model bundle |
-| `inference` | Daily forecast, degradation ladder | features + bundle | `forecast_log` |
+| `models` | Encoders, temporary adaptation head, MAML, LightGBM quantile boosters and stacker, calibration, baselines | feature store | model bundle |
+| `inference` | Daily forecast: adaptation with acceptance and drift guard, stacker, degradation ladder | features + bundle | `forecast_log` |
 | `evaluation` | Scores, sparsity experiment, significance tests, shadow ledger | logs + obs | `score_log`, reports |
 | `visualization` | Fan-chart geometry, diagnostics, Pillow+Raqm cards | forecasts | PNG/SVG |
 | `publishing` | AQI mapping, bulletin JSON, i18n, static site, delivery checks | forecasts | `site/**` |
 
-Every stage is a command of one Typer CLI (`smogsense`). The names below are fixed in Phase 0; Phases 1–4 implement them.
+Every stage is a command of one Typer CLI (`smogsense`). The names below are fixed in Phase 0; Phases 1–4 implement them. Items marked † are revision-2 additions that need owner approval before the CLI contract is changed.
 
 | Command | Purpose | Notable options |
 |---|---|---|
@@ -130,13 +139,13 @@ Every stage is a command of one Typer CLI (`smogsense`). The names below are fix
 | `ingest live` | OpenAQ + CAMS + FIRMS for one issuance, concurrently | `--issuance` |
 | `ingest openaq \| openaq-archive \| cams \| era5 \| firms \| maiac` | Single-source ingestion (backfill-capable) | `--domain --start --end --resume` |
 | `features build \| backfill` | Build features for one issuance / for a season | `--domain --season` |
-| `train source \| meta \| lgbm \| calibrate \| bundle` | Offline training stages | `--version` |
+| `train source \| meta \| lgbm \| stacker† \| calibrate \| bundle` | Offline training stages (`lgbm` = tabular M4/M5; `stacker` = M6/M7 stacker on adapted latents) | `--version` |
 | `forecast run` | Produce `forecast_log` for one issuance | `--issuance` |
 | `score shadow` | Verify closed windows | `--stage provisional\|settled` |
 | `eval ladder \| sparsity \| report` | Experiments and figures | `--config` |
 | `bulletin render` | Public JSON + cards for one issuance | `--issuance` |
 | `site build [--stale] \| validate` | Static site and its budget checks | |
-| `publish telegram` | Optional channel post (free Bot API) | |
+| `publish telegram` | Optional channel post (free Bot API); deferred | |
 | `state exists \| verify` | Idempotency guard (exits 11 when published); journal integrity and size budget | |
 | `run daily \| backfill \| score` | Orchestrators (idempotent) | `--max-wall-minutes` |
 
@@ -144,9 +153,9 @@ Every stage is a command of one Typer CLI (`smogsense`). The names below are fix
 `30` contract violation (schema or budget) · `40` quota or rate-limit exhausted · `50` internal error. Under GitHub Actions `run daily`
 emits `::group::` markers per stage and writes `data/processed/run_manifests/latest_summary.md`, which the workflow appends to the job summary.
 
-**Run manifest** (`run_manifests/<run_id>.json`): `run_id`, `issued_at_utc`, `is_rerun`, `published`, `adaptation_status`, observed latency, git SHA, config hash, image digest, issuance, per-stage start/end/duration, per-source request counts
-against budget, bytes downloaded, freshness (age of newest observation, CAMS base time, FIRMS latest acquisition), QC rejection rates by flag,
-number of available stations *N*, degradation level, validation-gate results, exit code.
+**Run manifest** (`run_manifests/<run_id>.json`): `run_id`, `issued_at_utc`, `is_rerun`, `published`, `adaptation_status` (one of `adapted`, `skipped_n0`, `skipped_insufficient_support`, `rejected_no_gain`, `rejected_latent_drift`), observed latency, git SHA, config hash, image digest, issuance, per-stage start/end/duration, per-source request counts
+against budget, bytes downloaded, freshness (age of newest observation, CAMS base time and δ, FIRMS latest acquisition), QC rejection rates by flag,
+number of available stations *N*, degradation level, peak memory of the adaptation stage, validation-gate results, exit code.
 
 ## 6. State, storage, and persistence
 
@@ -154,9 +163,11 @@ There is no database. Three free stores, each with one job:
 
 | Store | Holds | Why this one |
 |---|---|---|
-| **Orphan `state` branch** (cloned to `.state/`) | Append-only Parquet/JSON journals: `obs/`, `inputs/`, `forecasts/`, `scores/`, `manifests/`, `site_json/` | Versioned, free, diffable, atomic per commit. New file per day ⇒ history = content; ~150 KB/day ≈ 55 MB/year, far below the 1 GB repository recommendation |
-| **GitHub Releases** | Model bundles (`models-vX.Y.Z`) and backfilled datasets (`data-backfill`) | 2 GiB per asset, no total limit, outside repository size |
+| **Orphan `state` branch** (cloned to `.state/`) | Append-only Parquet/JSON journals: `obs/`, `obs_pull_log/`†, `inputs/`, `forecasts/`, `scores/`, `manifests/`, `site_json/` | Versioned, free, diffable, atomic per commit. New file per day ⇒ history = content; ~150 KB/day ≈ 55 MB/year of journals (the input snapshots dominate) |
+| **GitHub Releases** | Model bundles (`models-vX.Y.Z`, each = encoder + its bound stacker + manifest) and backfilled datasets (`data-backfill`) | 2 GiB per asset, no total limit, outside repository size |
 | **Actions cache / artifacts** | Raw GRIB/CSV during a run; diagnostics on failure (14 days) | Ephemeral by design |
+
+**State-branch protections.** The branch is cloned as a *sparse partial clone* (only the paths a stage needs), so history growth does not slow the daily run. `state verify` enforces a size guard (**warn at 400 MB, alert at 700 MB**, against GitHub's 1 GB recommendation) and the branch is **rotated yearly** (a new orphan branch per season year; the old one is archived as a release asset).
 
 **Why a daily *input snapshot*.** `state/inputs/` stores the exact aligned inputs each forecast consumed (stations × 72 h × channels, CAMS stitched
 series, fire exposure). A model developed *after* the smog season has started can then be replayed on genuinely point-in-time inputs ("replay shadow",
@@ -164,7 +175,7 @@ reported separately from live shadow). Without the snapshot, a late model could 
 situation the shadow run exists to avoid. See [evaluation](evaluation-strategy.md#9-prospective-shadow-run-protocol).
 
 **Write protocol.** Containers write only under bind-mounted `data/` and `.state/`; the *host* commits and pushes `state` (retry with rebase, four attempts) and
-force-pushes `gh-pages` as a single orphan commit. Concurrency group `smogsense-state` serialises every job that writes `state`.
+force-pushes `gh-pages` as a single orphan commit. Concurrency group `smogsense-state` serialises every job that writes `state` (daily runs, retries, the watchdog and scoring share it).
 
 ## 7. Failure handling and degradation ladder
 
@@ -172,19 +183,24 @@ Failures are **typed** (`errors.py`) and map to levels; the ladder reacts to typ
 
 | Level | `mode` | Trigger | Method | Exit | Public banner |
 |---|---|---|---|---|---|
-| 0 | `full` | All inputs present; promoted bundle valid | Learned hybrid model | 0 | none |
-| 1 | `stale_cams` | The as-of CAMS run is absent after the wait budget but an earlier cycle (≤ 24 h older) exists | Learned model with the older cycle (larger lead offset) | 10 | "Reduced accuracy: earlier atmospheric model run used" |
-| 2 | `baseline_only` | `promoted_bundle: none`, bundle fails sha256/compatibility, or inference raises | Probabilistic CAMS-BC baseline (M2) | 10 | "Simplified forecast" |
+| 0 | `full` | All inputs present; promoted bundle valid | Learned decoupled model (adapted encoder + bound stacker). If the stacker is not shipped (see [ML architecture §6](ml-architecture.md#6-lightgbm-quantile-ensemble-and-the-decoupled-stacker)) the headline is the tabular M5 | 0 | none |
+| 1 | `stale_cams` | The as-of CAMS run is absent after the wait budget but the previous cycle (12 h older) exists | Learned model with the older cycle (δ + 12 h) | 10 | "Reduced accuracy: earlier atmospheric model run used" |
+| 2 | `baseline_only` | `promoted_bundle: none`, bundle fails sha256 / `encoder_sha256` binding / compatibility, or inference raises | Probabilistic CAMS-BC baseline (M2) | 10 | "Simplified forecast" |
 | 3 | `observations_only` | No usable CAMS within 24 h | Probabilistic persistence + climatology (M0/M3) | 10 | "Reduced accuracy: sensor readings only" |
-| 4 | *(no publication)* | No observations **and** no CAMS, or the outgoing bulletin violates a hard gate | Keep the last bulletin; open an alert issue | 20 / 30 | Staleness banner appears client-side once the bulletin is > 36 h old; publishes a static expiry notice |
+| 4 | *(no publication)* | No observations **and** no CAMS, or the outgoing bulletin violates a hard gate | Keep the last bulletin; open an alert issue | 20 / 30 | Expiry notice (below) |
 
 Missing **fire** data does not change the level: fire features are masked (the model is trained with input-group dropout, see
-[ML architecture](ml-architecture.md#11-training-protocol-and-reproducibility)) and `provenance.sources[firms].status = "missing"` is published.
+[ML architecture §7](ml-architecture.md#7-sparse-network-task-construction)) and `provenance.sources[firms].status = "missing"` is published.
 No recent **observations** keeps `full` in sensor-free mode (*N* = 0), with correspondingly wider intervals.
+**Adaptation outcomes do not change the level:** `skipped_n0`, `skipped_insufficient_support`, `rejected_no_gain` and `rejected_latent_drift` all fall back to the meta-initialisation latents and the unchanged stacker at level 0, and the status is recorded in the manifest and `forecast_log`.
+
+**Bulletin expiry (`valid_until_utc`).** Every bulletin states `valid_until_utc = issuance + 30 h`. Three independent paths enforce it, so a dead scheduler cannot leave a forecast looking current:
+(1) a static "valid until …" line in the page itself; (2) a client-side JavaScript banner that replaces the forecast with an expiry notice once the clock passes `valid_until_utc` (works with the CDN-cached page); (3) the **watchdog** (06:07 UTC) that, if no bulletin for today exists, publishes a static expiry notice into the site.
+Horizon labels are clock windows ("Tue 06:00 – Wed 06:00 PKT"), and after a rerun the page shows the true generation time.
 
 **Validation gates before publication.**
-*Hard* (any failure ⇒ exit 30, nothing published): schema validity; quantiles monotone and in [0, 2000] µg/m³; category fields consistent with quantiles;
-both languages present; page-weight and card-size budgets; adaptation outcome recorded. *Soft* (publish, annotate, open an issue): median more than 4× or less than 0.25× CAMS-BC
+*Hard* (any failure ⇒ exit 30, nothing published): schema validity; quantiles monotone and in [0, 2000] µg/m³; category fields consistent with quantiles; exceedance probabilities rounded to 5 % and clamped to "<5 %" / ">95 %";
+both languages present; `valid_until_utc` present; page-weight and card-size budgets; adaptation outcome recorded. *Soft* (publish, annotate, open an issue): median more than 4× or less than 0.25× CAMS-BC
 or persistence; CAMS or FIRMS older than expected; QC rejected more than 40 % of stations; fewer than 3 eligible stations; latent drift flagged.
 
 **Source failure matrix.**
@@ -194,11 +210,11 @@ or persistence; CAMS or FIRMS older than expected; QC rejected more than 40 % of
 | OpenAQ | 429 | Header-aware backoff; after 3 consecutive 429s the circuit opens for 15 min (repeated violations can lead to a ban) |
 | OpenAQ | 5xx / timeout | Tenacity retries (≤ 6, exponential, full jitter, honours `Retry-After`); then proceed with partial stations |
 | ADS | Licence not accepted (403) | Fatal, clear message ("accept the dataset licence on the website once"), exit 20 |
-| ADS | Queue slow / run not yet published | Poll within the 20-min budget; level 1 if an earlier cycle exists; the 02:47 / 05:47 retries try again |
+| ADS | Queue slow / run not yet published | Poll within the 20-min budget; level 1 if the previous cycle exists; the 02:47 / 05:47 retries try again |
 | FIRMS | 429 / 5xx | Retry; else mask fire group |
-| Any | Schema violation | Exit 30; the previous bulletin stays live |
-| GitHub | Cron event dropped | The two retry triggers (idempotent) |
-| GitHub | Schedules disabled after 60 days of repository inactivity | `repo-keepalive.yml` plus the daily `state` push; owner is also e-mailed by GitHub |
+| Any | Schema violation | Exit 30; the previous bulletin stays live and expires on schedule |
+| GitHub | Cron event dropped | The two retry triggers (idempotent) and the 06:07 watchdog |
+| GitHub | Schedules disabled after 60 days of repository inactivity | Monthly `repo-keepalive.yml`; the owner is also e-mailed by GitHub. **Unverified:** whether the daily push to the `state` branch counts as "activity" for this timer, so the keep-alive does not rely on it |
 
 ## 8. Static site deployment pipeline
 
@@ -224,13 +240,13 @@ site build ─▶ site validate ─▶ (host) state commit+push ─▶ (host) gh
 
 Defences, all enforced by `tests/unit/test_repo_hygiene.py`: third-party actions pinned to commit SHAs (Dependabot updates them); top-level `permissions: contents: read`;
 no `pull_request_target`; every job has `timeout-minutes`; containers run non-root, read-only, with all capabilities dropped; log redaction masks configured secrets; the
-site ships a strict CSP (no inline script/style, no external hosts). Integrity of the published bulletin matters more than confidentiality, so the validation gates are
+site ships a strict CSP (no inline script/style, no external hosts); model bundles are verified by sha256 and by the encoder↔stacker binding before use. Integrity of the published bulletin matters more than confidentiality, so the validation gates are
 part of the security model.
 
 ## 10. Observability and quality gates
 
 * **Per-run:** the manifest and job summary above; failures open (or comment on) a single GitHub issue per title via `scripts/alert_issue.sh`.
 * **Per-day freshness metrics** are published in the bulletin's `provenance.sources[*].as_of_utc`.
-* **Per-season:** the public accuracy page renders rolling 30-day CRPS skill vs CAMS-BC, the reliability diagram and coverage, always with sample sizes.
+* **Per-season:** a rolling 30-day scorecard (CRPS skill vs CAMS-BC, reliability and coverage, always with sample sizes) is published as JSON; the HTML accuracy page is deferred until time allows (see the roadmap's scope cuts).
 * **Test pyramid.** Unit (pure functions; `hypothesis` property tests for rearrangement and CRPS identities) → contract (recorded API shapes, schemas; live checks opt-in with `network`)
   → integration (the entire pipeline on fixtures, < 120 s, offline) → e2e (site build and budgets). CI runs everything except `network`-marked tests on every pull request.
