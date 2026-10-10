@@ -28,6 +28,7 @@ app_site = typer.Typer(no_args_is_help=True)
 app_publish = typer.Typer(no_args_is_help=True)
 app_state = typer.Typer(no_args_is_help=True)
 app_run = typer.Typer(no_args_is_help=True)
+app_reconcile = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -40,6 +41,7 @@ app.add_typer(app_site, name="site")
 app.add_typer(app_publish, name="publish")
 app.add_typer(app_state, name="state")
 app.add_typer(app_run, name="run")
+app.add_typer(app_reconcile, name="reconcile")
 
 
 @app.command()
@@ -73,6 +75,37 @@ def archive_pilot_cmd(
     print(f"Throughput: {stats['download_mb_per_s']} MB/s ({stats['records_per_s']} records/s).")
     print(f"Output saved to: {stats['output_file']}")
 
+
+@app_reconcile.command("archive-api")
+def reconcile_archive_api_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (lahore, delhi)"),
+    tolerance: float = typer.Option(
+        0.1, "--tolerance", help="Tolerance in ug/m3 for identical rows"
+    ),
+    api_path: str | None = typer.Option(
+        None, "--api-path", help="Path to API observations parquet"
+    ),
+    archive_path: str | None = typer.Option(
+        None, "--archive-path", help="Path to archive observations parquet"
+    ),
+) -> None:
+    """Reconcile OpenAQ live API and AWS archive observations (Task P1-20)."""
+    from smogsense.pipeline.reconciliation import run_reconciliation
+
+    stats = run_reconciliation(
+        domain=domain,
+        tolerance=tolerance,
+        api_path=api_path,
+        archive_path=archive_path,
+    )
+    print(f"Reconciliation ({domain}): {stats['status']}")
+    print(f"Overlapping observations: {stats['overlap_count']}")
+    print(f"Mean absolute difference: {stats['mean_abs_diff']:.4f} ug/m3")
+    print(f"Identical (<= {tolerance} ug/m3): {stats['pct_identical']:.2f}%")
+    print(f"Revisions: {stats['revisions_count']}")
+    print(
+        f"Added in archive: {stats['added_timestamps_count']} | Dropped: {stats['dropped_timestamps_count']}"
+    )
 
 
 @app_run.command()

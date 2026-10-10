@@ -29,6 +29,53 @@ from smogsense.preprocessing.qc import apply_qc
 logger = logging.getLogger(__name__)
 
 
+def _load_archive_history(
+    domain: str,
+    start_utc: datetime,
+    cutoff_archive: datetime,
+    candidate_dirs: list[Path] | None = None,
+) -> pd.DataFrame:
+    """Load settled archive observations up to cutoff_archive from disk."""
+    if candidate_dirs is None:
+        candidate_dirs = [
+            Path("data/interim/backfill_pilot"),
+            Path(f".state/archive/{domain}"),
+            Path(".state/archive"),
+            Path(f"data/archive/{domain}"),
+        ]
+    dfs: list[pd.DataFrame] = []
+    for cand in candidate_dirs:
+        if cand.is_file() and cand.suffix == ".parquet":
+            try:
+                df = pd.read_parquet(cand)
+                if "ts_utc" in df.columns:
+                    df["ts_utc"] = pd.to_datetime(df["ts_utc"], utc=True)
+                    sub = df[(df["ts_utc"] >= start_utc) & (df["ts_utc"] <= cutoff_archive)]
+                    if not sub.empty:
+                        dfs.append(sub)
+            except Exception as exc:
+                logger.debug(f"Failed to read archive parquet {cand}: {exc}")
+        elif cand.is_dir():
+            for p in cand.glob("*.parquet"):
+                try:
+                    df = pd.read_parquet(p)
+                    if "ts_utc" in df.columns:
+                        df["ts_utc"] = pd.to_datetime(df["ts_utc"], utc=True)
+                        sub = df[(df["ts_utc"] >= start_utc) & (df["ts_utc"] <= cutoff_archive)]
+                        if not sub.empty:
+                            dfs.append(sub)
+                except Exception as exc:
+                    logger.debug(f"Failed to read archive parquet {p}: {exc}")
+
+    if not dfs:
+        return pd.DataFrame()
+    combined = pd.concat(dfs, ignore_index=True)
+    subset_cols = (
+        ["sensor_id", "ts_utc"] if "sensor_id" in combined.columns else ["location_id", "ts_utc"]
+    )
+    return combined.drop_duplicates(subset=subset_cols)
+
+
 async def determine_cutoff_dates(
     start_utc: datetime, end_utc: datetime, settings: dict[str, Any]
 ) -> tuple[datetime, pd.DataFrame, pd.DataFrame]:
@@ -63,6 +110,24 @@ async def determine_cutoff_dates(
     logger.info(f"Fetching OpenAQ history from {start_utc} to {end_utc}")
     obs_raw = await fetch_hourly(client, stations_df, start_utc, end_utc)
     await ac.aclose()
+
+    # Blend settled archive history up to T - 72h with live API top-ups (Task P1-20)
+    cutoff_archive = end_utc - timedelta(hours=72)
+    archive_df = _load_archive_history("lahore", start_utc, cutoff_archive)
+    if not archive_df.empty:
+        logger.info(
+            f"Blending {len(archive_df)} settled archive observations up to {cutoff_archive}"
+        )
+        if not obs_raw.empty:
+            blended = pd.concat([archive_df, obs_raw], ignore_index=True)
+            subset_cols = (
+                ["sensor_id", "ts_utc"]
+                if "sensor_id" in blended.columns
+                else ["location_id", "ts_utc"]
+            )
+            obs_raw = blended.drop_duplicates(subset=subset_cols, keep="first")
+        else:
+            obs_raw = archive_df
 
     if obs_raw.empty:
         raise ValueError("No historical OpenAQ data retrieved")
