@@ -21,7 +21,6 @@ def clean_state():
         Path(".state/forecasts"),
         Path(".state/inputs/lahore"),
         Path(".state/obs_pull_log"),
-        Path("gh-pages"),
     ]
     files = [
         Path(".state/artifacts/seed_history.json"),
@@ -144,7 +143,7 @@ def test_run_daily_full(mock_extract, mock_cams_fetch, clean_state):
     assert (df["q05"] == 55.0).all()
 
     # Verify Bulletin
-    bulletin_path = Path(f"gh-pages/{run_id}.json")
+    bulletin_path = Path(f"site/{run_id}.json")
     assert bulletin_path.exists()
     with bulletin_path.open("r", encoding="utf-8") as f:
         bulletin = json.load(f)

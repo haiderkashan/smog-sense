@@ -861,18 +861,6 @@ async def run_daily_pipeline_async(
             with (site_dir / f_name).open("w", encoding="utf-8") as f:
                 json.dump(bulletin, f, indent=2)
 
-        # Also write to gh-pages if writable (for local test parity)
-        with contextlib.suppress(OSError):
-            gh_pages_dir = Path("gh-pages")
-            gh_pages_dir.mkdir(parents=True, exist_ok=True)
-            gh_pages_forecast_dir = gh_pages_dir / "forecast"
-            gh_pages_forecast_dir.mkdir(parents=True, exist_ok=True)
-            for f_name in [f"{run_id}.json", f"{issuance_date_str}.json", "latest.json"]:
-                with (gh_pages_forecast_dir / f_name).open("w", encoding="utf-8") as f:
-                    json.dump(bulletin, f, indent=2)
-                with (gh_pages_dir / f_name).open("w", encoding="utf-8") as f:
-                    json.dump(bulletin, f, indent=2)
-
         # Write forecast log ONLY after bulletin successfully generated and validated
         print("[DEBUG-TRACE] orchestrator: STEP 11: writing forecast log to parquet", flush=True)
         Path(".state/forecasts").mkdir(parents=True, exist_ok=True)
@@ -902,8 +890,6 @@ async def run_daily_pipeline_async(
     try:
         print("[DEBUG-TRACE] orchestrator: STEP 13: calling generate_site", flush=True)
         generate_site(bulletin, site_dir)
-        with contextlib.suppress(OSError):
-            generate_site(bulletin, Path("gh-pages"))
         print("[DEBUG-TRACE] orchestrator: STEP 14: generate_site completed", flush=True)
     except Exception as e:
         print(f"[DEBUG-TRACE] orchestrator: generate_site failed with exception: {e}", flush=True)
