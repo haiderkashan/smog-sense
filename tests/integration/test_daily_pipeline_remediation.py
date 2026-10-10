@@ -29,6 +29,7 @@ def clean_state():
         Path(".state/manifests"),
         Path(".state/forecasts"),
         Path(".state/inputs/lahore"),
+        Path(".state/obs_pull_log"),
         Path("gh-pages"),
     ]
     files = [

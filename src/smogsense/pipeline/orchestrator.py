@@ -124,11 +124,90 @@ def generate_forecast_log(
         rows.append(row)
 
     df = pd.DataFrame(rows)
-    schema_path = Path(__file__).resolve().parents[3] / "data/schemas/forecast_log.schema.yaml"
-    if not schema_path.exists():
-        schema_path = Path("data/schemas/forecast_log.schema.yaml")
-    schema = pa.DataFrameSchema.from_yaml(schema_path)
+    schema = load_pandera_schema("forecast_log.schema.yaml")
     return validate_frame(df, schema)
+
+
+def load_pandera_schema(schema_name: str) -> pa.DataFrameSchema:
+    candidates = [
+        Path(f"data/schemas/{schema_name}"),
+        Path(f"/app/data/schemas/{schema_name}"),
+        Path(__file__).resolve().parents[3] / f"data/schemas/{schema_name}",
+    ]
+    for p in candidates:
+        if p.exists():
+            return pa.DataFrameSchema.from_yaml(p)
+    raise FileNotFoundError(f"Schema {schema_name} not found in candidate paths: {candidates}")
+
+
+def record_obs_pull_log(
+    raw_obs_df: pd.DataFrame,
+    issuance_utc: datetime,
+    pull_id: str,
+    domain: str = "lahore",
+) -> Path:
+    """Record first-seen observations into partitioned Parquet log conforming to obs_pull_log.schema.yaml."""
+    issuance_date = issuance_utc.strftime("%Y-%m-%d")
+    log_dir = Path(".state/obs_pull_log")
+    dest_path = log_dir / f"dt={issuance_date}.parquet"
+
+    if raw_obs_df.empty:
+        return dest_path
+
+    rows: list[dict[str, Any]] = []
+    for _, r in raw_obs_df.iterrows():
+        val_raw = float(r["pm25_ugm3"]) if pd.notna(r.get("pm25_ugm3")) else None
+        rh = float(r["rh_pct"]) if pd.notna(r.get("rh_pct")) else None
+        temp = None
+        if pd.notna(r.get("temperature_c")):
+            temp = float(r["temperature_c"])
+        elif pd.notna(r.get("temp_c")):
+            temp = float(r["temp_c"])
+
+        ts_utc = pd.to_datetime(r["ts_utc"], utc=True)
+        hour_end_utc = (
+            pd.to_datetime(r["hour_end_utc"], utc=True)
+            if pd.notna(r.get("hour_end_utc"))
+            else ts_utc + pd.Timedelta(hours=1)
+        )
+        first_seen_utc = (
+            pd.to_datetime(r["first_seen_utc"], utc=True)
+            if pd.notna(r.get("first_seen_utc"))
+            else pd.to_datetime(datetime.now(UTC), utc=True)
+        )
+
+        rows.append(
+            {
+                "sensor_id": str(r.get("sensor_id") or r["location_id"]),
+                "location_id": str(r["location_id"]),
+                "domain": domain,
+                "ts_utc": ts_utc,
+                "hour_end_utc": hour_end_utc,
+                "first_seen_utc": first_seen_utc,
+                "pull_id": str(r.get("pull_id") or pull_id),
+                "value_raw": val_raw,
+                "rh_pct": rh,
+                "temp_c": temp,
+                "provider": str(r.get("provider") or "openaq"),
+                "source": "openaq_api",
+            }
+        )
+
+    log_df = pd.DataFrame(rows)
+    # Deduplicate within batch
+    log_df = log_df.drop_duplicates(subset=["sensor_id", "ts_utc", "pull_id"])
+
+    if dest_path.exists():
+        with contextlib.suppress(Exception):
+            existing_df = pd.read_parquet(dest_path)
+            log_df = pd.concat([existing_df, log_df], ignore_index=True)
+            log_df = log_df.drop_duplicates(subset=["sensor_id", "ts_utc", "pull_id"])
+
+    schema = load_pandera_schema("obs_pull_log.schema.yaml")
+    validated = validate_frame(log_df, schema)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    validated.to_parquet(dest_path, index=False)
+    return dest_path
 
 
 def write_manifest(
@@ -196,7 +275,7 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
     api_key = settings.openaq_api_key.get_secret_value() if settings.openaq_api_key else None
     ac = create_client(api_key=api_key)
     async with ac:
-        rb = RateBudget()
+        rb = RateBudget(scope="operations")
         cb = CircuitBreaker()
         client = ResilientClient(ac, rb, cb)
         try:
@@ -206,8 +285,13 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 # Anchoring to T - 4h ensures 00:17, 02:47, and 05:47 retries see identical observations
                 end_utc = issuance_utc - timedelta(hours=4)
                 start_utc = end_utc - timedelta(hours=72)
-                raw_obs_df = await fetch_hourly(client, stations_df, start_utc, end_utc)
+                raw_obs_df = await fetch_hourly(
+                    client, stations_df, start_utc, end_utc, pull_id=run_id
+                )
                 if not raw_obs_df.empty:
+                    # Task P1-18: Latency capture and obs_pull_log recording
+                    record_obs_pull_log(raw_obs_df, issuance_utc, run_id, domain="lahore")
+
                     qc_df = apply_qc(raw_obs_df)
                     # Exclude invalid observations: RANGE_REJECT(1), FLATLINE(4), SPIKE(8)
                     # Keep NEGATIVE_CLIPPED(2) as valid 0.0 values
