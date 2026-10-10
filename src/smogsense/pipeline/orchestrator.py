@@ -255,7 +255,9 @@ def write_manifest(
             json.dump(manifest, f, indent=2)
 
 
-async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) -> int:
+async def run_daily_pipeline_async(
+    issuance_utc: datetime, force: bool = False, mode: str | None = None
+) -> int:
     """Execute daily forecast pipeline for the given issuance time."""
     settings = Settings.load("configs")
 
@@ -288,46 +290,110 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
     has_obs = False
     obs_df = pd.DataFrame()
     stations_df = pd.DataFrame()
+    has_cams = False
+    cams_is_stale = False
+    cams_base: datetime | None = None
+    cams_df = pd.DataFrame()
 
-    api_key = settings.openaq_api_key.get_secret_value() if settings.openaq_api_key else None
-    ac = create_client(api_key=api_key)
-    async with ac:
-        rb = RateBudget(scope="operations")
-        cb = CircuitBreaker()
-        client = ResilientClient(ac, rb, cb)
-        try:
-            stations_df = await list_locations(client, "lahore")
-            if not stations_df.empty:
-                # Point-in-time as-of rule (assumed 3h latency + 1h block end)
-                # Anchoring to T - 4h ensures 00:17, 02:47, and 05:47 retries see identical observations
-                end_utc = issuance_utc - timedelta(hours=4)
-                start_utc = end_utc - timedelta(hours=72)
-                raw_obs_df = await fetch_hourly(
-                    client, stations_df, start_utc, end_utc, pull_id=run_id
+    fixtures_mode = mode == "fixtures"
+
+    if fixtures_mode:
+        from smogsense.data_ingestion.fixtures_mode import (
+            load_fixture_cams,
+            load_fixture_locations,
+            load_fixture_observations,
+        )
+
+        stations_df = load_fixture_locations("lahore")
+        end_utc = issuance_utc - timedelta(hours=4)
+        start_utc = end_utc - timedelta(hours=72)
+        raw_obs_df = load_fixture_observations(
+            stations_df, start_utc, end_utc, pull_id=run_id, domain="lahore"
+        )
+        if not raw_obs_df.empty:
+            record_obs_pull_log(raw_obs_df, issuance_utc, run_id, domain="lahore")
+            qc_df = apply_qc(raw_obs_df)
+            invalid_mask = qc_df["qc_flags"].fillna(0).astype(int) & (1 | 4 | 8) > 0
+            valid_obs = qc_df[(~invalid_mask) & qc_df["pm25_ugm3"].notna()].copy()
+            if not valid_obs.empty:
+                has_obs = True
+                obs_df = valid_obs
+                snap_dir = Path(".state/inputs/lahore")
+                snap_dir.mkdir(parents=True, exist_ok=True)
+                obs_df.to_parquet(
+                    snap_dir / f"obs_snapshot_{issuance_utc.strftime('%Y%m%d_%H%M')}.parquet",
+                    index=False,
                 )
-                if not raw_obs_df.empty:
-                    # Task P1-18: Latency capture and obs_pull_log recording
-                    record_obs_pull_log(raw_obs_df, issuance_utc, run_id, domain="lahore")
 
-                    qc_df = apply_qc(raw_obs_df)
-                    # Exclude invalid observations: RANGE_REJECT(1), FLATLINE(4), SPIKE(8)
-                    # Keep NEGATIVE_CLIPPED(2) as valid 0.0 values
-                    invalid_mask = qc_df["qc_flags"].fillna(0).astype(int) & (1 | 4 | 8) > 0
-                    valid_obs = qc_df[(~invalid_mask) & qc_df["pm25_ugm3"].notna()].copy()
-                    if not valid_obs.empty:
-                        has_obs = True
-                        obs_df = valid_obs
-                        # Persist observation snapshot under .state/inputs/lahore
-                        snap_dir = Path(".state/inputs/lahore")
-                        snap_dir.mkdir(parents=True, exist_ok=True)
-                        obs_df.to_parquet(
-                            snap_dir
-                            / f"obs_snapshot_{issuance_utc.strftime('%Y%m%d_%H%M')}.parquet",
-                            index=False,
-                        )
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429:
-                logger.error("OpenAQ quota exceeded (HTTP 429). Exiting with code 40.")
+        cams_base = asof_cams_run(issuance_utc)
+        cams_df = load_fixture_cams(stations_df, issuance_utc)
+        cams_df["location_id"] = cams_df["location_id"].astype(str)
+        has_cams = True
+        snap_dir = Path(".state/inputs/lahore")
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        cams_df.to_parquet(
+            snap_dir / f"cams_snapshot_{issuance_utc.strftime('%Y%m%d_%H%M')}.parquet",
+            index=False,
+        )
+    else:
+        api_key = settings.openaq_api_key.get_secret_value() if settings.openaq_api_key else None
+        ac = create_client(api_key=api_key)
+        async with ac:
+            rb = RateBudget(scope="operations")
+            cb = CircuitBreaker()
+            client = ResilientClient(ac, rb, cb)
+            try:
+                stations_df = await list_locations(client, "lahore")
+                if not stations_df.empty:
+                    # Point-in-time as-of rule (assumed 3h latency + 1h block end)
+                    # Anchoring to T - 4h ensures 00:17, 02:47, and 05:47 retries see identical observations
+                    end_utc = issuance_utc - timedelta(hours=4)
+                    start_utc = end_utc - timedelta(hours=72)
+                    raw_obs_df = await fetch_hourly(
+                        client, stations_df, start_utc, end_utc, pull_id=run_id
+                    )
+                    if not raw_obs_df.empty:
+                        # Task P1-18: Latency capture and obs_pull_log recording
+                        record_obs_pull_log(raw_obs_df, issuance_utc, run_id, domain="lahore")
+
+                        qc_df = apply_qc(raw_obs_df)
+                        # Exclude invalid observations: RANGE_REJECT(1), FLATLINE(4), SPIKE(8)
+                        # Keep NEGATIVE_CLIPPED(2) as valid 0.0 values
+                        invalid_mask = qc_df["qc_flags"].fillna(0).astype(int) & (1 | 4 | 8) > 0
+                        valid_obs = qc_df[(~invalid_mask) & qc_df["pm25_ugm3"].notna()].copy()
+                        if not valid_obs.empty:
+                            has_obs = True
+                            obs_df = valid_obs
+                            # Persist observation snapshot under .state/inputs/lahore
+                            snap_dir = Path(".state/inputs/lahore")
+                            snap_dir.mkdir(parents=True, exist_ok=True)
+                            obs_df.to_parquet(
+                                snap_dir
+                                / f"obs_snapshot_{issuance_utc.strftime('%Y%m%d_%H%M')}.parquet",
+                                index=False,
+                            )
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 429:
+                    logger.error("OpenAQ quota exceeded (HTTP 429). Exiting with code 40.")
+                    write_manifest(
+                        manifest_file,
+                        run_id,
+                        issuance_utc,
+                        False,
+                        is_rerun,
+                        "unknown",
+                        4,
+                        40,
+                        git_sha=git_sha,
+                        config_hash=config_hash,
+                    )
+                    return 40
+                elif e.response.status_code in (401, 403):
+                    logger.warning(f"OpenAQ authentication failed ({e.response.status_code}): {e}")
+                else:
+                    logger.warning(f"OpenAQ HTTP error: {e}")
+            except (QuotaExceeded, CircuitBreakerError):
+                logger.error("Rate budget / circuit breaker exhausted. Exiting with code 40.")
                 write_manifest(
                     manifest_file,
                     run_id,
@@ -341,125 +407,107 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                     config_hash=config_hash,
                 )
                 return 40
-            elif e.response.status_code in (401, 403):
-                logger.warning(f"OpenAQ authentication failed ({e.response.status_code}): {e}")
-            else:
-                logger.warning(f"OpenAQ HTTP error: {e}")
-        except (QuotaExceeded, CircuitBreakerError):
-            logger.error("Rate budget / circuit breaker exhausted. Exiting with code 40.")
-            write_manifest(
-                manifest_file,
-                run_id,
-                issuance_utc,
-                False,
-                is_rerun,
-                "unknown",
-                4,
-                40,
-                git_sha=git_sha,
-                config_hash=config_hash,
-            )
-            return 40
-        except Exception as e:
-            logger.warning(f"OpenAQ fetch failed: {e}")
+            except Exception as e:
+                logger.warning(f"OpenAQ fetch failed: {e}")
 
-    # Fallback to cached station registry if OpenAQ failed but registry exists
-    if stations_df.empty:
-        cached_registry_files = list(Path(".state/registry").glob("*.parquet")) + list(
-            Path("data").glob("*registry*.parquet")
-        )
-        if cached_registry_files:
-            with contextlib.suppress(Exception):
-                stations_df = pd.read_parquet(cached_registry_files[0])
+        # Fallback to cached station registry if OpenAQ failed but registry exists
+        if stations_df.empty:
+            cached_registry_files = list(Path(".state/registry").glob("*.parquet")) + list(
+                Path("data").glob("*registry*.parquet")
+            )
+            if cached_registry_files:
+                with contextlib.suppress(Exception):
+                    stations_df = pd.read_parquet(cached_registry_files[0])
 
-    has_cams = False
-    cams_is_stale = False
-    cams_base: datetime | None = None
-    cams_df = pd.DataFrame()
+        try:
+            cams_base = asof_cams_run(issuance_utc)
+            cams_conf = settings.sources if "ads" in settings.sources else settings.model_dump()
+            cams_client = CamsClient(cams_conf)
+            # CAMS GRIB files stored in data/raw/cams, outside the .state git branch
+            cams_path = Path("data/raw/cams") / f"cams_{cams_base.strftime('%Y%m%d_%H')}.grib"
 
-    try:
-        cams_base = asof_cams_run(issuance_utc)
-        cams_conf = settings.sources if "ads" in settings.sources else settings.model_dump()
-        cams_client = CamsClient(cams_conf)
-        # CAMS GRIB files stored in data/raw/cams, outside the .state git branch
-        cams_path = Path("data/raw/cams") / f"cams_{cams_base.strftime('%Y%m%d_%H')}.grib"
+            if not cams_path.exists():
+                cams_path.parent.mkdir(parents=True, exist_ok=True)
+                # 24-hour block mean requires hourly leads covering all 3 horizons [T, T+72)
+                all_target_hours = [issuance_utc + timedelta(hours=i) for i in range(72)]
+                cams_leadtimes = sorted(
+                    {int((t - cams_base).total_seconds() / 3600.0) for t in all_target_hours}
+                )
+                bbox = settings.domains["domains"]["lahore"]["station_bbox"]
+                # 0.5° margin around station_bbox ensures proper grid coverage for 0.4° interpolation
+                cams_area = [
+                    bbox["north"] + 0.5,
+                    bbox["west"] - 0.5,
+                    bbox["south"] - 0.5,
+                    bbox["east"] + 0.5,
+                ]
 
-        if not cams_path.exists():
-            cams_path.parent.mkdir(parents=True, exist_ok=True)
-            # 24-hour block mean requires hourly leads covering all 3 horizons [T, T+72)
-            all_target_hours = [issuance_utc + timedelta(hours=i) for i in range(72)]
-            cams_leadtimes = sorted(
-                {int((t - cams_base).total_seconds() / 3600.0) for t in all_target_hours}
-            )
-            bbox = settings.domains["domains"]["lahore"]["station_bbox"]
-            # 0.5° margin around station_bbox ensures proper grid coverage for 0.4° interpolation
-            cams_area = [
-                bbox["north"] + 0.5,
-                bbox["west"] - 0.5,
-                bbox["south"] - 0.5,
-                bbox["east"] + 0.5,
-            ]
+                print(
+                    f"[DEBUG-TRACE] orchestrator: calling cams_client.fetch_cams for {cams_path}",
+                    flush=True,
+                )
+                cams_client.fetch_cams(
+                    base_time=cams_base,
+                    leadtime_hours=cams_leadtimes,
+                    variables=["particulate_matter_2.5um"],
+                    area=cams_area,
+                    dest_path=cams_path,
+                )
+                print(
+                    f"[DEBUG-TRACE] orchestrator: cams_client.fetch_cams completed, cams_path exists={cams_path.exists()}",
+                    flush=True,
+                )
 
-            print(
-                f"[DEBUG-TRACE] orchestrator: calling cams_client.fetch_cams for {cams_path}",
-                flush=True,
-            )
-            cams_client.fetch_cams(
-                base_time=cams_base,
-                leadtime_hours=cams_leadtimes,
-                variables=["particulate_matter_2.5um"],
-                area=cams_area,
-                dest_path=cams_path,
-            )
-            print(
-                f"[DEBUG-TRACE] orchestrator: cams_client.fetch_cams completed, cams_path exists={cams_path.exists()}",
-                flush=True,
-            )
-
-        # Allow Level 2 (CAMS only / centroid fallback) even if stations_df is empty
-        if cams_path.exists():
-            print(
-                f"[DEBUG-TRACE] orchestrator: calling extract_stations on {cams_path} (size={cams_path.stat().st_size})",
-                flush=True,
-            )
-            logger.info(
-                "Extracting station series from CAMS GRIB %s (size %d bytes)",
-                cams_path,
-                cams_path.stat().st_size,
-            )
-            cams_df = extract_stations(
-                cams_path, stations_df, domain="lahore", settings=settings.model_dump()
-            )
-            print(
-                f"[DEBUG-TRACE] orchestrator: extract_stations returned {len(cams_df)} rows",
-                flush=True,
-            )
-            if not cams_df.empty:
+            # Allow Level 2 (CAMS only / centroid fallback) even if stations_df is empty
+            if cams_path.exists():
+                print(
+                    f"[DEBUG-TRACE] orchestrator: calling extract_stations on {cams_path} (size={cams_path.stat().st_size})",
+                    flush=True,
+                )
                 logger.info(
-                    "Extracted %d CAMS records across %d locations",
-                    len(cams_df),
-                    cams_df["location_id"].nunique(),
+                    "Extracting station series from CAMS GRIB %s (size %d bytes)",
+                    cams_path,
+                    cams_path.stat().st_size,
                 )
-                cams_df["location_id"] = cams_df["location_id"].astype(str)
-                has_cams = True
-                # Persist point-in-time input snapshot as Parquet under .state/inputs/
-                snap_dir = Path(".state/inputs/lahore")
-                snap_dir.mkdir(parents=True, exist_ok=True)
-                cams_df.to_parquet(
-                    snap_dir / f"cams_snapshot_{issuance_utc.strftime('%Y%m%d_%H%M')}.parquet",
-                    index=False,
+                cams_df = extract_stations(
+                    cams_path, stations_df, domain="lahore", settings=settings.model_dump()
                 )
-                print("[DEBUG-TRACE] orchestrator: cams snapshot written to parquet", flush=True)
-                import gc
+                print(
+                    f"[DEBUG-TRACE] orchestrator: extract_stations returned {len(cams_df)} rows",
+                    flush=True,
+                )
+                if not cams_df.empty:
+                    logger.info(
+                        "Extracted %d CAMS records across %d locations",
+                        len(cams_df),
+                        cams_df["location_id"].nunique(),
+                    )
+                    cams_df["location_id"] = cams_df["location_id"].astype(str)
+                    has_cams = True
+                    # Persist point-in-time input snapshot as Parquet under .state/inputs/
+                    snap_dir = Path(".state/inputs/lahore")
+                    snap_dir.mkdir(parents=True, exist_ok=True)
+                    cams_df.to_parquet(
+                        snap_dir / f"cams_snapshot_{issuance_utc.strftime('%Y%m%d_%H%M')}.parquet",
+                        index=False,
+                    )
+                    print(
+                        "[DEBUG-TRACE] orchestrator: cams snapshot written to parquet", flush=True
+                    )
+                    import gc
 
-                print("[DEBUG-TRACE] orchestrator: running gc.collect()", flush=True)
-                gc.collect()
-                print("[DEBUG-TRACE] orchestrator: gc.collect() completed successfully", flush=True)
-    except Exception as e:
-        print(
-            f"[DEBUG-TRACE] orchestrator: CAMS fetch/extract failed with exception: {e}", flush=True
-        )
-        logger.warning(f"CAMS fetch failed: {e}")
+                    print("[DEBUG-TRACE] orchestrator: running gc.collect()", flush=True)
+                    gc.collect()
+                    print(
+                        "[DEBUG-TRACE] orchestrator: gc.collect() completed successfully",
+                        flush=True,
+                    )
+        except Exception as e:
+            print(
+                f"[DEBUG-TRACE] orchestrator: CAMS fetch/extract failed with exception: {e}",
+                flush=True,
+            )
+            logger.warning(f"CAMS fetch failed: {e}")
 
     print(
         f"[DEBUG-TRACE] orchestrator: STEP 1: determine_mode starting (has_obs={has_obs}, has_cams={has_cams}, cams_is_stale={cams_is_stale})",
@@ -893,5 +941,5 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
     return exit_code
 
 
-def run_daily_pipeline(issuance_utc: datetime, force: bool = False) -> int:
-    return asyncio.run(run_daily_pipeline_async(issuance_utc, force))
+def run_daily_pipeline(issuance_utc: datetime, force: bool = False, mode: str | None = None) -> int:
+    return asyncio.run(run_daily_pipeline_async(issuance_utc, force, mode=mode))

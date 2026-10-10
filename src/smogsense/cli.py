@@ -112,6 +112,7 @@ def reconcile_archive_api_cmd(
 def daily(
     issuance: str = typer.Option("latest", "--issuance", help="Issuance time"),
     force: bool = typer.Option(False, "--force", help="Force run even if already published"),
+    mode: str | None = typer.Option(None, "--mode", help="Execution mode (live, fixtures)"),
 ) -> None:
     """Run the full daily cycle."""
     import os
@@ -122,6 +123,10 @@ def daily(
     if not force and os.getenv("SMOGSENSE_FORCE", "0").lower() in ("1", "true"):
         force = True
 
+    if mode is None:
+        env_mode = os.getenv("SMOGSENSE_MODE", "live").lower().strip()
+        mode = "fixtures" if env_mode in ("fixtures", "demo") else "live"
+
     if issuance == "latest":
         # Get start of today in UTC
         now = datetime.now(UTC)
@@ -129,7 +134,7 @@ def daily(
     else:
         issuance_utc = datetime.fromisoformat(issuance).replace(tzinfo=UTC)
 
-    exit_code = run_daily_pipeline(issuance_utc, force=force)
+    exit_code = run_daily_pipeline(issuance_utc, force=force, mode=mode)
     sys.exit(exit_code)
 
 
