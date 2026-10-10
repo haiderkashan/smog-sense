@@ -853,6 +853,7 @@ async def run_daily_pipeline_async(
         site_dir = Path("site")
         site_dir.mkdir(parents=True, exist_ok=True)
         forecast_dir = site_dir / "forecast"
+        forecast_dir.mkdir(parents=True, exist_ok=True)
         issuance_date_str = issuance_utc.strftime("%Y-%m-%d")
         for f_name in [f"{run_id}.json", f"{issuance_date_str}.json", "latest.json"]:
             with (forecast_dir / f_name).open("w", encoding="utf-8") as f:
@@ -864,7 +865,11 @@ async def run_daily_pipeline_async(
         with contextlib.suppress(OSError):
             gh_pages_dir = Path("gh-pages")
             gh_pages_dir.mkdir(parents=True, exist_ok=True)
+            gh_pages_forecast_dir = gh_pages_dir / "forecast"
+            gh_pages_forecast_dir.mkdir(parents=True, exist_ok=True)
             for f_name in [f"{run_id}.json", f"{issuance_date_str}.json", "latest.json"]:
+                with (gh_pages_forecast_dir / f_name).open("w", encoding="utf-8") as f:
+                    json.dump(bulletin, f, indent=2)
                 with (gh_pages_dir / f_name).open("w", encoding="utf-8") as f:
                     json.dump(bulletin, f, indent=2)
 
