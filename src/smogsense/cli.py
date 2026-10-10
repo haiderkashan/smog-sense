@@ -5,6 +5,7 @@ Specification: docs/system-architecture.md -> 'Component responsibilities and CL
 
 import contextlib
 import faulthandler
+import os
 import sys
 from datetime import UTC
 
@@ -13,6 +14,17 @@ import typer
 from smogsense.errors import SmogSenseError
 
 faulthandler.enable()
+
+
+def safe_exit(code: int) -> None:
+    """Exit cleanly, bypassing C-extension teardown corruption on standalone execution."""
+    sys.stdout.flush()
+    sys.stderr.flush()
+    # In pytest, use sys.exit so the test runner catches SystemExit
+    if "pytest" in sys.modules or os.getenv("PYTEST_CURRENT_TEST"):
+        sys.exit(code)
+    os._exit(code)
+
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -135,7 +147,7 @@ def daily(
         issuance_utc = datetime.fromisoformat(issuance).replace(tzinfo=UTC)
 
     exit_code = run_daily_pipeline(issuance_utc, force=force, mode=mode)
-    sys.exit(exit_code)
+    safe_exit(exit_code)
 
 
 @app_state.command()
@@ -166,8 +178,8 @@ def exists(issuance: str = typer.Option("latest", "--issuance")) -> None:
                 with cand.open("r", encoding="utf-8") as f:
                     data = json.load(f)
                 if data.get("published") is True:
-                    sys.exit(11)
-    sys.exit(0)
+                    safe_exit(11)
+    safe_exit(0)
 
 
 @app_run.command("seed-history")
@@ -193,7 +205,7 @@ def seed_history_cmd(
     out_path = Path(output) if output else None
 
     exit_code = generate_seed_history(start_utc=start_dt, end_utc=end_dt, output_path=out_path)
-    sys.exit(exit_code)
+    safe_exit(exit_code)
 
 
 def main() -> None:
@@ -201,10 +213,10 @@ def main() -> None:
         app()
     except SmogSenseError as e:
         print(f"Error: {e}")
-        sys.exit(e.exit_code)
+        safe_exit(e.exit_code)
     except Exception as e:
         print(f"Internal error: {e}")
-        sys.exit(50)
+        safe_exit(50)
 
 
 if __name__ == "__main__":

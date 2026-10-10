@@ -153,6 +153,17 @@ jobs:
           docker compose --profile ops run --rm daily
           rc=$?
           set -e
+          # Self-healing: if container crashed during C-library teardown (134) but published manifest
+          if [ "${rc}" -eq 134 ]; then
+            ISSUANCE_DATE="${ISSUANCE:0:10}"
+            [ "${ISSUANCE_DATE}" = "latest" ] || [ -z "${ISSUANCE_DATE}" ] && ISSUANCE_DATE="$(date -u +%Y-%m-%d)"
+            MF=".state/manifests/${ISSUANCE_DATE}.json"
+            if [ -f "${MF}" ] && grep -q '"published":\s*true' "${MF}"; then
+              echo "::warning::Container crashed during C-extension teardown (rc=134) after successful publication. Recovering exit code from manifest."
+              rc=$(grep -o '"exit_code":\s*[0-9]*' "${MF}" | head -1 | tr -dc '0-9')
+              [ -z "${rc}" ] && rc=10
+            fi
+          fi
           echo "rc=${rc}" >> "$GITHUB_OUTPUT"
           case "${rc}" in
             0|10|11) exit 0 ;;   # ok | published in degraded mode | already published (no-op)

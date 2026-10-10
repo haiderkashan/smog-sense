@@ -360,6 +360,9 @@ def extract_stations(
         for d in datasets:
             with contextlib.suppress(Exception):
                 d.close()
+        with contextlib.suppress(Exception):
+            del ds
+            del loaded_datasets
         print("[DEBUG-TRACE] extract_stations: datasets closed", flush=True)
 
     print(
