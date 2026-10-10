@@ -54,6 +54,7 @@ def generate_forecast_log(
     data_cutoff_utc: datetime | None = None,
     n_available_stations: int = 0,
     is_rerun: bool = False,
+    adaptation_status: str = "skipped_n0",
 ) -> pd.DataFrame:
     """Generate the forecast log dataframe validated against Pandera schema."""
     now_utc = datetime.now(UTC)
@@ -82,7 +83,7 @@ def generate_forecast_log(
                 "calibrated": False,
                 "run_id": run_id,
                 "is_rerun": is_rerun,
-                "adaptation_status": "unadapted",
+                "adaptation_status": adaptation_status,
                 "cams_lead_offset_h": cams_lead_offset_h,
                 "n_available_stations": n_available_stations,
             }
@@ -112,7 +113,7 @@ def generate_forecast_log(
             "calibrated": False,
             "run_id": run_id,
             "is_rerun": is_rerun,
-            "adaptation_status": "unadapted",
+            "adaptation_status": adaptation_status,
             "cams_lead_offset_h": cams_lead_offset_h,
             "n_available_stations": n_available_stations,
         }
@@ -141,13 +142,14 @@ def write_manifest(
     exit_code: int,
     git_sha: str = "unknown",
     config_hash: str = "unknown",
+    adaptation_status: str = "skipped_n0",
 ) -> None:
     manifest = {
         "run_id": run_id,
         "issued_at_utc": issuance_utc.isoformat(timespec="seconds"),
         "is_rerun": is_rerun,
         "published": published,
-        "adaptation_status": "unadapted",
+        "adaptation_status": adaptation_status,
         "observed_latency": 0.0,
         "degradation_mode": mode,
         "degradation_level": level,

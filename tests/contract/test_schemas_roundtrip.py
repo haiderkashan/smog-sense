@@ -134,7 +134,7 @@ def _forecast_row() -> pd.DataFrame:
         "config_hash": "def",
         "calibrated": False,
         "is_rerun": False,
-        "adaptation_status": "accepted",
+        "adaptation_status": "adapted",
         "n_available_stations": np.int32(3),
     }
     row.update({q: 100.0 + 10 * i for i, q in enumerate(Q_NAMES)})
@@ -235,6 +235,9 @@ MUTATIONS = {
     "probability_above_one": lambda d: d["horizons"][0]["probabilities"]["by_category"].__setitem__(
         "good", 1.4
     ),
+    "invalid_adaptation_status": lambda d: d["model"].__setitem__(
+        "adaptation_status", "invalid_status"
+    ),
 }
 
 
@@ -247,3 +250,31 @@ def test_bulletin_schema_rejects_broken_documents(
     assert list(
         Draft202012Validator(bulletin_schema, format_checker=FormatChecker()).iter_errors(broken)
     )
+
+
+def test_obs_pull_log_schema(schemas: dict[str, pa.DataFrameSchema]) -> None:
+    schema = schemas["obs_pull_log"]
+    now = pd.Timestamp("2026-11-05T00:00:00Z")
+    df = pd.DataFrame(
+        [
+            {
+                "sensor_id": "sensor_1",
+                "location_id": "loc_1",
+                "domain": "lahore",
+                "ts_utc": now,
+                "hour_end_utc": now + pd.Timedelta(hours=1),
+                "first_seen_utc": now + pd.Timedelta(hours=1, minutes=15),
+                "pull_id": "pull_1",
+                "value_raw": 55.5,
+                "rh_pct": 60.0,
+                "temp_c": 22.0,
+                "provider": "openaq",
+                "source": "openaq_api",
+            }
+        ]
+    )
+    validate_frame(schema, df)
+
+    duplicated = pd.concat([df, df])
+    with pytest.raises((ValueError, *VALIDATION_ERRORS)):
+        schema.validate(duplicated)

@@ -65,7 +65,7 @@ def _sample_forecast_df(
             "calibrated": False,
             "run_id": "test_run",
             "is_rerun": False,
-            "adaptation_status": "unadapted",
+            "adaptation_status": "skipped_n0",
             "cams_lead_offset_h": 0.0,
             "n_available_stations": 1,
         }
