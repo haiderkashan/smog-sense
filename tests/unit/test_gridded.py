@@ -176,3 +176,28 @@ def test_extract_stations_longitude_normalization(mock_centroid, mock_open_ds, m
     row_out = df[df["location_id"] == "loc_out"].iloc[0]
     assert np.isnan(row_out["temperature_c"])
     assert bool(row_out["outside_grid"]) is True
+
+
+def test_extract_stations_real_grib_no_indexpath(tmp_path: Path):
+    eccodes = pytest.importorskip("eccodes")
+    grib_file = tmp_path / "test_sample.grib"
+    with grib_file.open("wb") as f:
+        for step in [0, 1]:
+            gid = eccodes.codes_grib_new_from_samples("regular_ll_sfc_grib2")
+            eccodes.codes_set(gid, "shortName", "pm2p5")
+            eccodes.codes_set(gid, "step", step)
+            eccodes.codes_set(gid, "dataDate", 20261010)
+            eccodes.codes_set(gid, "dataTime", 0)
+            eccodes.codes_write(gid, f)
+            eccodes.codes_release(gid)
+
+    stations = pd.DataFrame([{"location_id": "loc1", "lat": 31.5, "lon": 74.3}])
+    res = extract_stations(grib_file, stations, domain="lahore")
+
+    # Verify no .idx index file was created on disk
+    idx_files = list(tmp_path.glob("*.idx"))
+    assert len(idx_files) == 0
+
+    assert not res.empty
+    assert "location_id" in res.columns
+    assert set(res["location_id"].unique()) == {"loc1", "centroid"}

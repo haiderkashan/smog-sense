@@ -191,6 +191,11 @@ class CamsClient:
         try:
             result.download(str(temp_path))
             temp_path.replace(dest_path)
+            logger.info(
+                "CAMS GRIB successfully downloaded and saved to %s (size %d bytes)",
+                dest_path,
+                dest_path.stat().st_size,
+            )
         except Exception as e:
             raise SourceUnavailable(f"Failed to download GRIB: {e}") from e
         finally:

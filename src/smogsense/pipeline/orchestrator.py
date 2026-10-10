@@ -307,10 +307,20 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
 
         # Allow Level 2 (CAMS only / centroid fallback) even if stations_df is empty
         if cams_path.exists():
+            logger.info(
+                "Extracting station series from CAMS GRIB %s (size %d bytes)",
+                cams_path,
+                cams_path.stat().st_size,
+            )
             cams_df = extract_stations(
                 cams_path, stations_df, domain="lahore", settings=settings.model_dump()
             )
             if not cams_df.empty:
+                logger.info(
+                    "Extracted %d CAMS records across %d locations",
+                    len(cams_df),
+                    cams_df["location_id"].nunique(),
+                )
                 cams_df["location_id"] = cams_df["location_id"].astype(str)
                 has_cams = True
                 # Persist point-in-time input snapshot as Parquet under .state/inputs/

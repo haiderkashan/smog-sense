@@ -10,6 +10,7 @@ Specification: docs/data-engineering.md -> 'Copernicus ADS: CAMS global forecast
 """
 
 import contextlib
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,8 @@ import xarray as xr
 import yaml
 from pyproj import Geod
 from scipy.interpolate import RegularGridInterpolator
+
+logger = logging.getLogger(__name__)
 
 PM25_ALIASES = {"pm2p5", "particulate_matter_2.5um", "pm25"}
 TEMP_ALIASES = {"t2m", "2m_temperature"}
@@ -124,16 +127,29 @@ def extract_stations(
     pts_lon = np.asarray(df_pts["lon"], dtype=float)
 
     # 2. Open GRIB
-    datasets = cfgrib.open_datasets(str(grib_path))
+    logger.info(
+        "Opening GRIB file %s (size %d bytes)",
+        grib_path,
+        grib_path.stat().st_size if grib_path.exists() else 0,
+    )
+    datasets = cfgrib.open_datasets(
+        str(grib_path),
+        backend_kwargs={"indexpath": ""},
+    )
     if not datasets:
         raise ValueError("No datasets found in GRIB")
+    logger.info("Successfully opened %d dataset(s) from %s", len(datasets), grib_path)
+
     # Load arrays into memory and close backend file handles to prevent C-level eccodes double-free
     loaded_datasets = []
     for d in datasets:
         loaded_datasets.append(d.load())
         with contextlib.suppress(Exception):
             d.close()
-    ds = xr.merge(loaded_datasets, compat="override")
+    if len(loaded_datasets) == 1:
+        ds = loaded_datasets[0]
+    else:
+        ds = xr.merge(loaded_datasets, compat="override")
     try:
         # Find spatial dimensions
         lat_dim = next((d for d in ds.dims if d in ("latitude", "lat")), None)
