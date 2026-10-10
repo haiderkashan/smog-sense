@@ -30,6 +30,11 @@ jobs:
       - name: Lower-case the image name (GHCR requires it)
         id: img
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - name: Compute image content hash
+        id: imghash
+        run: |
+          IMG_HASH=$(git log -1 --format="%h" -- Dockerfile pyproject.toml uv.lock src/)
+          echo "tag=img-${IMG_HASH}" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -43,6 +48,7 @@ jobs:
           target: runtime
           push: true
           tags: |
+            ${{ steps.img.outputs.name }}:${{ steps.imghash.outputs.tag }}
             ${{ steps.img.outputs.name }}:sha-${{ github.sha }}
             ${{ steps.img.outputs.name }}:latest
           labels: |

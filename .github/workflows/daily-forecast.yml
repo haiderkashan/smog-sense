@@ -79,15 +79,35 @@ jobs:
 
       - name: Prepare host (UID/GID, directories, image reference)
         run: |
+          IMG_HASH=$(git log -1 --format="%h" -- Dockerfile pyproject.toml uv.lock src/)
           {
             echo "HOST_UID=$(id -u)"
             echo "HOST_GID=$(id -g)"
-            echo "SMOGSENSE_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
+            echo "SMOGSENSE_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:img-${IMG_HASH}"
+            echo "FALLBACK_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
           } >> "$GITHUB_ENV"
           mkdir -p data/raw data/interim data/processed data/external models site .state
 
       - name: Attach the `state` branch (append-only journals)
         run: scripts/state_attach.sh
+
+      - name: Host pre-check (idempotent early exit)
+        id: precheck
+        run: |
+          ISSUANCE_DATE="${ISSUANCE:0:10}"
+          if [ "${ISSUANCE_DATE}" = "latest" ] || [ -z "${ISSUANCE_DATE}" ]; then
+            ISSUANCE_DATE="$(date -u +%Y-%m-%d)"
+          fi
+          MANIFEST_FILE=".state/manifests/${ISSUANCE_DATE}.json"
+          if [ -f "${MANIFEST_FILE}" ] && [ "${SMOGSENSE_FORCE}" != "1" ]; then
+            IS_PUBLISHED="$(grep -o '"published":\s*true' "${MANIFEST_FILE}" || true)"
+            if [ -n "${IS_PUBLISHED}" ]; then
+              echo "Forecast for ${ISSUANCE_DATE} is already published in ${MANIFEST_FILE}."
+              echo "Exiting early with code 11 (idempotent skip) before image pull."
+              exit 11
+            fi
+          fi
+          echo "Pre-check passed: proceeding with forecast run."
 
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -99,6 +119,9 @@ jobs:
         run: |
           if docker pull "${SMOGSENSE_IMAGE}"; then
             echo "pulled ${SMOGSENSE_IMAGE}"
+          elif docker pull "${FALLBACK_IMAGE}"; then
+            echo "pulled fallback ${FALLBACK_IMAGE}"
+            docker tag "${FALLBACK_IMAGE}" "${SMOGSENSE_IMAGE}"
           else
             echo "::warning::${SMOGSENSE_IMAGE} not found in GHCR; building locally (slower)"
             docker build --target runtime -t "${SMOGSENSE_IMAGE}" .
