@@ -103,19 +103,24 @@ jobs:
             IS_PUBLISHED="$(grep -o '"published":\s*true' "${MANIFEST_FILE}" || true)"
             if [ -n "${IS_PUBLISHED}" ]; then
               echo "Forecast for ${ISSUANCE_DATE} is already published in ${MANIFEST_FILE}."
-              echo "Exiting early with code 11 (idempotent skip) before image pull."
-              exit 11
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "rc=11" >> "$GITHUB_OUTPUT"
+              exit 0
             fi
           fi
           echo "Pre-check passed: proceeding with forecast run."
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "rc=0" >> "$GITHUB_OUTPUT"
 
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        if: steps.precheck.outputs.skip != 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull the runtime image (build locally if this commit has none yet)
+        if: steps.precheck.outputs.skip != 'true'
         run: |
           if docker pull "${SMOGSENSE_IMAGE}"; then
             echo "pulled ${SMOGSENSE_IMAGE}"
@@ -128,6 +133,7 @@ jobs:
           fi
 
       - name: Run the daily cycle (ingest, features, forecast, bulletin, site, validate)
+        if: steps.precheck.outputs.skip != 'true'
         id: cycle
         run: |
           set +e
@@ -143,31 +149,35 @@ jobs:
       - name: Job summary
         if: always()
         run: |
-          f=data/processed/run_manifests/latest_summary.md
-          if [[ -f "${f}" ]]; then cat "${f}" >> "$GITHUB_STEP_SUMMARY"; else echo "No run summary was produced." >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ "${{ steps.precheck.outputs.skip }}" = "true" ]; then
+            echo "Forecast for today is already published. Skipped run idempotently (rc=11)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            f=data/processed/run_manifests/latest_summary.md
+            if [[ -f "${f}" ]]; then cat "${f}" >> "$GITHUB_STEP_SUMMARY"; else echo "No run summary was produced." >> "$GITHUB_STEP_SUMMARY"; fi
+          fi
 
       - name: Persist state journals (observations, inputs snapshot, forecast log)
-        if: steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10'
+        if: steps.precheck.outputs.skip != 'true' && (steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10')
         env:
           RC: ${{ steps.cycle.outputs.rc }}
         run: scripts/state_commit_push.sh "forecast $(date -u +%F) (rc=${RC})"
 
       - name: Publish to GitHub Pages (single orphan commit)
-        if: steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10'
+        if: steps.precheck.outputs.skip != 'true' && (steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10')
         run: scripts/publish_ghpages.sh site
 
       - name: Mirror to Cloudflare Pages (optional; never fails the run)
-        if: (steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10') && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_PAGES_PROJECT != ''
+        if: steps.precheck.outputs.skip != 'true' && (steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10') && env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_PAGES_PROJECT != ''
         continue-on-error: true
         run: npx --yes wrangler@4 pages deploy site --project-name "${CLOUDFLARE_PAGES_PROJECT}" --branch main --commit-dirty=true
 
       - name: Post the card to the Telegram channel (optional; never fails the run)
-        if: (steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10') && env.TELEGRAM_BOT_TOKEN != ''
+        if: steps.precheck.outputs.skip != 'true' && (steps.cycle.outputs.rc == '0' || steps.cycle.outputs.rc == '10') && env.TELEGRAM_BOT_TOKEN != ''
         continue-on-error: true
         run: docker compose --profile ops run --rm pipeline smogsense publish telegram
 
       - name: Alert - published in degraded mode
-        if: steps.cycle.outputs.rc == '10'
+        if: steps.precheck.outputs.skip != 'true' && steps.cycle.outputs.rc == '10'
         run: |
           body="The forecast was published, but in a degraded mode (see the job summary for the reason).
           Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
