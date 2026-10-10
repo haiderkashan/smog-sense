@@ -33,14 +33,40 @@ class CircuitBreakerError(Exception):
 
 
 class RateBudget:
-    # Based on Phase 1a requirements: 48/min, 1600/hr, 0.8 safety margin
+    # Based on Phase 1a requirements: 48/min, 1600/hr, 0.8 safety margin, partitioned by scope
+    PARTITION_PRESETS: typing.ClassVar[dict[str, float]] = {
+        "operations": 0.6,
+        "backfill": 0.2,
+        "adhoc": 0.1,
+    }
+
     def __init__(
-        self, per_minute: int = 60, per_hour: int = 2000, safety_margin: float = 0.8
+        self,
+        per_minute: int = 60,
+        per_hour: int = 2000,
+        safety_margin: float = 0.8,
+        partition_fraction: float = 1.0,
+        scope: str | None = None,
     ) -> None:
+        if scope is not None:
+            if scope not in self.PARTITION_PRESETS:
+                raise ValueError(
+                    f"Unknown scope: '{scope}'. Expected one of {list(self.PARTITION_PRESETS.keys())}"
+                )
+            if partition_fraction == 1.0:
+                partition_fraction = self.PARTITION_PRESETS[scope]
+
+        if not (0.0 < partition_fraction <= 1.0):
+            raise ValueError(f"partition_fraction must be in (0.0, 1.0], got {partition_fraction}")
+
+        self.partition_fraction = partition_fraction
+        self.scope = scope
         self.published_minute = per_minute
         self.published_hour = per_hour
-        self.capacity_minute = int(per_minute * safety_margin)
-        self.capacity_hour = int(per_hour * safety_margin)
+        self.safety_margin = safety_margin
+
+        self.capacity_minute = max(1, int(per_minute * safety_margin * partition_fraction))
+        self.capacity_hour = max(1, int(per_hour * safety_margin * partition_fraction))
         self.tokens_minute = float(self.capacity_minute)
         self.tokens_hour = float(self.capacity_hour)
         self.last_update = time.monotonic()
@@ -79,9 +105,15 @@ class RateBudget:
         """Deterministically reconcile the bucket only if the window is definitively known."""
         async with self._lock:
             if limit == self.published_minute:
-                self.tokens_minute = min(self.tokens_minute, float(remaining))
+                scaled_remaining = float(remaining) * self.partition_fraction
+                self.tokens_minute = min(
+                    self.tokens_minute, min(float(self.capacity_minute), scaled_remaining)
+                )
             elif limit == self.published_hour:
-                self.tokens_hour = min(self.tokens_hour, float(remaining))
+                scaled_remaining = float(remaining) * self.partition_fraction
+                self.tokens_hour = min(
+                    self.tokens_hour, min(float(self.capacity_hour), scaled_remaining)
+                )
             else:
                 # Ambiguous or unknown window (e.g., FIRMS 10-minute window, or limit not provided).
                 # Do not reconcile. Applying a mismatched 'remaining' destroys independent capacity.

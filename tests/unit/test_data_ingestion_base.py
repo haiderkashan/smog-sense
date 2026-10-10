@@ -319,3 +319,64 @@ def test_sha256_deterministic() -> None:
 
     expected_sha256 = hashlib.sha256(body).hexdigest()
     assert cap_logs[0]["response_sha256"] == expected_sha256
+
+
+def test_rate_budget_partition_fractions() -> None:
+    # Test explicit partition fractions
+    rb_ops = RateBudget(per_minute=60, per_hour=2000, safety_margin=0.8, partition_fraction=0.6)
+    assert rb_ops.partition_fraction == 0.6
+    assert rb_ops.capacity_minute == int(60 * 0.8 * 0.6)  # 28
+    assert rb_ops.capacity_hour == int(2000 * 0.8 * 0.6)  # 960
+    assert rb_ops.rate_minute == rb_ops.capacity_minute / 60.0
+    assert rb_ops.rate_hour == rb_ops.capacity_hour / 3600.0
+
+    rb_bf = RateBudget(per_minute=60, per_hour=2000, safety_margin=0.8, partition_fraction=0.2)
+    assert rb_bf.capacity_minute == int(60 * 0.8 * 0.2)  # 9
+    assert rb_bf.capacity_hour == int(2000 * 0.8 * 0.2)  # 320
+
+    rb_adhoc = RateBudget(per_minute=60, per_hour=2000, safety_margin=0.8, partition_fraction=0.1)
+    assert rb_adhoc.capacity_minute == int(60 * 0.8 * 0.1)  # 4
+    assert rb_adhoc.capacity_hour == int(2000 * 0.8 * 0.1)  # 160
+
+
+def test_rate_budget_scopes() -> None:
+    rb_ops = RateBudget(scope="operations")
+    assert rb_ops.partition_fraction == 0.6
+    assert rb_ops.capacity_minute == 28
+    assert rb_ops.capacity_hour == 960
+
+    rb_bf = RateBudget(scope="backfill")
+    assert rb_bf.partition_fraction == 0.2
+    assert rb_bf.capacity_minute == 9
+    assert rb_bf.capacity_hour == 320
+
+    rb_adhoc = RateBudget(scope="adhoc")
+    assert rb_adhoc.partition_fraction == 0.1
+    assert rb_adhoc.capacity_minute == 4
+    assert rb_adhoc.capacity_hour == 160
+
+
+def test_rate_budget_invalid_partitions() -> None:
+    with pytest.raises(ValueError, match="partition_fraction must be in"):
+        RateBudget(partition_fraction=0.0)
+
+    with pytest.raises(ValueError, match="partition_fraction must be in"):
+        RateBudget(partition_fraction=1.5)
+
+    with pytest.raises(ValueError, match="Unknown scope"):
+        RateBudget(scope="unknown_scope")
+
+
+@pytest.mark.anyio
+async def test_reconcile_with_partition() -> None:
+    rb = RateBudget(per_minute=60, per_hour=2000, safety_margin=0.8, scope="operations")
+    # Published minute is 60; partition_fraction is 0.6; capacity_minute is 28
+    # When API reports 20 tokens remaining for the whole API key:
+    # 20 * 0.6 = 12 tokens allocated to operations
+    await rb.reconcile(remaining=20, limit=60)
+    assert rb.tokens_minute == 12.0
+
+    # When API reports remaining 1000 for hour:
+    # 1000 * 0.6 = 600 tokens
+    await rb.reconcile(remaining=1000, limit=2000)
+    assert rb.tokens_hour == 600.0

@@ -51,7 +51,7 @@ async def determine_cutoff_dates(
             else str(raw_key)
         )
     ac = create_client(api_key=api_key)
-    rb = RateBudget()
+    rb = RateBudget(scope="backfill")
     cb = CircuitBreaker()
     client = ResilientClient(ac, rb, cb)
 
