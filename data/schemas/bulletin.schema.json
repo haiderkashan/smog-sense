@@ -125,7 +125,14 @@
           "type": "boolean"
         },
         "adaptation_status": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "adapted",
+            "skipped_n0",
+            "skipped_insufficient_support",
+            "rejected_no_gain",
+            "rejected_latent_drift"
+          ]
         }
       }
     },

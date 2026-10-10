@@ -57,6 +57,7 @@ columns:
     - m1_cams_raw
     - m2_cams_bc
     - m3_climatology_qr
+    - m3b_linear_qr
     - m4_lgbm_local
     - m5_lgbm_source_zero_shot
     - m6_finetune_transfer
@@ -223,6 +224,12 @@ columns:
     type: str
     nullable: true
     description: Adaptation status
+    isin:
+    - adapted
+    - skipped_n0
+    - skipped_insufficient_support
+    - rejected_no_gain
+    - rejected_latent_drift
   cams_lead_offset_h:
     type: float
     nullable: true
@@ -239,5 +246,6 @@ unique:
 - point_id
 - horizon_h
 - method
+- run_id
 description: 'Append-only forecast ledger: 19 quantile levels per (issuance, point,
   horizon, method).'

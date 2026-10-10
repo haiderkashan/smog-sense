@@ -3,55 +3,53 @@ columns:
   sensor_id:
     type: str
     nullable: false
-    description: Desc
+    description: Sensor identifier.
   location_id:
     type: str
     nullable: false
-    description: Desc
+    description: Location or station identifier.
   domain:
     type: str
     nullable: false
-    description: Desc
+    description: Domain string (e.g. lahore).
   ts_utc:
     type: datetime
     nullable: false
-    description: Desc
-  value_raw:
-    type: float
-    nullable: true
-    description: Desc
-  rh_pct:
-    type: float
-    nullable: true
-    description: Desc
-  temp_c:
-    type: float
-    nullable: true
-    description: Desc
-  provider:
-    type: str
+    description: Observation timestamp (hour-start).
+  hour_end_utc:
+    type: datetime
     nullable: false
-    description: Desc
-  source:
-    type: str
+    description: End of observation hour window (ts_utc + 1h).
+  first_seen_utc:
+    type: datetime
     nullable: false
-    description: Desc
+    description: Timestamp when observation was first pulled and recorded.
   pull_id:
     type: str
     nullable: false
-    description: Desc
-  ingested_at_utc:
-    type: datetime
+    description: Unique ingestion pull identifier.
+  value_raw:
+    type: float
+    nullable: true
+    description: Raw PM2.5 measurement in ug/m3.
+  rh_pct:
+    type: float
+    nullable: true
+    description: Relative humidity percentage.
+  temp_c:
+    type: float
+    nullable: true
+    description: Ambient temperature in degrees Celsius.
+  provider:
+    type: str
     nullable: false
-    description: Desc
-index:
-- name: sensor_id
-  type: str
-- name: ts_utc
-  type: datetime
-- name: pull_id
-  type: str
+    description: Observation network provider.
+  source:
+    type: str
+    nullable: false
+    description: Ingestion source string (e.g. openaq_api).
 unique:
 - sensor_id
 - ts_utc
 - pull_id
+description: Ingestion log recording first-seen observation times for latency measurement.

@@ -22,7 +22,7 @@
     "version": "models-v0.2.0",
     "git_sha": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
     "calibrated": false,
-    "adaptation_status": "success"
+    "adaptation_status": "adapted"
   },
   "aqi_scheme": "us_epa_2024_pm25_24h",
   "horizons": [
