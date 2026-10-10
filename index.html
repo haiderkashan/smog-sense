@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmogSense Forecast</title>
+    <style>
+        body { font-family: system-ui, sans-serif; line-height: 1.5; padding: 2rem; max-width: 800px; margin: 0 auto; }
+        h1 { color: #333; }
+        .forecast-card { border: 1px solid #ccc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: bold; background: #eee; }
+        .mode-banner { background: #fff3cd; color: #856404; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <h1>SmogSense Daily Forecast</h1>
+    <p>Issuance: 2026-10-10T00:00:00+00:00</p>
+    
+        <div class="mode-banner">
+            <strong>Degraded Mode: baseline_only</strong>
+            <p>The forecast is operating in a degraded mode. Some data sources may be unavailable.</p>
+        </div>
+        <h2>City Aggregate Forecast</h2>
+        <div class="forecast-card">
+            <h3>+24h Forecast</h3>
+            <p>Expected PM2.5: <strong>78.6 &mu;g/m&sup3;</strong></p>
+            <p>Category: <span class="badge">unhealthy</span></p>
+        </div>
+        
+        <div class="forecast-card">
+            <h3>+48h Forecast</h3>
+            <p>Expected PM2.5: <strong>60.0 &mu;g/m&sup3;</strong></p>
+            <p>Category: <span class="badge">unhealthy</span></p>
+        </div>
+        
+        <div class="forecast-card">
+            <h3>+72h Forecast</h3>
+            <p>Expected PM2.5: <strong>91.8 &mu;g/m&sup3;</strong></p>
+            <p>Category: <span class="badge">unhealthy</span></p>
+        </div>
+        
+    <script>
+        // In a real frontend, this would fetch latest.json and render dynamically
+        console.log("SmogSense minimal site loaded.");
+    </script>
+</body>
+</html>
+    
