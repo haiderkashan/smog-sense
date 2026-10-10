@@ -127,6 +127,10 @@ def extract_stations(
     pts_lon = np.asarray(df_pts["lon"], dtype=float)
 
     # 2. Open GRIB
+    print(
+        f"[DEBUG-TRACE] extract_stations: opening {grib_path} (size={grib_path.stat().st_size if grib_path.exists() else 0})",
+        flush=True,
+    )
     logger.info(
         "Opening GRIB file %s (size %d bytes)",
         grib_path,
@@ -138,18 +142,26 @@ def extract_stations(
     )
     if not datasets:
         raise ValueError("No datasets found in GRIB")
+    print(
+        f"[DEBUG-TRACE] extract_stations: open_datasets returned {len(datasets)} dataset(s)",
+        flush=True,
+    )
     logger.info("Successfully opened %d dataset(s) from %s", len(datasets), grib_path)
 
     # Load arrays into memory and close backend file handles to prevent C-level eccodes double-free
     loaded_datasets = []
-    for d in datasets:
+    for i, d in enumerate(datasets):
+        print(f"[DEBUG-TRACE] extract_stations: loading dataset {i}", flush=True)
         loaded_datasets.append(d.load())
+        print(f"[DEBUG-TRACE] extract_stations: loaded dataset {i}", flush=True)
         with contextlib.suppress(Exception):
             d.close()
     if len(loaded_datasets) == 1:
         ds = loaded_datasets[0]
     else:
+        print("[DEBUG-TRACE] extract_stations: merging datasets", flush=True)
         ds = xr.merge(loaded_datasets, compat="override")
+    print("[DEBUG-TRACE] extract_stations: dataset in memory ready", flush=True)
     try:
         # Find spatial dimensions
         lat_dim = next((d for d in ds.dims if d in ("latitude", "lat")), None)
@@ -346,8 +358,14 @@ def extract_stations(
 
                 records.append(rec)
     finally:
+        print("[DEBUG-TRACE] extract_stations: in finally block, closing ds", flush=True)
         with contextlib.suppress(Exception):
             ds.close()
+        print("[DEBUG-TRACE] extract_stations: ds closed", flush=True)
 
+    print(
+        f"[DEBUG-TRACE] extract_stations: building out_df with {len(records)} records", flush=True
+    )
     out_df = pd.DataFrame(records)
+    print(f"[DEBUG-TRACE] extract_stations: out_df shape={out_df.shape}, returning", flush=True)
     return out_df.reset_index(drop=True)

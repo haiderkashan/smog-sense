@@ -3,6 +3,7 @@
 Specification: docs/deployment-and-ops.md -> 'Observability'
 """
 
+import logging
 import os
 from typing import Any, cast
 
@@ -54,6 +55,11 @@ def setup_logging(json_format: bool = True) -> None:
         processors.append(structlog.processors.JSONRenderer())
     else:
         processors.append(structlog.dev.ConsoleRenderer())
+
+    logging.basicConfig(
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        level=logging.INFO,
+    )
 
     structlog.configure(
         processors=processors,

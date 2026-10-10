@@ -188,24 +188,38 @@ class CamsClient:
         os.close(fd)
         temp_path = Path(temp_path_str)
 
+        print(f"[DEBUG-TRACE] fetch_cams: downloading to {temp_path}", flush=True)
         try:
             result.download(str(temp_path))
+            print(
+                f"[DEBUG-TRACE] fetch_cams: download finished, exists={temp_path.exists()}, size={temp_path.stat().st_size if temp_path.exists() else 0}",
+                flush=True,
+            )
             temp_path.replace(dest_path)
+            print(
+                f"[DEBUG-TRACE] fetch_cams: replaced to dest_path {dest_path}, size={dest_path.stat().st_size}",
+                flush=True,
+            )
             logger.info(
                 "CAMS GRIB successfully downloaded and saved to %s (size %d bytes)",
                 dest_path,
                 dest_path.stat().st_size,
             )
         except Exception as e:
+            print(f"[DEBUG-TRACE] fetch_cams: exception: {e}", flush=True)
             raise SourceUnavailable(f"Failed to download GRIB: {e}") from e
         finally:
+            print("[DEBUG-TRACE] fetch_cams: entering finally", flush=True)
             self._active_requests.pop(req_key, None)
             self._last_request_id = None
             if temp_path.exists():
                 with contextlib.suppress(Exception):
                     temp_path.unlink()
             if hasattr(client, "session") and client.session:
+                print("[DEBUG-TRACE] fetch_cams: closing client.session", flush=True)
                 with contextlib.suppress(Exception):
                     client.session.close()
+                print("[DEBUG-TRACE] fetch_cams: client.session closed", flush=True)
 
+        print(f"[DEBUG-TRACE] fetch_cams: returning {dest_path}", flush=True)
         return dest_path

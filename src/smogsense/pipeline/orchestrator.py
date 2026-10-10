@@ -297,6 +297,10 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 bbox["east"] + 0.5,
             ]
 
+            print(
+                f"[DEBUG-TRACE] orchestrator: calling cams_client.fetch_cams for {cams_path}",
+                flush=True,
+            )
             cams_client.fetch_cams(
                 base_time=cams_base,
                 leadtime_hours=cams_leadtimes,
@@ -304,9 +308,17 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                 area=cams_area,
                 dest_path=cams_path,
             )
+            print(
+                f"[DEBUG-TRACE] orchestrator: cams_client.fetch_cams completed, cams_path exists={cams_path.exists()}",
+                flush=True,
+            )
 
         # Allow Level 2 (CAMS only / centroid fallback) even if stations_df is empty
         if cams_path.exists():
+            print(
+                f"[DEBUG-TRACE] orchestrator: calling extract_stations on {cams_path} (size={cams_path.stat().st_size})",
+                flush=True,
+            )
             logger.info(
                 "Extracting station series from CAMS GRIB %s (size %d bytes)",
                 cams_path,
@@ -314,6 +326,10 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
             )
             cams_df = extract_stations(
                 cams_path, stations_df, domain="lahore", settings=settings.model_dump()
+            )
+            print(
+                f"[DEBUG-TRACE] orchestrator: extract_stations returned {len(cams_df)} rows",
+                flush=True,
             )
             if not cams_df.empty:
                 logger.info(
@@ -330,7 +346,11 @@ async def run_daily_pipeline_async(issuance_utc: datetime, force: bool = False) 
                     snap_dir / f"cams_snapshot_{issuance_utc.strftime('%Y%m%d_%H%M')}.parquet",
                     index=False,
                 )
+                print("[DEBUG-TRACE] orchestrator: cams snapshot written to parquet", flush=True)
     except Exception as e:
+        print(
+            f"[DEBUG-TRACE] orchestrator: CAMS fetch/extract failed with exception: {e}", flush=True
+        )
         logger.warning(f"CAMS fetch failed: {e}")
 
     try:
