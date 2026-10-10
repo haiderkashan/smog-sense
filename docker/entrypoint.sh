@@ -9,6 +9,7 @@ set -euo pipefail
 export HOME="${HOME:-/tmp/home}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/tmp/.cache}"
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/.mpl}"
+export PYTHONFAULTHANDLER=1
 mkdir -p "$HOME" "$XDG_CACHE_HOME" "$MPLCONFIGDIR"
 
 # cdsapi reads ~/.cdsapirc; we avoid writing secrets to disk and rely on CDSAPI_URL/CDSAPI_KEY set per call

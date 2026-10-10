@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import cdsapi
-import requests.exceptions
+import requests
 
 from smogsense.errors import SourceUnavailable
 
@@ -43,7 +43,13 @@ class CamsClient:
         key = os.environ.get(key_env)
         if not key:
             raise SourceUnavailable(f"Missing {key_env} in environment")
-        return cdsapi.Client(url=url, key=key, wait_until_complete=False)
+        return cdsapi.Client(
+            url=url,
+            key=key,
+            wait_until_complete=False,
+            delete=False,
+            session=requests.Session(),
+        )
 
     def fetch_cams(
         self,
@@ -190,10 +196,11 @@ class CamsClient:
         finally:
             self._active_requests.pop(req_key, None)
             self._last_request_id = None
+            if temp_path.exists():
+                with contextlib.suppress(Exception):
+                    temp_path.unlink()
             if hasattr(client, "session") and client.session:
                 with contextlib.suppress(Exception):
                     client.session.close()
-            if temp_path.exists():
-                temp_path.unlink()
 
         return dest_path

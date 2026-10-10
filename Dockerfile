@@ -31,7 +31,7 @@ ARG UV_VERSION=0.11.7
 # base: OS runtime libraries shared by every later stage
 # -----------------------------------------------------------------------------
 FROM ubuntu:${UBUNTU_VERSION} AS base
-ARG INSTALL_GDAL=true
+ARG INSTALL_GDAL=false
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \

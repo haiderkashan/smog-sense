@@ -35,6 +35,7 @@ x-env: &env
   HOME: /tmp/home
   XDG_CACHE_HOME: /tmp/.cache
   MPLCONFIGDIR: /tmp/.mpl
+  PYTHONFAULTHANDLER: "1"
 
 x-ops: &ops
   image: ${SMOGSENSE_IMAGE:-smogsense:local}

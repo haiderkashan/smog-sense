@@ -127,7 +127,13 @@ def extract_stations(
     datasets = cfgrib.open_datasets(str(grib_path))
     if not datasets:
         raise ValueError("No datasets found in GRIB")
-    ds = xr.merge(datasets, compat="override")
+    # Load arrays into memory and close backend file handles to prevent C-level eccodes double-free
+    loaded_datasets = []
+    for d in datasets:
+        loaded_datasets.append(d.load())
+        with contextlib.suppress(Exception):
+            d.close()
+    ds = xr.merge(loaded_datasets, compat="override")
     try:
         # Find spatial dimensions
         lat_dim = next((d for d in ds.dims if d in ("latitude", "lat")), None)
@@ -326,9 +332,6 @@ def extract_stations(
     finally:
         with contextlib.suppress(Exception):
             ds.close()
-        for d in datasets:
-            with contextlib.suppress(Exception):
-                d.close()
 
     out_df = pd.DataFrame(records)
     return out_df.reset_index(drop=True)

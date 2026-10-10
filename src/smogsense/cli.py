@@ -4,12 +4,15 @@ Specification: docs/system-architecture.md -> 'Component responsibilities and CL
 """
 
 import contextlib
+import faulthandler
 import sys
 from datetime import UTC
 
 import typer
 
 from smogsense.errors import SmogSenseError
+
+faulthandler.enable()
 
 app = typer.Typer(no_args_is_help=True)
 
