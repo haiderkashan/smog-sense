@@ -104,7 +104,7 @@ jobs:
             if [ -f ".state/manifests/${ISSUANCE_DATE}.json" ]; then
               FOUND_MANIFEST=".state/manifests/${ISSUANCE_DATE}.json"
             else
-              for f in .state/manifests/run_${COMPACT_DATE}_*.json; do
+              for f in ".state/manifests/run_${COMPACT_DATE}_"*.json; do
                 if [ -f "$f" ]; then
                   FOUND_MANIFEST="$f"
                   break
