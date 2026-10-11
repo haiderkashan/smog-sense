@@ -365,9 +365,7 @@ def aggregate_fire_exposure(
             if n_total > 0 and "ring" in h_dets.columns:
                 r_slice = h_dets[h_dets["ring"] == r]
                 ring_counts[r] = float(len(r_slice)) / norm_plat
-                ring_frp[r] = (
-                    float(r_slice["frp"].sum()) / norm_plat if not r_slice.empty else 0.0
-                )
+                ring_frp[r] = float(r_slice["frp"].sum()) / norm_plat if not r_slice.empty else 0.0
             else:
                 ring_counts[r] = 0.0
                 ring_frp[r] = 0.0
@@ -465,9 +463,7 @@ class FirmsClient:
         if self._custom_resilient is not None:
             for chunk_date, day_count in chunks:
                 check_suomi_npp_cutoff(source, chunk_date)
-                url = self.build_area_url(
-                    source, bbox, day_count, chunk_date.strftime("%Y-%m-%d")
-                )
+                url = self.build_area_url(source, bbox, day_count, chunk_date.strftime("%Y-%m-%d"))
                 resp = await self._custom_resilient.get(url)
                 dfs.append(parse_detections_csv(resp.text))
         else:
@@ -489,9 +485,7 @@ class FirmsClient:
             return combined
 
         dedup_cols = [
-            c
-            for c in ["latitude", "longitude", "acq_date", "acq_time"]
-            if c in combined.columns
+            c for c in ["latitude", "longitude", "acq_date", "acq_time"] if c in combined.columns
         ]
         if dedup_cols:
             combined = combined.drop_duplicates(subset=dedup_cols).reset_index(drop=True)

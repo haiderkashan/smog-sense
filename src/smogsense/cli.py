@@ -91,7 +91,9 @@ def archive_pilot_cmd(
 
 @app_ingest.command("firms")
 def ingest_firms_cmd(
-    domain: str = typer.Option("lahore", "--domain", help="Target domain (lahore, delhi, amritsar, ludhiana)"),
+    domain: str = typer.Option(
+        "lahore", "--domain", help="Target domain (lahore, delhi, amritsar, ludhiana)"
+    ),
     start: str = typer.Option(..., "--start", help="Start date/time (ISO 8601, e.g. 2026-10-01)"),
     end: str = typer.Option(..., "--end", help="End date/time (ISO 8601, e.g. 2026-10-05)"),
     source: str = typer.Option("VIIRS_NOAA21_NRT", "--source", help="FIRMS source/platform"),
@@ -118,7 +120,6 @@ def ingest_firms_cmd(
         out_path.parent.mkdir(parents=True, exist_ok=True)
         exposure_df.to_parquet(out_path, index=False)
         print(f"Saved fire exposure to {out_path}")
-
 
 
 @app_reconcile.command("archive-api")
