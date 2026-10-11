@@ -42,6 +42,7 @@ app_publish = typer.Typer(no_args_is_help=True)
 app_state = typer.Typer(no_args_is_help=True)
 app_run = typer.Typer(no_args_is_help=True)
 app_reconcile = typer.Typer(no_args_is_help=True)
+app_audit = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -55,6 +56,7 @@ app.add_typer(app_publish, name="publish")
 app.add_typer(app_state, name="state")
 app.add_typer(app_run, name="run")
 app.add_typer(app_reconcile, name="reconcile")
+app.add_typer(app_audit, name="audit")
 
 
 @app.command()
@@ -240,6 +242,32 @@ def seed_history_cmd(
 
     exit_code = generate_seed_history(start_utc=start_dt, end_utc=end_dt, output_path=out_path)
     safe_exit(exit_code)
+
+
+@app_audit.command("stations")
+def audit_stations_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Domain to audit (e.g. lahore, delhi)"),
+    output: str | None = typer.Option(
+        None, "--output", help="Output directory for reports (default: .state/audit)"
+    ),
+) -> None:
+    """Run data quality and station audit (Phase 1b Task P1-10)."""
+    from smogsense.analysis.station_audit import run_station_audit
+
+    out_dir = Path(output) if output else Path(".state/audit")
+    summary, _ = run_station_audit(domain=domain, output_dir=out_dir)
+    print(f"Station Audit Complete for {domain.upper()}:")
+    print(f"  Total Stations: {summary.total_locations}")
+    print(
+        f"  Eligible Stations: {summary.eligible_station_count} (Held-out N_max: {summary.n_max_held_out})"
+    )
+    print(f"  Reference Monitors: {summary.reference_station_count}")
+    print(f"  Winter Completeness: {summary.winter_day_completeness_pct}%")
+    print(f"  Co-located Groups: {summary.colocated_groups_count}")
+    print("Decision Rules Status:")
+    for rule_id, rule in summary.decision_rules.items():
+        print(f"  [{rule['status']}] {rule_id}: {rule['observed']} -> {rule['recommendation']}")
+    safe_exit(0)
 
 
 def main() -> None:
