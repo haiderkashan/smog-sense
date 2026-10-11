@@ -6,6 +6,7 @@ from scipy.interpolate import CubicSpline
 from smogsense.preprocessing.imputation import pchip_impute
 from smogsense.preprocessing.qc import (
     FLATLINE,
+    HIGH_RANGE,
     IMPUTED,
     NEGATIVE_CLIPPED,
     RANGE_REJECT,
@@ -37,7 +38,8 @@ def test_qc_range_reject():
     assert out.loc[1, "qc_flags"] & NEGATIVE_CLIPPED
 
     assert out.loc[2, "pm25_ugm3"] == 1500.0
-    assert out.loc[2, "qc_flags"] == 0
+    assert not (out.loc[2, "qc_flags"] & RANGE_REJECT)
+    assert bool(out.loc[2, "qc_flags"] & HIGH_RANGE)
 
     assert pd.isna(out.loc[3, "pm25_ugm3"])
     assert out.loc[3, "qc_flags"] & RANGE_REJECT
