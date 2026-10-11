@@ -8,6 +8,7 @@ import faulthandler
 import os
 import sys
 from datetime import UTC
+from pathlib import Path
 
 import typer
 
@@ -86,6 +87,38 @@ def archive_pilot_cmd(
     )
     print(f"Throughput: {stats['download_mb_per_s']} MB/s ({stats['records_per_s']} records/s).")
     print(f"Output saved to: {stats['output_file']}")
+
+
+@app_ingest.command("firms")
+def ingest_firms_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (lahore, delhi, amritsar, ludhiana)"),
+    start: str = typer.Option(..., "--start", help="Start date/time (ISO 8601, e.g. 2026-10-01)"),
+    end: str = typer.Option(..., "--end", help="End date/time (ISO 8601, e.g. 2026-10-05)"),
+    source: str = typer.Option("VIIRS_NOAA21_NRT", "--source", help="FIRMS source/platform"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Path to write Parquet output"),
+) -> None:
+    """Ingest NASA FIRMS active fire detections and aggregate fire exposure (Task P1-09)."""
+    from smogsense.data_ingestion.firms import FirmsClient, aggregate_fire_exposure
+
+    client = FirmsClient()
+    try:
+        raw_dets = client.query_area_sync(source=source, start_date=start, end_date=end)
+    except Exception as exc:
+        print(f"Error querying FIRMS API: {exc}")
+        safe_exit(1)
+        return
+
+    exposure_df = aggregate_fire_exposure(raw_dets, domain=domain, start_utc=start, end_utc=end)
+    print(
+        f"Ingested {len(raw_dets)} detections; aggregated {len(exposure_df)} hours of fire exposure for {domain}."
+    )
+
+    if output:
+        out_path = Path(output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        exposure_df.to_parquet(out_path, index=False)
+        print(f"Saved fire exposure to {out_path}")
+
 
 
 @app_reconcile.command("archive-api")
