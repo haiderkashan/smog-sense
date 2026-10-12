@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import numpy as np
@@ -201,3 +202,221 @@ def test_extract_stations_real_grib_no_indexpath(tmp_path: Path):
     assert not res.empty
     assert "location_id" in res.columns
     assert set(res["location_id"].unique()) == {"loc1", "centroid"}
+
+
+def test_get_centroid_from_config_variations() -> None:
+    from smogsense.preprocessing.gridded import get_centroid_from_config
+
+    # 1. Custom dict with nested domains: {"domains": {"domains": {"delhi": ...}}}
+    settings_nested = {"domains": {"domains": {"delhi": {"centroid": {"lat": 28.6, "lon": 77.2}}}}}
+    c1 = get_centroid_from_config("delhi", settings=settings_nested)
+    assert c1 == {"lat": 28.6, "lon": 77.2}
+
+    # 2. Custom dict with single domains level: {"domains": {"delhi": ...}}
+    settings_single = {"domains": {"delhi": {"centroid": {"lat": 28.65, "lon": 77.25}}}}
+    c2 = get_centroid_from_config("delhi", settings=settings_single)
+    assert c2 == {"lat": 28.65, "lon": 77.25}
+
+    # 3. Object with .domains attribute
+    class DummySettings:
+        def __init__(self) -> None:
+            self.domains = {"domains": {"amritsar": {"centroid": {"lat": 31.63, "lon": 74.87}}}}
+
+    c3 = get_centroid_from_config("amritsar", settings=DummySettings())
+    assert c3 == {"lat": 31.63, "lon": 74.87}
+
+    class DummySettingsSingle:
+        def __init__(self) -> None:
+            self.domains = {"amritsar": {"centroid": {"lat": 31.635, "lon": 74.875}}}
+
+    c3_single = get_centroid_from_config("amritsar", settings=DummySettingsSingle())
+    assert c3_single == {"lat": 31.635, "lon": 74.875}
+
+    # 4. Canonical fallbacks
+    assert "lat" in get_centroid_from_config("amritsar")
+    assert "lat" in get_centroid_from_config("ludhiana")
+    assert get_centroid_from_config("nonexistent_domain") == {}
+
+
+def test_normalize_longitudes_edge_cases() -> None:
+    from smogsense.preprocessing.gridded import _normalize_longitudes
+
+    # Empty array
+    empty = np.array([])
+    assert len(_normalize_longitudes(empty, np.array([70.0, 80.0]))) == 0
+
+    # Grid in [-180, 180] and points > 180
+    grid_lons = np.array([-10.0, 10.0])
+    pts_lons = np.array([190.0])
+    norm = _normalize_longitudes(pts_lons, grid_lons)
+    assert np.isclose(norm[0], -170.0)
+
+
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
+def test_extract_stations_error_conditions(mock_open_ds: Any) -> None:
+    # 1. Centroid missing raises ValueError
+    with pytest.raises(ValueError, match="Centroid configuration missing"):
+        extract_stations(Path("dummy.grib"), pd.DataFrame(), domain="unknown_domain_xyz")
+
+    # 2. No datasets found in GRIB
+    mock_open_ds.return_value = []
+    with pytest.raises(ValueError, match="No datasets found in GRIB"):
+        extract_stations(
+            Path("dummy.grib"),
+            pd.DataFrame([{"location_id": "1", "lat": 31.5, "lon": 74.3}]),
+            domain="lahore",
+        )
+
+    # 3. Spatial dimensions missing
+    ds_no_spatial = xr.Dataset(
+        {"var": ("x", [1, 2])}, coords={"valid_time": pd.Timestamp("2026-01-01")}
+    )
+    mock_open_ds.return_value = [ds_no_spatial]
+    with pytest.raises(ValueError, match="Could not identify spatial dimensions"):
+        extract_stations(
+            Path("dummy.grib"),
+            pd.DataFrame([{"location_id": "1", "lat": 31.5, "lon": 74.3}]),
+            domain="lahore",
+        )
+
+
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
+def test_extract_stations_units_and_dewpoint(mock_open_ds: Any) -> None:
+    lats = [32.0, 31.0]
+    lons = [74.0, 75.0]
+    data = np.array([[10.0, 20.0], [30.0, 40.0]])
+
+    # Dataset with t2m, d2m (dewpoint), pm25
+    t2m_da = xr.DataArray(
+        data=data + 273.15,
+        dims=["latitude", "longitude"],
+        coords={"latitude": lats, "longitude": lons},
+        attrs={"units": "K"},
+    )
+    d2m_da = xr.DataArray(
+        data=data + 263.15,
+        dims=["latitude", "longitude"],
+        coords={"latitude": lats, "longitude": lons},
+        attrs={"units": "K"},
+    )
+    pm25_da = xr.DataArray(
+        data=data,
+        dims=["latitude", "longitude"],
+        coords={"latitude": lats, "longitude": lons},
+        attrs={"units": "ug m-3"},
+    )
+    ds = xr.Dataset(
+        {"t2m": t2m_da, "d2m": d2m_da, "pm25": pm25_da},
+        coords={"valid_time": pd.Timestamp("2026-01-01T00:00:00Z")},
+    )
+    mock_open_ds.return_value = [ds]
+
+    # Test stations with NaN lat/lon (valid_mask False branch)
+    stations = pd.DataFrame(
+        [
+            {"location_id": "loc1", "lat": 31.5, "lon": 74.5},
+            {"location_id": "loc_nan", "lat": np.nan, "lon": np.nan},
+        ]
+    )
+    res = extract_stations(Path("dummy.grib"), stations, domain="lahore")
+    assert not res.empty
+    assert "rh_pct" in res.columns
+    assert "pm25_ugm3" in res.columns
+    row_nan = res[res["location_id"] == "loc_nan"].iloc[0]
+    assert bool(row_nan["outside_grid"]) is True
+
+    # Test unknown units raise ValueError
+    ds_bad_pm25 = xr.Dataset(
+        {
+            "pm25": xr.DataArray(
+                data,
+                dims=["latitude", "longitude"],
+                coords={"latitude": lats, "longitude": lons},
+                attrs={"units": "unknown_pm25_unit"},
+            )
+        },
+        coords={"valid_time": pd.Timestamp("2026-01-01")},
+    )
+    mock_open_ds.return_value = [ds_bad_pm25]
+    with pytest.raises(ValueError, match=r"Unknown PM2\.5 units"):
+        extract_stations(
+            Path("dummy.grib"),
+            pd.DataFrame([{"location_id": "1", "lat": 31.5, "lon": 74.3}]),
+            domain="lahore",
+        )
+
+    ds_bad_t = xr.Dataset(
+        {
+            "t2m": xr.DataArray(
+                data,
+                dims=["latitude", "longitude"],
+                coords={"latitude": lats, "longitude": lons},
+                attrs={"units": "bad_temp_unit"},
+            )
+        },
+        coords={"valid_time": pd.Timestamp("2026-01-01")},
+    )
+    mock_open_ds.return_value = [ds_bad_t]
+    with pytest.raises(ValueError, match="Unknown temperature units"):
+        extract_stations(
+            Path("dummy.grib"),
+            pd.DataFrame([{"location_id": "1", "lat": 31.5, "lon": 74.3}]),
+            domain="lahore",
+        )
+
+    ds_bad_d = xr.Dataset(
+        {
+            "d2m": xr.DataArray(
+                data,
+                dims=["latitude", "longitude"],
+                coords={"latitude": lats, "longitude": lons},
+                attrs={"units": "bad_dew_unit"},
+            )
+        },
+        coords={"valid_time": pd.Timestamp("2026-01-01")},
+    )
+    mock_open_ds.return_value = [ds_bad_d]
+    with pytest.raises(ValueError, match="Unknown dewpoint units"):
+        extract_stations(
+            Path("dummy.grib"),
+            pd.DataFrame([{"location_id": "1", "lat": 31.5, "lon": 74.3}]),
+            domain="lahore",
+        )
+
+
+@patch("smogsense.preprocessing.gridded.cfgrib.open_datasets")
+def test_extract_stations_empty_stations_and_multiple_datasets(mock_open_ds: Any) -> None:
+    lats = [32.0, 31.0]
+    lons = [74.0, 75.0]
+    data = np.array([[10.0, 20.0], [30.0, 40.0]])
+
+    ds1 = xr.Dataset(
+        {
+            "t2m": xr.DataArray(
+                data=data + 273.15,
+                dims=["latitude", "longitude"],
+                coords={"latitude": lats, "longitude": lons},
+                attrs={"units": "K"},
+            )
+        },
+        coords={"valid_time": pd.Timestamp("2026-01-01T00:00:00Z")},
+    )
+    ds2 = xr.Dataset(
+        {
+            "pm25": xr.DataArray(
+                data=data * 1e-9,
+                dims=["latitude", "longitude"],
+                coords={"latitude": lats, "longitude": lons},
+                attrs={"units": "kg m-3"},
+            )
+        },
+        coords={"valid_time": pd.Timestamp("2026-01-01T00:00:00Z")},
+    )
+    mock_open_ds.return_value = [ds1, ds2]
+
+    # Test stations is None
+    res = extract_stations(Path("dummy.grib"), None, domain="lahore")  # type: ignore[arg-type]
+    assert len(res) == 1
+    assert res.iloc[0]["location_id"] == "centroid"
+    assert "pm25_ugm3" in res.columns
+    assert "temperature_c" in res.columns

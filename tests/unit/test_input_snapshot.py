@@ -14,7 +14,7 @@ Specification:
 - docs/evaluation-strategy.md §9
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -309,3 +309,124 @@ def test_cli_features_build_and_snapshot(tmp_path: Path) -> None:
     assert "Input Snapshot for LAHORE" in res_snap.stdout
     assert "Observations:" in res_snap.stdout
     assert "CAMS Series:" in res_snap.stdout
+
+
+def test_input_snapshot_helpers_and_methods(tmp_path: Path) -> None:
+    from smogsense.features.snapshot import _ensure_utc, _normalize_date_str
+
+    # Test _normalize_date_str
+    assert _normalize_date_str("2026-10-15T12:00:00Z") == "2026-10-15"
+    assert _normalize_date_str("2026-10-15 12:00:00") == "2026-10-15"
+    assert _normalize_date_str(date(2026, 10, 15)) == "2026-10-15"
+    assert _normalize_date_str(datetime(2026, 10, 15, tzinfo=UTC)) == "2026-10-15"
+    with pytest.raises(TypeError, match="Expected str, date, or datetime"):
+        _normalize_date_str(12345)  # type: ignore[arg-type]
+
+    # Test _ensure_utc
+    naive_dt = datetime(2026, 10, 15, 0, 0)
+    utc_dt = _ensure_utc(naive_dt)
+    assert utc_dt.tzinfo == UTC
+
+    # Test InputSnapshot dict methods
+    t0 = datetime(2026, 10, 15, 0, 0, tzinfo=UTC)
+    snap = build_input_snapshot(issuance_utc=t0, domain="lahore")
+    assert snap["domain"] == "lahore"
+    assert snap.get("domain") == "lahore"
+    assert snap.get("nonexistent", "fallback") == "fallback"
+    d = snap.to_dict()
+    assert d["domain"] == "lahore"
+    assert "issuance_utc" in d
+
+
+def test_input_snapshot_leakage_checks_coverage() -> None:
+    t0 = datetime(2026, 10, 15, 0, 0, tzinfo=UTC)
+
+    # 1. obs_df with ts_utc > t_ref and no available_at_utc
+    obs_viol = pd.DataFrame(
+        {
+            "location_id": [1001],
+            "ts_utc": [t0 + timedelta(hours=1)],
+        }
+    )
+    with pytest.raises(ValueError, match="obs_df contains records with ts_utc"):
+        build_input_snapshot(t0, obs_df=obs_viol)
+
+    # 2. cams_df with available_at_utc > t_ref
+    cams_viol = pd.DataFrame(
+        {
+            "location_id": ["1001"],
+            "available_at_utc": [t0 + timedelta(hours=1)],
+        }
+    )
+    with pytest.raises(ValueError, match="cams_df contains records with available_at_utc"):
+        build_input_snapshot(t0, cams_df=cams_viol)
+
+    # 3. fire_exposure_df with available_at_utc > t_ref
+    fire_viol = pd.DataFrame(
+        {
+            "domain": ["lahore"],
+            "available_at_utc": [t0 + timedelta(hours=1)],
+        }
+    )
+    with pytest.raises(ValueError, match="fire_exposure_df contains records with available_at_utc"):
+        build_input_snapshot(t0, fire_exposure_df=fire_viol)
+
+    # 4. fire_exposure_df with acq_datetime_utc + 3h > t_ref
+    fire_acq_viol = pd.DataFrame(
+        {
+            "domain": ["lahore"],
+            "acq_datetime_utc": [t0 - timedelta(hours=1)],  # acq + 3h = t0 + 2h > t0
+        }
+    )
+    with pytest.raises(ValueError, match="fire_exposure_df contains detections available at"):
+        build_input_snapshot(t0, fire_exposure_df=fire_acq_viol)
+
+    # 5. cams_base_time_utc + 10h > t_ref
+    with pytest.raises(ValueError, match=r"CAMS cycle base .* available at .* > issuance_utc"):
+        build_input_snapshot(t0, cams_base_time_utc=t0 - timedelta(hours=5))
+
+
+def test_input_snapshot_load_save_edge_cases(tmp_path: Path) -> None:
+    import pyarrow as pa  # type: ignore[import-untyped]
+    import pyarrow.parquet as pq  # type: ignore[import-untyped]
+
+    t0 = datetime(2026, 10, 15, 0, 0, tzinfo=UTC)
+    snap = build_input_snapshot(issuance_utc=t0, domain="lahore")
+
+    # 1. Save with custom output_path
+    custom_path = tmp_path / "custom_snap.parquet"
+    saved_path = save_input_snapshot(snap, output_path=custom_path)
+    assert saved_path == custom_path
+    assert custom_path.exists()
+
+    # 2. Load with custom snapshot_path
+    loaded = load_input_snapshot("lahore", t0, snapshot_path=custom_path)
+    assert loaded.domain == "lahore"
+    assert loaded.issuance_utc == t0
+
+    # 3. Load non-existent file
+    with pytest.raises(FileNotFoundError, match="Input snapshot not found"):
+        load_input_snapshot("lahore", t0, snapshot_path=tmp_path / "missing.parquet")
+
+    # 4. Fallback table unpacking when metadata buffers are empty
+    # Create parquet table with combined rows and empty buffer metadata
+    df = pd.DataFrame(
+        {
+            "input_type": ["observation", "cams", "fire_exposure"],
+            "location_id": ["1001", "1001", "none"],
+            "pm25_ugm3": [45.0, 50.0, 0.0],
+            "snapshot_issuance_utc": [t0, t0, t0],
+            "snapshot_domain": ["lahore", "lahore", "lahore"],
+        }
+    )
+    table = pa.Table.from_pandas(df)
+    meta = {b"smogsense_meta": b'{"domain": "lahore", "run_id": "test"}'}
+    table = table.replace_schema_metadata(meta)
+    fallback_path = tmp_path / "fallback.parquet"
+    pq.write_table(table, fallback_path)
+
+    loaded_fb = load_input_snapshot("lahore", t0, snapshot_path=fallback_path)
+    assert loaded_fb.domain == "lahore"
+    assert not loaded_fb.obs_df.empty
+    assert not loaded_fb.cams_df.empty
+    assert loaded_fb.fire_exposure_df is not None and not loaded_fb.fire_exposure_df.empty

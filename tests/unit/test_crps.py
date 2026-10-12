@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from scipy.stats import norm
 
 from smogsense.evaluation.crps import crps_from_quantiles
@@ -56,3 +57,33 @@ def test_crps_method_in_quantile_function() -> None:
     val1 = qf.crps(obs)
     val2 = crps_from_quantiles(q, obs)
     assert np.isclose(val1, float(val2))
+
+
+def test_crps_invalid_quantiles_shape() -> None:
+    import pytest
+
+    # Must have 19 quantiles
+    q_invalid = np.linspace(10, 50, 10)
+    with pytest.raises(ValueError, match="requires exactly 19 quantiles"):
+        crps_from_quantiles(q_invalid, 30.0)
+
+
+def test_crps_vectorized_evaluation() -> None:
+    q_matrix = np.array([np.linspace(10, 50, 19), np.linspace(20, 60, 19)])
+    obs_arr = np.array([25.0, 35.0])
+    res = crps_from_quantiles(q_matrix, obs_arr)
+    assert isinstance(res, np.ndarray)
+    assert res.shape == (2,)
+    assert (res >= 0.0).all()
+
+
+def test_crps_missing_trapezoid_func(monkeypatch: pytest.MonkeyPatch) -> None:
+    import pytest
+
+    # Monkeypatch trapezoid and trapz away on numpy
+    monkeypatch.delattr(np, "trapezoid", raising=False)
+    monkeypatch.delattr(np, "trapz", raising=False)
+
+    q = np.linspace(10, 50, 19)
+    with pytest.raises(AttributeError, match="NumPy does not have trapezoid or trapz"):
+        crps_from_quantiles(q, 30.0)
