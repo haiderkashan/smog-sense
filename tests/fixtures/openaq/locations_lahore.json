@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "name": "openaq-api",
+    "page": 1,
+    "limit": 1000,
+    "found": 3
+  },
+  "results": [
+    {
+      "id": 1001,
+      "name": "US Embassy Lahore",
+      "isMonitor": true,
+      "provider": {
+        "name": "State Department"
+      },
+      "coordinates": {
+        "latitude": 31.55,
+        "longitude": 74.33
+      },
+      "datetimeFirst": {
+        "utc": "2020-01-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-15T12:00:00+00:00"
+      },
+      "sensors": [
+        {
+          "id": 5001,
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 98.0
+          }
+        },
+        {
+          "id": 5002,
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 95.0
+          }
+        },
+        {
+          "id": 5003,
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 95.0
+          }
+        }
+      ]
+    },
+    {
+      "id": 1002,
+      "name": "Gulberg Reference Monitor",
+      "isMonitor": true,
+      "provider": {
+        "name": "EPD Punjab"
+      },
+      "coordinates": {
+        "latitude": 31.52,
+        "longitude": 74.35
+      },
+      "datetimeFirst": {
+        "utc": "2021-01-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-15T12:00:00+00:00"
+      },
+      "sensors": [
+        {
+          "id": 5004,
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 90.0
+          }
+        },
+        {
+          "id": 5005,
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 88.0
+          }
+        },
+        {
+          "id": 5006,
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 88.0
+          }
+        }
+      ]
+    },
+    {
+      "id": 1003,
+      "name": "Model Town Sensor",
+      "isMonitor": false,
+      "provider": {
+        "name": "AirGradient"
+      },
+      "coordinates": {
+        "latitude": 31.48,
+        "longitude": 74.32
+      },
+      "datetimeFirst": {
+        "utc": "2022-06-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-15T12:00:00+00:00"
+      },
+      "sensors": [
+        {
+          "id": 5007,
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 85.0
+          }
+        },
+        {
+          "id": 5008,
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 85.0
+          }
+        },
+        {
+          "id": 5009,
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 85.0
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1090 @@
+{
+  "meta": {
+    "name": "openaq-api",
+    "page": 1,
+    "limit": 1000,
+    "found": 72
+  },
+  "results": [
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T00:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T01:00:00+00:00"
+        }
+      },
+      "value": 24.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T01:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T02:00:00+00:00"
+        }
+      },
+      "value": 23.6,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T02:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T03:00:00+00:00"
+        }
+      },
+      "value": 23.2,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T03:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T04:00:00+00:00"
+        }
+      },
+      "value": 22.8,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T04:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T05:00:00+00:00"
+        }
+      },
+      "value": 22.4,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T05:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T06:00:00+00:00"
+        }
+      },
+      "value": 22.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T06:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T07:00:00+00:00"
+        }
+      },
+      "value": 21.6,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T07:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T08:00:00+00:00"
+        }
+      },
+      "value": 21.2,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T08:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T09:00:00+00:00"
+        }
+      },
+      "value": 20.9,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T09:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T10:00:00+00:00"
+        }
+      },
+      "value": 20.6,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T10:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T11:00:00+00:00"
+        }
+      },
+      "value": 20.3,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T11:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T12:00:00+00:00"
+        }
+      },
+      "value": 20.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T12:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T13:00:00+00:00"
+        }
+      },
+      "value": 19.8,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T13:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T14:00:00+00:00"
+        }
+      },
+      "value": 19.6,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T14:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T15:00:00+00:00"
+        }
+      },
+      "value": 19.4,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T15:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T16:00:00+00:00"
+        }
+      },
+      "value": 19.3,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T16:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T17:00:00+00:00"
+        }
+      },
+      "value": 19.1,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T17:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T18:00:00+00:00"
+        }
+      },
+      "value": 19.1,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T18:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T19:00:00+00:00"
+        }
+      },
+      "value": 19.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T19:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T20:00:00+00:00"
+        }
+      },
+      "value": 19.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T20:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T21:00:00+00:00"
+        }
+      },
+      "value": 19.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T21:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T22:00:00+00:00"
+        }
+      },
+      "value": 19.1,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T22:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-12T23:00:00+00:00"
+        }
+      },
+      "value": 19.2,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-12T23:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T00:00:00+00:00"
+        }
+      },
+      "value": 19.3,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T00:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T01:00:00+00:00"
+        }
+      },
+      "value": 19.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T01:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T02:00:00+00:00"
+        }
+      },
+      "value": 19.6,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T02:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T03:00:00+00:00"
+        }
+      },
+      "value": 19.9,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T03:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T04:00:00+00:00"
+        }
+      },
+      "value": 20.1,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T04:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T05:00:00+00:00"
+        }
+      },
+      "value": 20.4,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T05:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T06:00:00+00:00"
+        }
+      },
+      "value": 20.7,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T06:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T07:00:00+00:00"
+        }
+      },
+      "value": 21.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T07:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T08:00:00+00:00"
+        }
+      },
+      "value": 21.4,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T08:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T09:00:00+00:00"
+        }
+      },
+      "value": 21.7,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T09:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T10:00:00+00:00"
+        }
+      },
+      "value": 22.1,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T10:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T11:00:00+00:00"
+        }
+      },
+      "value": 22.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T11:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T12:00:00+00:00"
+        }
+      },
+      "value": 22.9,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T12:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T13:00:00+00:00"
+        }
+      },
+      "value": 23.3,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T13:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T14:00:00+00:00"
+        }
+      },
+      "value": 23.7,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T14:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T15:00:00+00:00"
+        }
+      },
+      "value": 24.1,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T15:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T16:00:00+00:00"
+        }
+      },
+      "value": 24.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T16:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T17:00:00+00:00"
+        }
+      },
+      "value": 25.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T17:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T18:00:00+00:00"
+        }
+      },
+      "value": 25.4,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T18:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T19:00:00+00:00"
+        }
+      },
+      "value": 25.8,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T19:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T20:00:00+00:00"
+        }
+      },
+      "value": 26.1,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T20:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T21:00:00+00:00"
+        }
+      },
+      "value": 26.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T21:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T22:00:00+00:00"
+        }
+      },
+      "value": 26.9,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T22:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-13T23:00:00+00:00"
+        }
+      },
+      "value": 27.2,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-13T23:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T00:00:00+00:00"
+        }
+      },
+      "value": 27.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T00:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T01:00:00+00:00"
+        }
+      },
+      "value": 27.8,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T01:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T02:00:00+00:00"
+        }
+      },
+      "value": 28.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T02:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T03:00:00+00:00"
+        }
+      },
+      "value": 28.3,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T03:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T04:00:00+00:00"
+        }
+      },
+      "value": 28.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T04:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T05:00:00+00:00"
+        }
+      },
+      "value": 28.6,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T05:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T06:00:00+00:00"
+        }
+      },
+      "value": 28.8,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T06:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T07:00:00+00:00"
+        }
+      },
+      "value": 28.9,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T07:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T08:00:00+00:00"
+        }
+      },
+      "value": 29.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T08:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T09:00:00+00:00"
+        }
+      },
+      "value": 29.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T09:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T10:00:00+00:00"
+        }
+      },
+      "value": 29.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T10:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T11:00:00+00:00"
+        }
+      },
+      "value": 29.0,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T11:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T12:00:00+00:00"
+        }
+      },
+      "value": 28.9,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T12:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T13:00:00+00:00"
+        }
+      },
+      "value": 28.8,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T13:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T14:00:00+00:00"
+        }
+      },
+      "value": 28.7,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T14:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T15:00:00+00:00"
+        }
+      },
+      "value": 28.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T15:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T16:00:00+00:00"
+        }
+      },
+      "value": 28.3,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T16:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T17:00:00+00:00"
+        }
+      },
+      "value": 28.1,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T17:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T18:00:00+00:00"
+        }
+      },
+      "value": 27.8,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T18:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T19:00:00+00:00"
+        }
+      },
+      "value": 27.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T19:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T20:00:00+00:00"
+        }
+      },
+      "value": 27.2,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T20:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T21:00:00+00:00"
+        }
+      },
+      "value": 26.9,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T21:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T22:00:00+00:00"
+        }
+      },
+      "value": 26.5,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T22:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-14T23:00:00+00:00"
+        }
+      },
+      "value": 26.2,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    },
+    {
+      "period": {
+        "datetimeFrom": {
+          "utc": "2026-10-14T23:00:00+00:00"
+        },
+        "datetimeTo": {
+          "utc": "2026-10-15T00:00:00+00:00"
+        }
+      },
+      "value": 25.8,
+      "parameter": {
+        "id": 100,
+        "name": "temperature"
+      }
+    }
+  ]
+}

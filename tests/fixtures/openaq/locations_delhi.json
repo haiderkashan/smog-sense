@@ -1,0 +1,260 @@
+{
+  "meta": {
+    "name": "openaq-api",
+    "page": 1,
+    "limit": 1000,
+    "found": 5
+  },
+  "results": [
+    {
+      "id": 7021,
+      "name": "Anand Vihar DPCC",
+      "isMonitor": true,
+      "provider": {
+        "name": "DPCC"
+      },
+      "coordinates": {
+        "latitude": 28.65,
+        "longitude": 77.315
+      },
+      "datetimeFirst": {
+        "utc": "2018-01-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-15T12:00:00+00:00"
+      },
+      "sensors": [
+        {
+          "id": 8001,
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 99.0
+          }
+        },
+        {
+          "id": 8002,
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 98.0
+          }
+        },
+        {
+          "id": 8003,
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 98.0
+          }
+        }
+      ]
+    },
+    {
+      "id": 7022,
+      "name": "US Embassy New Delhi",
+      "isMonitor": true,
+      "provider": {
+        "name": "State Department"
+      },
+      "coordinates": {
+        "latitude": 28.598,
+        "longitude": 77.189
+      },
+      "datetimeFirst": {
+        "utc": "2018-01-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-15T12:00:00+00:00"
+      },
+      "sensors": [
+        {
+          "id": 8004,
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 99.0
+          }
+        },
+        {
+          "id": 8005,
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 98.0
+          }
+        },
+        {
+          "id": 8006,
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 98.0
+          }
+        }
+      ]
+    },
+    {
+      "id": 7023,
+      "name": "RK Puram DPCC",
+      "isMonitor": true,
+      "provider": {
+        "name": "DPCC"
+      },
+      "coordinates": {
+        "latitude": 28.563,
+        "longitude": 77.186
+      },
+      "datetimeFirst": {
+        "utc": "2018-01-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-15T12:00:00+00:00"
+      },
+      "sensors": [
+        {
+          "id": 8007,
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 95.0
+          }
+        },
+        {
+          "id": 8008,
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 95.0
+          }
+        },
+        {
+          "id": 8009,
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 95.0
+          }
+        }
+      ]
+    },
+    {
+      "id": 7024,
+      "name": "Punjabi Bagh DPCC",
+      "isMonitor": true,
+      "provider": {
+        "name": "DPCC"
+      },
+      "coordinates": {
+        "latitude": 28.674,
+        "longitude": 77.131
+      },
+      "datetimeFirst": {
+        "utc": "2019-01-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-15T12:00:00+00:00"
+      },
+      "sensors": [
+        {
+          "id": 8010,
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 96.0
+          }
+        },
+        {
+          "id": 8011,
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 96.0
+          }
+        },
+        {
+          "id": 8012,
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 96.0
+          }
+        }
+      ]
+    },
+    {
+      "id": 7025,
+      "name": "Mandir Marg DPCC",
+      "isMonitor": true,
+      "provider": {
+        "name": "DPCC"
+      },
+      "coordinates": {
+        "latitude": 28.636,
+        "longitude": 77.201
+      },
+      "datetimeFirst": {
+        "utc": "2018-01-01T00:00:00+00:00"
+      },
+      "datetimeLast": {
+        "utc": "2026-10-15T12:00:00+00:00"
+      },
+      "sensors": [
+        {
+          "id": 8013,
+          "parameter": {
+            "id": 2,
+            "name": "pm25"
+          },
+          "coverage": {
+            "percentComplete": 97.0
+          }
+        },
+        {
+          "id": 8014,
+          "parameter": {
+            "id": 98,
+            "name": "relativehumidity"
+          },
+          "coverage": {
+            "percentComplete": 97.0
+          }
+        },
+        {
+          "id": 8015,
+          "parameter": {
+            "id": 100,
+            "name": "temperature"
+          },
+          "coverage": {
+            "percentComplete": 97.0
+          }
+        }
+      ]
+    }
+  ]
+}

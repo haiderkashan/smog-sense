@@ -1,0 +1,5 @@
+{
+  "error": "Unauthorized",
+  "message": "Invalid API Key or missing X-API-Key header",
+  "code": 401
+}
