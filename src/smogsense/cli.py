@@ -270,6 +270,75 @@ def audit_stations_cmd(
     safe_exit(0)
 
 
+@app_score.command("shadow")
+def score_shadow_cmd(
+    stage: str = typer.Option(
+        "provisional", "--stage", help="Scoring stage (provisional, settled)"
+    ),
+    date: str | None = typer.Option(None, "--date", help="Issuance date (YYYY-MM-DD) to score"),
+    state_dir: str = typer.Option(".state", "--state-dir", help="Path to .state directory"),
+    obs_file: str | None = typer.Option(
+        None, "--obs-file", help="Path to explicit observations parquet"
+    ),
+) -> None:
+    """Run shadow scoring for prospective verification (Task P1-11)."""
+    from smogsense.pipeline.shadow import run_shadow_scoring
+
+    res = run_shadow_scoring(
+        stage=stage, issuance_date=date, state_dir=state_dir, obs_file=obs_file
+    )
+    print(f"Shadow scoring ({res['stage']}): {res['status']}")
+    if res.get("new_scores") is not None:
+        print(f"Scored {res['new_scores']} targets for {res.get('issuance_date', date)}")
+    if res.get("saved_path"):
+        print(f"Saved scores to {res['saved_path']}")
+    safe_exit(0 if res.get("status") in ("ok", "no_forecasts") else 1)
+
+
+@app_score.command("provisional")
+def score_provisional_cmd(
+    date: str | None = typer.Option(None, "--date", help="Issuance date (YYYY-MM-DD) to score"),
+    state_dir: str = typer.Option(".state", "--state-dir", help="Path to .state directory"),
+    obs_file: str | None = typer.Option(
+        None, "--obs-file", help="Path to explicit observations parquet"
+    ),
+) -> None:
+    """Run provisional shadow scoring with OpenAQ live API observations (Task P1-11)."""
+    from smogsense.pipeline.shadow import run_shadow_scoring
+
+    res = run_shadow_scoring(
+        stage="provisional", issuance_date=date, state_dir=state_dir, obs_file=obs_file
+    )
+    print(f"Provisional scoring: {res['status']}")
+    if res.get("new_scores") is not None:
+        print(f"Scored {res['new_scores']} targets for {res.get('issuance_date', date)}")
+    if res.get("saved_path"):
+        print(f"Saved scores to {res['saved_path']}")
+    safe_exit(0 if res.get("status") in ("ok", "no_forecasts") else 1)
+
+
+@app_score.command("settled")
+def score_settled_cmd(
+    date: str | None = typer.Option(None, "--date", help="Issuance date (YYYY-MM-DD) to score"),
+    state_dir: str = typer.Option(".state", "--state-dir", help="Path to .state directory"),
+    obs_file: str | None = typer.Option(
+        None, "--obs-file", help="Path to explicit observations parquet"
+    ),
+) -> None:
+    """Run settled shadow scoring with OpenAQ AWS archive observations (Task P1-11)."""
+    from smogsense.pipeline.shadow import run_shadow_scoring
+
+    res = run_shadow_scoring(
+        stage="settled", issuance_date=date, state_dir=state_dir, obs_file=obs_file
+    )
+    print(f"Settled scoring: {res['status']}")
+    if res.get("new_scores") is not None:
+        print(f"Scored {res['new_scores']} targets for {res.get('issuance_date', date)}")
+    if res.get("saved_path"):
+        print(f"Saved scores to {res['saved_path']}")
+    safe_exit(0 if res.get("status") in ("ok", "no_forecasts") else 1)
+
+
 def main() -> None:
     try:
         app()
