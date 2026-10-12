@@ -27,6 +27,7 @@ from smogsense.data_ingestion.base import (
 from smogsense.data_ingestion.copernicus import CamsClient
 from smogsense.data_ingestion.openaq import fetch_hourly, list_locations
 from smogsense.errors import QuotaExceeded
+from smogsense.features.snapshot import build_input_snapshot, save_input_snapshot
 from smogsense.inference.degradation import determine_mode, get_degradation_level
 from smogsense.models.baselines import M0Persistence, M1Cams
 from smogsense.models.distribution import QuantileFunction
@@ -552,6 +553,34 @@ async def run_daily_pipeline_async(
         elif isinstance(raw_max, datetime):
             real_data_cutoff = raw_max
     n_available_stations = len(obs_df["location_id"].unique()) if not obs_df.empty else 0
+
+    # Task P1-12: Canonical point-in-time input snapshot for replay
+    try:
+        input_snap = build_input_snapshot(
+            issuance_utc=issuance_utc,
+            domain="lahore",
+            obs_df=obs_df if has_obs else None,
+            cams_df=cams_df if has_cams else None,
+            fire_exposure_df=None,
+            cams_base_time_utc=cams_base,
+            cams_lead_offset_h=cams_lead_offset_h,
+            run_id=run_id,
+            config_hash=config_hash,
+            n_available_stations=n_available_stations,
+        )
+        snap_path = save_input_snapshot(
+            input_snap, domain="lahore", issuance_date=issuance_utc, state_dir=Path(".state")
+        )
+        print(
+            f"[DEBUG-TRACE] orchestrator: saved canonical input snapshot to {snap_path}", flush=True
+        )
+        if has_obs and not obs_df.empty:
+            obs_alias = Path(".state/inputs/obs_snapshot.parquet")
+            obs_alias.parent.mkdir(parents=True, exist_ok=True)
+            obs_df.to_parquet(obs_alias, index=False)
+    except Exception as exc:
+        print(f"[DEBUG-TRACE] orchestrator: failed to persist input snapshot: {exc}", flush=True)
+        logger.warning(f"Failed to persist input snapshot: {exc}")
 
     try:
         seed_history: dict[str, Any] = {}

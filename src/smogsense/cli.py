@@ -124,6 +124,132 @@ def ingest_firms_cmd(
         print(f"Saved fire exposure to {out_path}")
 
 
+@app_features.command("build")
+def features_build_cmd(
+    issuance: str = typer.Option(
+        "latest", "--issuance", help="Issuance date/time (ISO 8601 or 'latest')"
+    ),
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (lahore, delhi)"),
+    state_dir: str = typer.Option(".state", "--state-dir", help="Path to .state directory"),
+) -> None:
+    """Build point-in-time features and persist input snapshot (Task P1-12)."""
+    import os
+    from datetime import datetime, timedelta
+
+    import pandas as pd
+
+    from smogsense.features.snapshot import build_input_snapshot, save_input_snapshot
+
+    if issuance == "latest":
+        now = datetime.now(UTC)
+        issuance_utc = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        issuance_utc = datetime.fromisoformat(issuance)
+        if issuance_utc.tzinfo is None:
+            issuance_utc = issuance_utc.replace(tzinfo=UTC)
+
+    st_path = Path(state_dir)
+    mode = os.getenv("SMOGSENSE_MODE", "live").lower().strip()
+
+    obs_df = pd.DataFrame()
+    cams_df = pd.DataFrame()
+
+    cams_candidates = list((st_path / "inputs" / domain).glob("cams_snapshot_*.parquet"))
+    obs_candidates = [
+        *(st_path / "inputs" / domain).glob("obs_snapshot_*.parquet"),
+        st_path / "inputs" / "obs_snapshot.parquet",
+    ]
+
+    if mode in ("fixtures", "demo", "test") or (not cams_candidates and not obs_candidates):
+        with contextlib.suppress(Exception):
+            from smogsense.data_ingestion.fixtures_mode import (
+                load_fixture_cams,
+                load_fixture_locations,
+                load_fixture_observations,
+            )
+
+            stations_df = load_fixture_locations(domain)
+            end_utc = issuance_utc - timedelta(hours=4)
+            start_utc = end_utc - timedelta(hours=72)
+            obs_df = load_fixture_observations(stations_df, start_utc, end_utc, domain=domain)
+            cams_df = load_fixture_cams(stations_df, issuance_utc)
+
+    if obs_df.empty and obs_candidates:
+        for c in obs_candidates:
+            if c.exists():
+                with contextlib.suppress(Exception):
+                    obs_df = pd.read_parquet(c)
+                    if not obs_df.empty:
+                        break
+
+    if cams_df.empty and cams_candidates:
+        for c in cams_candidates:
+            if c.exists():
+                with contextlib.suppress(Exception):
+                    cams_df = pd.read_parquet(c)
+                    if not cams_df.empty:
+                        break
+
+    snapshot = build_input_snapshot(
+        issuance_utc=issuance_utc,
+        domain=domain,
+        obs_df=obs_df,
+        cams_df=cams_df,
+        fire_exposure_df=None,
+    )
+    saved_path = save_input_snapshot(
+        snapshot, domain=domain, issuance_date=issuance_utc, state_dir=st_path
+    )
+    print(f"Features build completed for {domain}.")
+    print(f"Persisted canonical input snapshot to {saved_path}")
+    print(f"Observations: {len(snapshot.obs_df)} rows | CAMS: {len(snapshot.cams_df)} rows")
+    safe_exit(0)
+
+
+@app_features.command("snapshot")
+def features_snapshot_cmd(
+    issuance: str = typer.Option(
+        "latest", "--issuance", help="Issuance date/time (ISO 8601, YYYY-MM-DD or 'latest')"
+    ),
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (lahore, delhi)"),
+    state_dir: str = typer.Option(".state", "--state-dir", help="Path to .state directory"),
+) -> None:
+    """Inspect or load daily input snapshot for replay (Task P1-12)."""
+    from datetime import datetime
+
+    from smogsense.features.snapshot import load_input_snapshot
+
+    if issuance == "latest":
+        now = datetime.now(UTC)
+        issuance_utc = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        dt_str = issuance_utc.strftime("%Y-%m-%d")
+    else:
+        dt_str = issuance[:10]
+
+    st_path = Path(state_dir)
+    target_path = st_path / "inputs" / domain / f"dt={dt_str}.parquet"
+
+    if not target_path.exists():
+        print(f"Input snapshot for {domain} on {dt_str} not found at {target_path}.")
+        safe_exit(1)
+        return
+
+    snap = load_input_snapshot(domain=domain, issuance_date=dt_str, state_dir=st_path)
+    print(f"Input Snapshot for {domain.upper()} (Issuance: {snap.issuance_utc.isoformat()}):")
+    print(f"  Run ID: {snap.run_id}")
+    print(f"  Config Hash: {snap.config_hash}")
+    print(f"  Available Stations: {snap.n_available_stations}")
+    print(f"  Observations: {len(snap.obs_df)} rows")
+    cams_base_str = snap.cams_base_time_utc.isoformat() if snap.cams_base_time_utc else "None"
+    print(
+        f"  CAMS Series: {len(snap.cams_df)} rows (base: {cams_base_str}, lead offset: {snap.cams_lead_offset_h}h)"
+    )
+    fire_rows = len(snap.fire_exposure_df) if snap.fire_exposure_df is not None else 0
+    print(f"  Fire Exposure: {fire_rows} rows")
+    print(f"  Location: {target_path}")
+    safe_exit(0)
+
+
 @app_reconcile.command("archive-api")
 def reconcile_archive_api_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (lahore, delhi)"),
