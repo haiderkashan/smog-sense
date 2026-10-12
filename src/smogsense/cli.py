@@ -370,6 +370,42 @@ def seed_history_cmd(
     safe_exit(exit_code)
 
 
+@app_run.command("backfill")
+def backfill_cmd(
+    source: str = typer.Option(
+        "all", "--source", help="Which source to backfill (all, openaq-archive, cams, era5, firms)"
+    ),
+    domain: str = typer.Option("both", "--domain", help="Which domain (both, delhi, lahore)"),
+    start: str = typer.Option(..., "--start", help="First day (YYYY-MM-DD)"),
+    end: str = typer.Option(..., "--end", help="Last day (YYYY-MM-DD)"),
+    max_wall_minutes: int = typer.Option(
+        300, "--max-wall-minutes", help="Stop cleanly after this many minutes (job limit is 360)"
+    ),
+    output_dir: str = typer.Option(
+        "data/processed/backfill", "--output-dir", help="Directory to store Parquet partitions"
+    ),
+) -> None:
+    """Run historical backfill orchestrator (Task P1-13)."""
+    from smogsense.pipeline.backfill import run_backfill
+
+    stats = run_backfill(
+        source=source,
+        domain=domain,
+        start=start,
+        end=end,
+        max_wall_minutes=max_wall_minutes,
+        output_dir=output_dir,
+    )
+    print(f"Historical backfill status: {stats['status']}")
+    print(
+        f"Partitions: {stats['partitions_completed']} completed, "
+        f"{stats['partitions_skipped']} skipped (total: {stats['total_partitions']})"
+    )
+    print(f"Elapsed time: {stats['elapsed_seconds']}s")
+    print(f"Output directory: {stats['output_dir']}")
+    safe_exit(0)
+
+
 @app_audit.command("stations")
 def audit_stations_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Domain to audit (e.g. lahore, delhi)"),
