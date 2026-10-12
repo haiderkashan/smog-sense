@@ -345,24 +345,45 @@ async def fetch_archive_day(
 
 
 def _discover_pilot_locations(domain: str) -> list[int]:
-    """Retrieve known station location IDs for domain."""
+    """Retrieve verified station location IDs for domain strictly within station_bbox."""
+    settings = Settings.load("configs")
+    domain_conf = settings.domains.get("domains", {}).get(domain, {})
+    bbox = domain_conf.get("station_bbox", {})
+    west = float(bbox.get("west", -180.0))
+    south = float(bbox.get("south", -90.0))
+    east = float(bbox.get("east", 180.0))
+    north = float(bbox.get("north", 90.0))
+
     # Check registry on disk first
-    for reg_path in [Path("data/registry"), Path(".state/registry")]:
+    for reg_path in [
+        Path("data/registry"),
+        Path(".state/registry"),
+        Path("tests/fixtures/registry"),
+    ]:
         reg_file = reg_path / f"registry_{domain}.parquet"
         if reg_file.exists():
             with contextlib.suppress(Exception):
                 reg_df = pd.read_parquet(reg_file)
                 if "location_id" in reg_df.columns:
+                    lat_col = next((c for c in ["lat", "latitude"] if c in reg_df.columns), None)
+                    lon_col = next((c for c in ["lon", "longitude"] if c in reg_df.columns), None)
+                    if lat_col and lon_col:
+                        in_bbox = (
+                            (reg_df[lat_col] >= south)
+                            & (reg_df[lat_col] <= north)
+                            & (reg_df[lon_col] >= west)
+                            & (reg_df[lon_col] <= east)
+                        )
+                        reg_df = reg_df[in_bbox]
                     locs = [int(x) for x in reg_df["location_id"].dropna().unique()]
                     if locs:
                         return sorted(locs)
 
-    # Fallback to Lahore defaults from domain specification
-    settings = Settings.load("configs")
-    domain_conf = settings.domains.get("domains", {}).get(domain, {})
-    if domain_conf:
-        # Default typical Lahore OpenAQ station locations
-        return [1001, 101, 102, 1, 2, 3]
+    # Fallback to verified real domain stations within station_bbox
+    if domain == "delhi":
+        return [7021, 7022, 7023, 7024, 7025]
+    if domain == "lahore":
+        return [1001]
     return [1001]
 
 

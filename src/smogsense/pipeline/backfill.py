@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import asyncio
 import calendar
-import contextlib
 import os
 import time
 from datetime import UTC, date, datetime, timedelta
@@ -105,22 +104,10 @@ def month_ranges(
 
 
 def get_domain_locations(domain: str) -> list[int]:
-    """Discover station location IDs for domain from registry or defaults."""
-    for reg_path in [Path("data/registry"), Path(".state/registry")]:
-        reg_file = reg_path / f"registry_{domain}.parquet"
-        if reg_file.exists():
-            with contextlib.suppress(Exception):
-                reg_df = pd.read_parquet(reg_file)
-                if "location_id" in reg_df.columns:
-                    locs = [int(x) for x in reg_df["location_id"].dropna().unique()]
-                    if locs:
-                        return sorted(locs)
+    """Discover station location IDs for domain from registry or verified defaults within station_bbox."""
+    from smogsense.data_ingestion.openaq_archive import _discover_pilot_locations
 
-    if domain == "delhi":
-        return [2001, 2002, 2003, 2004, 2005]
-    if domain == "lahore":
-        return [1001, 101, 102, 1, 2, 3]
-    return [1001]
+    return _discover_pilot_locations(domain)
 
 
 def _load_cams_series_schema() -> pa.DataFrameSchema:

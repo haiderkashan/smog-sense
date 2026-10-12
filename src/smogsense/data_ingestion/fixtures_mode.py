@@ -42,36 +42,75 @@ def _load_obs_hourly_schema() -> pa.DataFrameSchema:
 
 def load_fixture_locations(domain: str = "lahore") -> pd.DataFrame:
     """Load station locations from recorded fixtures or fallback synthetic network."""
-    loc_file = Path("tests/fixtures/openaq/locations_page.json")
-    if not loc_file.exists():
-        loc_file = Path(__file__).resolve().parents[3] / "tests/fixtures/openaq/locations_page.json"
+    candidates = [
+        Path(f"tests/fixtures/openaq/locations_{domain}.json"),
+        Path(__file__).resolve().parents[3] / f"tests/fixtures/openaq/locations_{domain}.json",
+        Path("tests/fixtures/openaq/locations_page.json"),
+        Path(__file__).resolve().parents[3] / "tests/fixtures/openaq/locations_page.json",
+    ]
 
-    if loc_file.exists():
-        try:
-            with loc_file.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-            records: list[dict[str, Any]] = []
-            for item in data.get("results", []):
-                loc_id = item.get("id")
-                coords = item.get("coordinates", {})
-                lat = coords.get("latitude")
-                lon = coords.get("longitude")
-                if loc_id is not None and lat is not None and lon is not None:
-                    records.append(
-                        {
-                            "location_id": int(loc_id),
-                            "name": str(item.get("name", f"Station {loc_id}")),
-                            "lat": float(lat),
-                            "lon": float(lon),
-                            "is_reference": bool(item.get("isMonitor", False)),
-                            "is_monitor": bool(item.get("isMonitor", False)),
-                            "provider": str((item.get("provider") or {}).get("name", "Unknown")),
-                        }
-                    )
-            if records:
-                return pd.DataFrame(records)
-        except Exception as exc:
-            logger.debug("Failed to parse fixture locations: %s", exc)
+    for loc_file in candidates:
+        if loc_file.exists():
+            try:
+                with loc_file.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                records: list[dict[str, Any]] = []
+                for item in data.get("results", []):
+                    loc_id = item.get("id")
+                    coords = item.get("coordinates", {})
+                    lat = coords.get("latitude")
+                    lon = coords.get("longitude")
+                    if loc_id is not None and lat is not None and lon is not None:
+                        records.append(
+                            {
+                                "location_id": int(loc_id),
+                                "name": str(item.get("name", f"Station {loc_id}")),
+                                "lat": float(lat),
+                                "lon": float(lon),
+                                "is_reference": bool(item.get("isMonitor", False)),
+                                "is_monitor": bool(item.get("isMonitor", False)),
+                                "provider": str(
+                                    (item.get("provider") or {}).get("name", "Unknown")
+                                ),
+                            }
+                        )
+                if records:
+                    return pd.DataFrame(records)
+            except Exception as exc:
+                logger.debug("Failed to parse fixture locations: %s", exc)
+
+    if domain == "delhi":
+        return pd.DataFrame(
+            [
+                {
+                    "location_id": 7021,
+                    "name": "Anand Vihar DPCC",
+                    "lat": 28.650,
+                    "lon": 77.315,
+                    "is_reference": True,
+                    "is_monitor": True,
+                    "provider": "DPCC",
+                },
+                {
+                    "location_id": 7022,
+                    "name": "US Embassy New Delhi",
+                    "lat": 28.598,
+                    "lon": 77.189,
+                    "is_reference": True,
+                    "is_monitor": True,
+                    "provider": "State Department",
+                },
+                {
+                    "location_id": 7023,
+                    "name": "RK Puram DPCC",
+                    "lat": 28.563,
+                    "lon": 77.186,
+                    "is_reference": True,
+                    "is_monitor": True,
+                    "provider": "DPCC",
+                },
+            ]
+        )
 
     # Authoritative default station panel for Lahore
     return pd.DataFrame(
