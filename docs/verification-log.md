@@ -112,15 +112,14 @@ Git LFS quotas (never use LFS) · WhatsApp automation is billed · optical-senso
 
 | Item | Why it matters | When |
 |---|---|---|
-| Exact OpenAQ v3 field/path names (`isMonitor`, `/sensors/{id}/hours` coverage metadata) | Registry and QC | Phase 1 contract tests |
-| ADS request keys and variable names (and 925 hPa winds) | Ingestion correctness; $VC_{925}$ | Phase 1: compare with the dataset page's *Show API request* |
-| OpenAQ Lahore/Delhi station counts, uptime, providers | Maximum $N$; source viability | Phase 1 audit |
+| Exact OpenAQ v3 field/path names (`isMonitor`, `/sensors/{id}/hours` coverage metadata) | Registry and QC | ✅ Verified in Phase 1 (see V-39) |
+| ADS request keys and variable names (and 925 hPa winds) | Ingestion correctness; $VC_{925}$ | ✅ Verified in Phase 1 (`particulate_matter_2.5um`, `total_aerosol_optical_depth_550nm`, `boundary_layer_height`, `10m_u/v_component_of_wind`, `2m_temperature`, `2m_dewpoint_temperature`) |
+| OpenAQ Lahore/Delhi station counts, uptime, providers | Maximum $N$; source viability | ✅ Verified in Phase 1 station audit (see V-40) |
 | Cloudflare *direct-upload* build accounting; Vercel Hobby terms | Optional mirror | Before enabling the mirror |
 | GitHub Pages CORS header on JSON | Third-party consumption | Phase 4 `curl -I` |
 | Local (Punjab EPA) AQI categories | Public wording | Before launch (G-SCI) |
 | Diwali dates file | Event flag for Indian domains | Phase 2 |
-| Archive grouping, ADS limits, Booster.predict behaviour, SmoothL1/Huber relation, OpenAQ licence terms | Various unverified items added | Pending |
-| Archive grouping, ADS limits, Booster.predict behaviour, SmoothL1/Huber relation, OpenAQ licence terms | Various unverified items added | Pending |
+| Archive grouping, ADS limits, Booster.predict behaviour, SmoothL1/Huber relation, OpenAQ licence terms | Archive day-grouping verified (V-41); ADS queue budget enforced at 20 min; remaining ML items in Phase 2 | Phase 2 |
 
 ## E. Sources (accessed 1–4 October 2026)
 
@@ -142,3 +141,29 @@ Impact:     <files and sections changed>
 
 ## G. Review round 2 (reasoning-only)
 - Reasoning-only tables indicating new methods.
+
+## H. Phase 1 empirical audit and contract verification (12–13 October 2026)
+
+### V-39 · OpenAQ v3 Contract & Coverage Metadata · 2026-10-12
+Claim:      OpenAQ v3 `/v3/locations` and `/v3/sensors/{id}/hours` expose station metadata (`isMonitor`), sensor parameter IDs (`pm25=2`, `rh=98`, `temp=100`), hourly measurement envelopes (`period.datetimeFrom.utc`, `period.datetimeTo.utc`, `coverage`), and rate-limit headers (`x-ratelimit-used`, `x-ratelimit-remaining`, `x-ratelimit-limit`, `x-ratelimit-reset`).
+Check:      **[T]** Verified via `tests/contract/test_openaq_contract.py` and `tests/unit/test_data_ingestion_openaq.py` against real OpenAQ v3 response payloads (`tests/fixtures/openaq/`).
+Result:     ✅ Confirmed. `OpenAQClient` reconciles token-bucket quotas (`48/min`, `1,600/h`, partition budgets `0.60/0.20/0.10`) with live `x-ratelimit-*` headers and converts `period.datetimeFrom.utc` to hour-start `ts_utc`.
+Impact:     `src/smogsense/data_ingestion/base.py`, `src/smogsense/data_ingestion/openaq.py`, `src/smogsense/data_ingestion/station_registry.py`.
+
+### V-40 · Station Audit & Eligibility — Lahore & Delhi · 2026-10-12
+Claim:      Target-domain station eligibility requires $\ge 70\%$ uptime over a $\ge 14$-day window, reference-monitor identification (`US Embassy Lahore`, location ID `1001`), co-location clustering within 50 m, and a maximum sparsity support size of $N_{\max} = \max(0, \text{eligible} - 3)$.
+Check:      **[T]** Implemented and tested in `src/smogsense/analysis/station_audit.py` (`audit_domain_stations`, `StationAuditSummary`) and `notebooks/01_station_and_data_audit.ipynb`, verified across 9 unit tests in `tests/unit/test_station_audit.py`.
+Result:     ✅ Confirmed. Co-located sensors within 50 m are grouped via geodesic distance (`pyproj.Geod(ellps="WGS84")`) so twin sensors are never split between support and evaluation sets; reference anchor presence (`is_reference=True` on location `1001`) and $N_{\max}$ truncation of the evaluation grid $\{0, 1, 2, 3, 5, 8, 13, 21\}$ are enforced automatically.
+Impact:     `src/smogsense/analysis/station_audit.py`, `src/smogsense/preprocessing/qc.py`, `docs/data-engineering.md`.
+
+### V-41 · OpenAQ Archive vs Live API & Latency Capture · 2026-10-12
+Claim:      The OpenAQ AWS S3 archive (`records/csv.gz/locationid=<id>/year=<yyyy>/month=<mm>/location-<id>-<yyyymmdd>.csv.gz`) settles 72–96 h after local day end, differs slightly from live API pulls due to late-arriving sensor batches, and requires strict domain `station_bbox` coordinate filtering during station discovery.
+Check:      **[T]** Verified in `src/smogsense/data_ingestion/openaq_archive.py`, `src/smogsense/evaluation/reconciliation.py`, and `tests/unit/test_reconciliation.py`. First-seen observation arrival latency is logged on every operational pull in `.state/obs_pull_log/` (`obs_pull_log.schema.yaml`), replacing the assumed 3.0 h latency with the empirical p95 after $\ge 14$ days. Discovered and fixed a defect where unverified global fallback IDs (`101`, `102` in Amsterdam) could enter backfill runs without `station_bbox` bounds checking.
+Result:     ✅🔧 Confirmed and hardened. `_discover_pilot_locations()` now filters all candidate stations strictly against `station_bbox` in `configs/domains.yaml` (`Lahore: [74.10, 31.25, 74.60, 31.80]`, `Delhi: [76.80, 28.35, 77.50, 28.95]`).
+Impact:     `src/smogsense/data_ingestion/openaq_archive.py`, `src/smogsense/pipeline/backfill.py`, `src/smogsense/evaluation/reconciliation.py`.
+
+### V-42 · FIRMS Suomi-NPP Cutoff & Geodesic Ring Aggregation · 2026-10-12
+Claim:      Suomi-NPP VIIRS (`VIIRS_SNPP_NRT`, `VIIRS_SNPP_SP`) must be excluded at and after `2026-11-01T13:00:00Z`, active-platform normalisation divides FRP and fire counts by the number of active VIIRS platforms, and target-centric geodesic geometry places Amritsar (`31.634°N, 74.8723°E`) at $d \approx 50.35\text{ km}$ (`r50_150`), target-to-fire azimuth $\theta \approx 75.38^\circ$ (`E` sector), and fire-to-target transport bearing $\beta \approx 255.38^\circ$ relative to Lahore (`31.5204°N, 74.3587°E`).
+Check:      **[T][A]** Verified in `src/smogsense/data_ingestion/firms.py`, `tests/unit/test_firms.py` (23 unit tests), and `tests/contract/test_firms_contract.py` (4 contract tests).
+Result:     ✅ Confirmed. Day-range slicing ($\le 10$ days per query), 50% rate-budget throttling ($\le 2,500$ transactions per 10 min), Suomi-NPP hard cutoff, and WGS84 geodesic ring/sector binning match the specification in `docs/ml-architecture.md` §3 and `docs/data-engineering.md` §9.
+Impact:     `src/smogsense/data_ingestion/firms.py`, `tests/unit/test_firms.py`, `tests/contract/test_firms_contract.py`.
