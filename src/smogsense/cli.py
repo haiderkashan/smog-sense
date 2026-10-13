@@ -344,6 +344,56 @@ def exists(issuance: str = typer.Option("latest", "--issuance")) -> None:
     safe_exit(0)
 
 
+@app_state.command("verify")
+def state_verify_cmd(
+    state_dir: str = typer.Option(".state", "--state-dir", help="Path to .state directory"),
+    warn_mb: float = typer.Option(400.0, "--warn-mb", help="Warning threshold in MB"),
+    alert_mb: float = typer.Option(700.0, "--alert-mb", help="Alert/failure threshold in MB"),
+) -> None:
+    """Verify state branch size guard and journal integrity (Task P1-23)."""
+    from smogsense.pipeline.state_guard import verify_state_branch
+
+    res = verify_state_branch(state_dir=Path(state_dir), warn_mb=warn_mb, alert_mb=alert_mb)
+    print(
+        f"State Branch Verification: status={res['status'].upper()} "
+        f"(size={res['size_mb']} MB, warn={warn_mb} MB, alert={alert_mb} MB)"
+    )
+    if res["forbidden_files"]:
+        print(f"::error::Forbidden binary files detected in state: {res['forbidden_files']}")
+    if res["corrupt_files"]:
+        print(f"::error::Corrupt journal files detected: {res['corrupt_files']}")
+    if res["status"] == "warn":
+        print(
+            f"::warning::State branch size ({res['size_mb']} MB) exceeds warn threshold ({warn_mb} MB)"
+        )
+    print(f"Readable journals: {res['readable_counts']}")
+
+    if res["status"] == "alert" or not res["valid"]:
+        safe_exit(30)
+    safe_exit(0)
+
+
+@app_site.command("build")
+def site_build_cmd(
+    stale: bool = typer.Option(
+        False, "--stale", "--expired", help="Render static expiry notice (stale forecast)"
+    ),
+    state_dir: str = typer.Option(".state", "--state-dir", help="Path to state directory"),
+    out_dir: str = typer.Option("site", "--out-dir", help="Output directory for site"),
+) -> None:
+    """Build the static website (with optional --stale expiry notice) (Task P1-23)."""
+    from smogsense.publishing.site import render_expired_site
+
+    res = render_expired_site(state_dir=Path(state_dir), out_dir=Path(out_dir))
+    if stale:
+        print(
+            f"Rendered expired static site into {out_dir} (valid until {res.get('valid_until_utc')})"
+        )
+    else:
+        print(f"Built site at {out_dir}")
+    safe_exit(0)
+
+
 @app_run.command("seed-history")
 def seed_history_cmd(
     start: str | None = typer.Option(
@@ -430,6 +480,101 @@ def audit_stations_cmd(
     for rule_id, rule in summary.decision_rules.items():
         print(f"  [{rule['status']}] {rule_id}: {rule['observed']} -> {rule['recommendation']}")
     safe_exit(0)
+
+
+@app_audit.command("truth-basis")
+def audit_truth_basis_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (e.g. lahore, delhi)"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Optional output JSON path"),
+    state_dir: str = typer.Option(".state", "--state-dir", help="Path to state directory"),
+) -> None:
+    """Run co-location hierarchy and truth-basis audit (Task P1-21)."""
+    import json
+
+    import pandas as pd
+
+    from smogsense.analysis.station_audit import audit_truth_basis
+    from smogsense.data_ingestion.fixtures_mode import load_fixture_locations
+
+    st_path = Path(state_dir)
+    reg_path = st_path / "registry" / f"locations_{domain}.parquet"
+    if reg_path.exists():
+        locations_df = pd.read_parquet(reg_path)
+    else:
+        locations_df = load_fixture_locations(domain=domain)
+
+    # Optional observations check
+    obs_path = st_path / "obs" / domain
+    obs_df: pd.DataFrame | None = None
+    if obs_path.exists():
+        files = sorted(obs_path.glob("*.parquet"))
+        if files:
+            obs_df = pd.concat([pd.read_parquet(f) for f in files[-7:]], ignore_index=True)
+
+    report = audit_truth_basis(locations_df=locations_df, observations_df=obs_df, domain=domain)
+
+    print(f"Truth-Basis Audit for {domain.upper()}:")
+    print(f"  Total Stations: {report['total_stations']} | Total Groups: {report['total_groups']}")
+    print(f"  Co-located Multi-Station Groups: {len(report['colocated_multi_station_groups'])}")
+    for grp in report["colocated_multi_station_groups"]:
+        print(
+            f"    - Group {grp['group_id']}: {grp['station_count']} stations {grp['location_ids']}, "
+            f"basis: {grp['group_basis']}, providers: {grp['providers']}"
+        )
+    print(
+        f"  Panel Candidates: {len(report['panel_candidates'])} "
+        f"(Ref: {report['n_reference_groups']}, Low-Cost: {report['n_lowcost_groups']})"
+    )
+    print(f"  Overall Truth Basis: {report['overall_truth_basis'].upper()}")
+    print(f"  Panel Viable (>= 3 groups): {report['panel_viable']}")
+
+    if output:
+        out_p = Path(output)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        with out_p.open("w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+        print(f"Saved report to: {output}")
+
+    safe_exit(0)
+
+
+@app_audit.command("asof-parity")
+def audit_asof_parity_cmd(
+    date: str | None = typer.Option(
+        None, "--date", help="Reference date YYYY-MM-DD for lattice verification"
+    ),
+    repo_root: str | None = typer.Option(
+        None, "--repo-root", help="Optional repo root directory path"
+    ),
+) -> None:
+    """Run as-of lattice verification and container-parity audit (Task P1-22)."""
+    from datetime import datetime
+
+    from smogsense.preprocessing.alignment import (
+        verify_asof_lattice,
+        verify_container_parity,
+    )
+
+    ref_dt = datetime.fromisoformat(date).replace(tzinfo=UTC) if date else None
+    root_path = Path(repo_root) if repo_root else None
+
+    lattice_rep = verify_asof_lattice(reference_date=ref_dt)
+    parity_rep = verify_container_parity(repo_root=root_path)
+
+    print(f"As-Of Lattice Verification ({lattice_rep['reference_date']}): {lattice_rep['status']}")
+    for pt in lattice_rep["points"]:
+        print(
+            f"  Issuance {pt['issuance_utc']}: B*={pt['b_star_utc']} "
+            f"(delta0={pt['delta_level_0_h']}h, delta1={pt['delta_level_1_h']}h, "
+            f"max_lead={pt['max_stitched_lead_h']}h) -> {'PASS' if pt['valid'] else 'FAIL'}"
+        )
+
+    print(f"\nContainer Parity Audit: {parity_rep['status']}")
+    for chk, ok in parity_rep["checks"].items():
+        print(f"  [{'PASS' if ok else 'FAIL'}] {chk}")
+
+    all_ok = lattice_rep["status"] == "PASS" and parity_rep["status"] == "PASS"
+    safe_exit(0 if all_ok else 30)
 
 
 @app_score.command("shadow")
