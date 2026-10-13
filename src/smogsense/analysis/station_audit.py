@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from structlog import get_logger
 
@@ -423,3 +424,235 @@ def run_station_audit(
         report_path=str(json_path),
     )
     return summary, registry_df
+
+
+def audit_truth_basis(
+    locations_df: pd.DataFrame,
+    observations_df: pd.DataFrame | None = None,
+    domain: str = "lahore",
+    radius_m: float = 50.0,
+    min_valid_hours: int = 18,
+    min_panel_stations: int = 3,
+) -> dict[str, Any]:
+    """Execute co-location hierarchy and truth-basis audit (Task P1-21).
+
+    Groups stations within `radius_m` using geodesic WGS84 distance, assigns
+    truth basis under the hierarchy (reference monitor first, else median low-cost),
+    identifies frozen city-panel candidates, and verifies panel viability.
+
+    Specification: docs/data-engineering.md §13 -> 'Phase 1 data audit (acceptance criteria)'
+    """
+    import pyproj
+
+    from smogsense.features.targets import compute_city_panel_target
+
+    if locations_df.empty:
+        return {
+            "domain": domain,
+            "total_stations": 0,
+            "total_groups": 0,
+            "colocated_multi_station_groups": [],
+            "panel_candidates": [],
+            "n_reference_groups": 0,
+            "n_lowcost_groups": 0,
+            "overall_truth_basis": "insufficient",
+            "panel_viable": False,
+            "daily_truth_series": [],
+        }
+
+    df = locations_df.copy().drop_duplicates(subset=["location_id"]).reset_index(drop=True)
+
+    # Standardize columns
+    if "is_monitor" in df.columns and "is_reference" not in df.columns:
+        df["is_reference"] = df["is_monitor"]
+    elif "is_reference" not in df.columns:
+        df["is_reference"] = False
+    df["is_reference"] = df["is_reference"].fillna(False).astype(bool)
+
+    if "provider" not in df.columns:
+        df["provider"] = "Unknown"
+
+    lat_col = next((c for c in ("lat", "latitude") if c in df.columns), None)
+    lon_col = next((c for c in ("lon", "longitude") if c in df.columns), None)
+
+    n = len(df)
+    parent = list(range(n))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i: int, j: int) -> None:
+        ri, rj = find(i), find(j)
+        if ri != rj:
+            parent[ri] = rj
+
+    pairwise_distances: dict[tuple[int, int], float] = {}
+    if lat_col and lon_col:
+        geod = pyproj.Geod(ellps="WGS84")
+        lats = pd.to_numeric(df[lat_col], errors="coerce").to_numpy(dtype=float)
+        lons = pd.to_numeric(df[lon_col], errors="coerce").to_numpy(dtype=float)
+
+        for i in range(n):
+            if np.isnan(lats[i]) or np.isnan(lons[i]):
+                continue
+            for j in range(i + 1, n):
+                if np.isnan(lats[j]) or np.isnan(lons[j]):
+                    continue
+                _, _, dist_m = geod.inv(lons[i], lats[i], lons[j], lats[j])
+                d_val = float(abs(dist_m))
+                if d_val <= radius_m:
+                    union(i, j)
+                    pairwise_distances[(i, j)] = round(d_val, 2)
+                    pairwise_distances[(j, i)] = round(d_val, 2)
+
+    # Collect groups
+    groups: dict[int, list[int]] = {}
+    for i in range(n):
+        root = find(i)
+        groups.setdefault(root, []).append(i)
+
+    colocated_multi_station_groups: list[dict[str, Any]] = []
+    group_info_list: list[dict[str, Any]] = []
+
+    for member_indices in groups.values():
+        sub = df.iloc[member_indices]
+        loc_ids = [int(x) if str(x).isdigit() else x for x in sub["location_id"].tolist()]
+        providers = sorted(sub["provider"].astype(str).unique().tolist())
+        has_ref = bool(sub["is_reference"].any())
+        group_basis = "reference" if has_ref else "low_cost"
+        min_loc_id = loc_ids[0]
+
+        # Calculate distances between all members if multi-station
+        distances_m: list[dict[str, Any]] = []
+        provider_pairs: list[str] = []
+        if len(member_indices) > 1:
+            for mi in range(len(member_indices)):
+                for mj in range(mi + 1, len(member_indices)):
+                    idx_i, idx_j = member_indices[mi], member_indices[mj]
+                    dist = pairwise_distances.get((idx_i, idx_j), 0.0)
+                    loc_i = loc_ids[mi]
+                    loc_j = loc_ids[mj]
+                    prov_i = str(sub.iloc[mi]["provider"])
+                    prov_j = str(sub.iloc[mj]["provider"])
+                    distances_m.append(
+                        {
+                            "station_a": loc_i,
+                            "station_b": loc_j,
+                            "distance_m": dist,
+                        }
+                    )
+                    provider_pairs.append(f"{prov_i} <-> {prov_j}")
+
+            colocated_multi_station_groups.append(
+                {
+                    "group_id": min_loc_id,
+                    "station_count": len(loc_ids),
+                    "location_ids": loc_ids,
+                    "providers": providers,
+                    "provider_pairs": sorted(set(provider_pairs)),
+                    "has_reference_monitor": has_ref,
+                    "pairwise_distances_m": distances_m,
+                    "group_basis": group_basis,
+                }
+            )
+
+        group_info_list.append(
+            {
+                "group_id": min_loc_id,
+                "station_count": len(loc_ids),
+                "location_ids": loc_ids,
+                "has_reference": has_ref,
+                "group_basis": group_basis,
+                "member_indices": member_indices,
+            }
+        )
+
+    # Evaluate panel candidates
+    valid_group_ids: set[Any] = set()
+    if observations_df is not None and not observations_df.empty:
+        obs = observations_df.copy()
+        if "imputed" in obs.columns:
+            valid_obs = obs[obs["pm25_ugm3"].notna() & (~obs["imputed"].fillna(False).astype(bool))]
+        else:
+            valid_obs = obs[obs["pm25_ugm3"].notna()]
+
+        station_counts = valid_obs.groupby("location_id")["pm25_ugm3"].count().to_dict()
+        for g in group_info_list:
+            # Check if any station in the group meets min_valid_hours
+            if any(station_counts.get(lid, 0) >= min_valid_hours for lid in g["location_ids"]):
+                valid_group_ids.add(g["group_id"])
+    else:
+        # If no observations provided, check if eligibility column exists; else all groups candidate
+        for g in group_info_list:
+            if "eligible" in df.columns:
+                sub_eligible = df.iloc[g["member_indices"]]["eligible"].any()
+                if sub_eligible:
+                    valid_group_ids.add(g["group_id"])
+            else:
+                valid_group_ids.add(g["group_id"])
+
+    panel_candidates = [
+        {"group_id": g["group_id"], "location_ids": g["location_ids"], "basis": g["group_basis"]}
+        for g in group_info_list
+        if g["group_id"] in valid_group_ids
+    ]
+
+    n_ref = sum(1 for c in panel_candidates if c["basis"] == "reference")
+    n_low = sum(1 for c in panel_candidates if c["basis"] == "low_cost")
+
+    if len(panel_candidates) < min_panel_stations:
+        overall_basis = "insufficient"
+    elif n_ref > 0 and n_low > 0:
+        overall_basis = "mixed"
+    elif n_ref > 0:
+        overall_basis = "reference"
+    else:
+        overall_basis = "low_cost"
+
+    panel_viable = len(panel_candidates) >= min_panel_stations
+
+    # Daily truth series if observations span days
+    daily_truth_series: list[dict[str, Any]] = []
+    if (
+        observations_df is not None
+        and not observations_df.empty
+        and "ts_utc" in observations_df.columns
+    ):
+        obs_copy = observations_df.copy()
+        obs_copy["ts_utc"] = pd.to_datetime(obs_copy["ts_utc"], utc=True)
+        obs_copy["_date"] = obs_copy["ts_utc"].dt.strftime("%Y-%m-%d")
+        for dt_str, day_df in obs_copy.groupby("_date"):
+            res = compute_city_panel_target(
+                day_df,
+                registry_df=df,
+                min_valid_stations=min_panel_stations,
+                min_valid_hours=min_valid_hours,
+                colocation_radius_m=radius_m,
+            )
+            daily_truth_series.append(
+                {
+                    "date": str(dt_str),
+                    "y_city": round(float(res.y_city), 2) if res.y_city is not None else None,
+                    "valid": bool(res.valid),
+                    "n_valid_stations": int(res.n_valid_stations),
+                    "n_reference": int(res.n_reference),
+                    "n_low_cost": int(res.n_low_cost),
+                    "truth_basis": str(res.truth_basis),
+                }
+            )
+
+    return {
+        "domain": domain,
+        "total_stations": n,
+        "total_groups": len(groups),
+        "colocated_multi_station_groups": colocated_multi_station_groups,
+        "panel_candidates": panel_candidates,
+        "n_reference_groups": n_ref,
+        "n_lowcost_groups": n_low,
+        "overall_truth_basis": overall_basis,
+        "panel_viable": panel_viable,
+        "daily_truth_series": daily_truth_series,
+    }
