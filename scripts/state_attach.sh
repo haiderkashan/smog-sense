@@ -15,7 +15,12 @@ rc=0
 gh_git ls-remote --exit-code --heads "${REPO_URL}" state >/dev/null 2>&1 || rc=$?
 
 if [ "${rc}" -eq 0 ]; then
-  gh_git -c core.hooksPath=/dev/null -c core.fsmonitor=false clone --quiet --depth 1 --branch state "${REPO_URL}" "${STATE_DIR}"
+  if gh_git -c core.hooksPath=/dev/null -c core.fsmonitor=false clone --quiet --depth 1 --filter=blob:none --sparse --branch state "${REPO_URL}" "${STATE_DIR}" 2>/dev/null; then
+    git -C "${STATE_DIR}" -c core.hooksPath=/dev/null -c core.fsmonitor=false sparse-checkout set obs obs_pull_log inputs forecasts scores manifests site_json
+  else
+    rm -rf "${STATE_DIR}"
+    gh_git -c core.hooksPath=/dev/null -c core.fsmonitor=false clone --quiet --depth 1 --branch state "${REPO_URL}" "${STATE_DIR}"
+  fi
   echo "state: attached existing branch ($(git -C "${STATE_DIR}" rev-parse --short HEAD))"
 elif [ "${rc}" -eq 2 ]; then
   echo "state: branch not found, creating orphan branch"

@@ -40,10 +40,12 @@ jobs:
 
       - name: Prepare host
         run: |
+          IMG_HASH=$(git log -1 --format="%h" -- Dockerfile pyproject.toml uv.lock src/)
           {
             echo "HOST_UID=$(id -u)"
             echo "HOST_GID=$(id -g)"
-            echo "SMOGSENSE_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
+            echo "SMOGSENSE_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:img-${IMG_HASH}"
+            echo "FALLBACK_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}:sha-${GITHUB_SHA}"
           } >> "$GITHUB_ENV"
           mkdir -p data/raw data/interim data/processed data/external models site .state
 
@@ -58,10 +60,15 @@ jobs:
 
       - name: Pull the runtime image (build locally if absent)
         run: |
-          docker pull "${SMOGSENSE_IMAGE}" || {
+          if docker pull "${SMOGSENSE_IMAGE}"; then
+            echo "pulled ${SMOGSENSE_IMAGE}"
+          elif docker pull "${FALLBACK_IMAGE}"; then
+            echo "pulled fallback ${FALLBACK_IMAGE}"
+            docker tag "${FALLBACK_IMAGE}" "${SMOGSENSE_IMAGE}"
+          else
             echo "::warning::image not found in GHCR; building locally"
             docker build --target runtime -t "${SMOGSENSE_IMAGE}" .
-          }
+          fi
 
       - name: Watchdog - today's forecast must already exist (dead-man's switch)
         run: |
@@ -76,6 +83,8 @@ jobs:
           Check daily-forecast runs: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/daily-forecast.yml
           Then follow docs/runbooks/incident-response.md."
             scripts/alert_issue.sh "SmogSense: no forecast published for today's issuance" "${body}" pipeline-alert
+            docker compose --profile ops run --rm pipeline smogsense site build --stale --state-dir .state --out-dir site
+            scripts/publish_ghpages.sh site
           fi
 
       - name: Provisional scoring (OpenAQ API)
