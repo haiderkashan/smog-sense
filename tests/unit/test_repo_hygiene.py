@@ -87,6 +87,7 @@ def _text_files(root: Path) -> list[Path]:
         ".j2",
         ".cff",
         ".txt",
+        ".csv",
         "",
     }
     out = []
@@ -335,3 +336,27 @@ def test_markdown_tables_are_well_formed(repo_root: Path) -> None:
                     f"{doc.relative_to(repo_root)}:{number}: {cells} cells, header has {expected}"
                 )
     assert not problems, problems
+
+
+def test_text_files_have_lf_line_endings_and_trailing_newline(repo_root: Path) -> None:
+    """Enforce pre-commit end-of-file-fixer and mixed-line-ending (LF) rules on tracked files."""
+    checked_exts = {".json", ".yaml", ".yml", ".csv", ".toml", ".md"}
+    crlf_offenders: list[str] = []
+    eof_offenders: list[str] = []
+
+    for path in _text_files(repo_root):
+        if path.suffix not in checked_exts:
+            continue
+        raw = path.read_bytes()
+        if not raw:
+            continue
+        rel = str(path.relative_to(repo_root))
+        if b"\r\n" in raw:
+            crlf_offenders.append(rel)
+        if not raw.endswith(b"\n") or raw.endswith(b"\n\n"):
+            eof_offenders.append(rel)
+
+    assert not crlf_offenders, f"Files contain CRLF (\\r\\n) line endings: {crlf_offenders}"
+    assert not eof_offenders, (
+        f"Files missing single trailing newline (end-of-file-fixer): {eof_offenders}"
+    )
