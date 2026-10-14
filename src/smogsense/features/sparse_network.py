@@ -225,3 +225,153 @@ def sample_available_stations(
 
     held_out_set = all_stations - available_set
     return available_set, held_out_set, target_n
+
+
+def compute_idw_history(
+    target_location_id: int,
+    available_station_ids: set[int] | Sequence[int],
+    obs_df: pd.DataFrame,
+    stations_df: pd.DataFrame,
+    power: float = DEFAULT_IDW_POWER,
+    max_radius_km: float = DEFAULT_IDW_MAX_RADIUS_KM,
+) -> tuple[pd.Series, float, pd.Series]:
+    """Compute IDW historical PM2.5 series, distance to nearest available station, and validity mask.
+
+    Formula:
+        H_A(s, t) = sum_{a in A} w_a(s) * x_{a, t} / sum_{a in A} w_a(s)
+        w_a(s) = 1 / d(s, a)^power for d(s, a) <= max_radius_km, else 0.
+
+    Singularity treatment:
+        If d(s, a) <= 10 m (0.010 km) or s == a:
+            w_a(s) = 1.0 and all other weights 0.
+
+    Companion feature dist_nearest_available_km:
+        - If A is empty: 25.0 km (truncation radius).
+        - If A is non-empty: geodesic distance in km to the nearest station in A.
+
+    Sensor-free mode (N = 0 or no station within max_radius_km):
+        H_A(s, t) is 0.0, mask is False.
+
+    Returns:
+    tuple[pd.Series, float, pd.Series]: (idw_history_series, dist_nearest_km, valid_mask_series)
+    """
+    stn_id_col = _get_station_id_col(stations_df)
+    lat_col, lon_col = _get_coord_cols(stations_df)
+
+    # 1. Lookup target station coordinates
+    target_match = stations_df[stations_df[stn_id_col] == target_location_id]
+    if target_match.empty:
+        raise ValueError(f"Target location_id {target_location_id} not found in stations_df")
+
+    target_lat = float(target_match[lat_col].iloc[0])
+    target_lon = float(target_match[lon_col].iloc[0])
+
+    avail_set = {int(x) for x in available_station_ids}
+    avail_stns = stations_df[stations_df[stn_id_col].isin(avail_set)].copy()
+
+    # Determine unique timestamps from obs_df
+    if obs_df.empty or "ts_utc" not in obs_df.columns:
+        empty_series = pd.Series(dtype=np.float64)
+        empty_mask = pd.Series(dtype=bool)
+        dist_nearest = float(max_radius_km) if not avail_set else 0.0
+        return empty_series, dist_nearest, empty_mask
+
+    all_timestamps = pd.DatetimeIndex(sorted(pd.to_datetime(obs_df["ts_utc"].unique(), utc=True)))
+
+    # Handle N = 0 (sensor-free mode)
+    if avail_stns.empty or not avail_set:
+        idw_zero = pd.Series(0.0, index=all_timestamps, dtype=np.float64, name="idw_history")
+        mask_false = pd.Series(False, index=all_timestamps, dtype=bool, name="idw_mask")
+        return idw_zero, float(max_radius_km), mask_false
+
+    # Compute geodesic distances to available stations
+    geod = pyproj.Geod(ellps="WGS84")
+    distances_km: dict[int, float] = {}
+
+    for _, row in avail_stns.iterrows():
+        sid = int(row[stn_id_col])
+        s_lat = float(row[lat_col])
+        s_lon = float(row[lon_col])
+        if np.isnan(s_lat) or np.isnan(s_lon):
+            continue
+        _, _, dist_m = geod.inv(target_lon, target_lat, s_lon, s_lat)
+        distances_km[sid] = float(abs(dist_m)) / 1000.0
+
+    if not distances_km:
+        idw_zero = pd.Series(0.0, index=all_timestamps, dtype=np.float64, name="idw_history")
+        mask_false = pd.Series(False, index=all_timestamps, dtype=bool, name="idw_mask")
+        return idw_zero, float(max_radius_km), mask_false
+
+    dist_nearest_km = min(distances_km.values())
+
+    # Check for singularity: exact match or d <= 10 m (0.010 km)
+    singular_stations = [sid for sid, d in distances_km.items() if d <= 0.010 or sid == target_location_id]
+    weights: dict[int, float] = {}
+
+    if singular_stations:
+        # Co-located target: only the singular station(s) receive weight
+        k = len(singular_stations)
+        for sid in singular_stations:
+            weights[sid] = 1.0 / k
+    else:
+        # IDW inverse power weighting up to max_radius_km
+        for sid, d in distances_km.items():
+            if d <= max_radius_km and d > 0.0:
+                weights[sid] = 1.0 / (d ** float(power))
+
+    # If no stations within max_radius_km
+    if not weights:
+        idw_zero = pd.Series(0.0, index=all_timestamps, dtype=np.float64, name="idw_history")
+        mask_false = pd.Series(False, index=all_timestamps, dtype=bool, name="idw_mask")
+        return idw_zero, float(dist_nearest_km), mask_false
+
+    # Prepare observation slice
+    obs_id_col = next((c for c in ("location_id", "station_id", "id", "sensor_id") if c in obs_df.columns), None)
+    if not obs_id_col:
+        raise ValueError(f"Could not find station ID column in obs_df: {list(obs_df.columns)}")
+
+    pm25_col = next((c for c in ("pm25_ugm3", "pm25", "value") if c in obs_df.columns), None)
+    if not pm25_col:
+        raise ValueError(f"Could not find PM2.5 column in obs_df: {list(obs_df.columns)}")
+
+    obs_sub = obs_df[obs_df[obs_id_col].isin(weights.keys())].copy()
+    obs_sub["ts_utc"] = pd.to_datetime(obs_sub["ts_utc"], utc=True)
+
+    # Invalidate negative and imputed readings
+    pm_series = pd.to_numeric(obs_sub[pm25_col], errors="coerce")
+    pm_series = pm_series.where(pm_series >= 0.0)
+    if "imputed" in obs_sub.columns:
+        pm_series = pm_series.where(~obs_sub["imputed"].astype(bool))
+    obs_sub["clean_pm25"] = pm_series
+
+    obs_dedup = obs_sub.dropna(subset=["clean_pm25"]).drop_duplicates(subset=["ts_utc", obs_id_col], keep="last")
+
+    # Pivot to timestamp x station table
+    if obs_dedup.empty:
+        idw_zero = pd.Series(0.0, index=all_timestamps, dtype=np.float64, name="idw_history")
+        mask_false = pd.Series(False, index=all_timestamps, dtype=bool, name="idw_mask")
+        return idw_zero, float(dist_nearest_km), mask_false
+
+    pivot = obs_dedup.pivot_table(
+        index="ts_utc", columns=obs_id_col, values="clean_pm25", aggfunc="last"
+    ).reindex(index=all_timestamps, columns=list(weights.keys()))
+
+    w_vec = np.array([weights[int(sid)] for sid in pivot.columns], dtype=np.float64)
+
+    # Valid mask for each station
+    valid_mat = pivot.notna().to_numpy()
+    vals_mat = np.nan_to_num(pivot.to_numpy(), nan=0.0)
+
+    # Weighted numerator and denominator
+    numer = np.sum(vals_mat * w_vec, axis=1)
+    denom = np.sum(valid_mat * w_vec, axis=1)
+
+    has_data = denom > 0.0
+    idw_values = np.zeros(len(all_timestamps), dtype=np.float64)
+    idw_values[has_data] = numer[has_data] / denom[has_data]
+
+    idw_series = pd.Series(idw_values, index=all_timestamps, dtype=np.float64, name="idw_history")
+    mask_series = pd.Series(has_data, index=all_timestamps, dtype=bool, name="idw_mask")
+
+    return idw_series, float(dist_nearest_km), mask_series
+
