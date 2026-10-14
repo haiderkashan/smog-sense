@@ -68,8 +68,16 @@ def extract_station_static_covariates(
     - `f_stat_is_reference`
     """
     dom_clean = domain.lower().strip()
-    lat = float(station_row.get("lat", station_row.get("latitude", DOMAIN_CENTROIDS.get(dom_clean, (31.52, 74.35))[0])))
-    lon = float(station_row.get("lon", station_row.get("longitude", DOMAIN_CENTROIDS.get(dom_clean, (31.52, 74.35))[1])))
+    lat = float(
+        station_row.get(
+            "lat", station_row.get("latitude", DOMAIN_CENTROIDS.get(dom_clean, (31.52, 74.35))[0])
+        )
+    )
+    lon = float(
+        station_row.get(
+            "lon", station_row.get("longitude", DOMAIN_CENTROIDS.get(dom_clean, (31.52, 74.35))[1])
+        )
+    )
 
     # Elevation
     raw_elev = station_row.get("elevation", station_row.get("elevation_m", None))

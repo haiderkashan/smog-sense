@@ -70,13 +70,13 @@ def ventilation_coefficient(
     return float(result)
 
 
-def dilution_index(vc_series: Sequence[float] | np.ndarray | pd.Series) -> float:
+def dilution_index(vc_series: Sequence[float] | np.ndarray | pd.Series | float) -> float:
     """Compute the box-model Dilution Index DI = mean(1 / VC) over a block.
 
     This represents the harmonic mean behavior (mean of inverse VC, NOT inverse of mean VC),
     as concentration is inversely proportional to ventilation: C* ~ QL / VC.
     """
-    arr = np.asarray(vc_series, dtype=np.float64)
+    arr = np.atleast_1d(np.asarray(vc_series, dtype=np.float64))
     if len(arr) == 0:
         return float("nan")
     # Guard against zero/negative, although VC >= 10.0 by contract
@@ -85,11 +85,11 @@ def dilution_index(vc_series: Sequence[float] | np.ndarray | pd.Series) -> float
 
 
 def stagnation_run_length(
-    vc_series: Sequence[float] | np.ndarray | pd.Series,
+    vc_series: Sequence[float] | np.ndarray | pd.Series | float,
     threshold_m2s: float = 1000.0,
 ) -> int:
     """Compute the longest run of consecutive hours where VC(t) < threshold_m2s."""
-    arr = np.asarray(vc_series, dtype=np.float64)
+    arr = np.atleast_1d(np.asarray(vc_series, dtype=np.float64))
     if len(arr) == 0:
         return 0
 
@@ -238,7 +238,9 @@ def extract_block_meteorology_features(
     u_col = next((c for c in ("u10_ms", "10m_u_component_of_wind", "u10") if c in df.columns), None)
     v_col = next((c for c in ("v10_ms", "10m_v_component_of_wind", "v10") if c in df.columns), None)
     t2m_col = next((c for c in ("t2m_c", "2m_temperature", "t2m") if c in df.columns), None)
-    d2m_col = next((c for c in ("d2m_c", "2m_dewpoint_temperature", "d2m") if c in df.columns), None)
+    d2m_col = next(
+        (c for c in ("d2m_c", "2m_dewpoint_temperature", "d2m") if c in df.columns), None
+    )
     t925_col = next((c for c in ("t925_k", "temperature_925", "t925") if c in df.columns), None)
     sp_col = next((c for c in ("sp_hpa", "surface_pressure", "sp") if c in df.columns), None)
     tp_col = next((c for c in ("tp_m", "total_precipitation", "tp") if c in df.columns), None)

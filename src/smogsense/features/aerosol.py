@@ -67,7 +67,9 @@ def extract_block_aerosol_features(
     trailing_slice = df[(df["ts_utc"] >= lookback_start) & (df["ts_utc"] < t_iss)]
     if not trailing_slice.empty:
         vals = trailing_slice[aod_col].to_numpy(dtype=np.float64)
-        features["f_aod_trailing_24h_mean"] = float(np.nanmean(vals)) if len(vals) > 0 else float("nan")
+        features["f_aod_trailing_24h_mean"] = (
+            float(np.nanmean(vals)) if len(vals) > 0 else float("nan")
+        )
 
     # Horizon blocks
     for h in horizons:
@@ -76,7 +78,9 @@ def extract_block_aerosol_features(
         blk = df[(df["ts_utc"] >= block_start) & (df["ts_utc"] < block_end)]
         if not blk.empty:
             vals = blk[aod_col].to_numpy(dtype=np.float64)
-            features[f"f_aod_mean_h{h}"] = float(np.nanmean(vals)) if len(vals) > 0 else float("nan")
+            features[f"f_aod_mean_h{h}"] = (
+                float(np.nanmean(vals)) if len(vals) > 0 else float("nan")
+            )
             features[f"f_aod_max_h{h}"] = float(np.nanmax(vals)) if len(vals) > 0 else float("nan")
 
     return features

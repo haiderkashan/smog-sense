@@ -1,6 +1,9 @@
-"""Block targets.
+"""Block targets and completeness rule."""
 
-Test specification (cases to implement):
-- 17 of 24 valid hours -> invalid; 18 -> valid
-- Imputed hours do not count toward completeness
-"""
+from tests.unit.features.test_windowing_and_store import (
+    test_target_completeness_rule_and_leakage_assertion,
+)
+
+__all__ = [
+    "test_target_completeness_rule_and_leakage_assertion",
+]

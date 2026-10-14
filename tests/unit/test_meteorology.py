@@ -1,7 +1,23 @@
-"""RH, VC, dilution index.
+"""RH, VC, dilution index."""
 
-Test specification (cases to implement):
-- Magnus RH(10 C, 8 C dewpoint) within 0.5 pp of reference
-- VC floors at 10 m2/s
-- Dilution index is monotone decreasing in PBLH and WS
-"""
+from tests.unit.features.test_meteorology import (
+    test_dilution_index_monotonicity,
+    test_extract_block_meteorology_features,
+    test_hypothesis_ventilation_coefficient_bounds,
+    test_potential_temperature_and_stability,
+    test_relative_humidity_magnus_known_values,
+    test_stagnation_run_length,
+    test_ventilation_coefficient_array,
+    test_ventilation_coefficient_flooring,
+)
+
+__all__ = [
+    "test_dilution_index_monotonicity",
+    "test_extract_block_meteorology_features",
+    "test_hypothesis_ventilation_coefficient_bounds",
+    "test_potential_temperature_and_stability",
+    "test_relative_humidity_magnus_known_values",
+    "test_stagnation_run_length",
+    "test_ventilation_coefficient_array",
+    "test_ventilation_coefficient_flooring",
+]

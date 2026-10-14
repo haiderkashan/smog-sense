@@ -97,7 +97,12 @@ def compute_recent_cams_bias(
     t_iss = pd.to_datetime(issuance_utc, utc=True)
     lookback_start = t_iss - timedelta(days=window_days)
 
-    if obs_df.empty or cams_df.empty or "ts_utc" not in obs_df.columns or "ts_utc" not in cams_df.columns:
+    if (
+        obs_df.empty
+        or cams_df.empty
+        or "ts_utc" not in obs_df.columns
+        or "ts_utc" not in cams_df.columns
+    ):
         return 0.0
 
     o_df = obs_df.copy()
@@ -117,20 +122,28 @@ def compute_recent_cams_bias(
     if o_slice.empty or c_slice.empty:
         return 0.0
 
-    cams_col = next((c for c in ("cams_pm25", "pm25", "particulate_matter_2.5um") if c in c_slice.columns), None)
+    cams_col = next(
+        (c for c in ("cams_pm25", "pm25", "particulate_matter_2.5um") if c in c_slice.columns), None
+    )
     if not cams_col or "pm25_ugm3" not in o_slice.columns:
         return 0.0
 
     # Join on ts_utc
-    merged = o_slice[["ts_utc", "pm25_ugm3"]].dropna().merge(
-        c_slice[["ts_utc", cams_col]].dropna(),
-        on="ts_utc",
-        how="inner",
+    merged = (
+        o_slice[["ts_utc", "pm25_ugm3"]]
+        .dropna()
+        .merge(
+            c_slice[["ts_utc", cams_col]].dropna(),
+            on="ts_utc",
+            how="inner",
+        )
     )
     if len(merged) < 6:
         return 0.0
 
-    diff = merged["pm25_ugm3"].to_numpy(dtype=np.float64) - merged[cams_col].to_numpy(dtype=np.float64)
+    diff = merged["pm25_ugm3"].to_numpy(dtype=np.float64) - merged[cams_col].to_numpy(
+        dtype=np.float64
+    )
     return float(np.nanmean(diff))
 
 
@@ -158,7 +171,11 @@ def build_feature_table(
     c_hash = config_hash or compute_config_hash()
 
     # 1. Point-in-time verification
-    for name, df_in in [("obs_df", obs_df), ("cams_df", cams_df), ("fire_exposure_df", fire_exposure_df)]:
+    for name, df_in in [
+        ("obs_df", obs_df),
+        ("cams_df", cams_df),
+        ("fire_exposure_df", fire_exposure_df),
+    ]:
         if df_in is not None and not df_in.empty:
             for col in ("available_at_utc", "available_at"):
                 if col in df_in.columns:
@@ -192,7 +209,9 @@ def build_feature_table(
 
     # 4. Extract domain-level and block features
     # Calendar features
-    cal_features = extract_block_calendar_features(issuance_utc=t_iss, domain=dom_clean, horizons=horizons)
+    cal_features = extract_block_calendar_features(
+        issuance_utc=t_iss, domain=dom_clean, horizons=horizons
+    )
 
     # CAMS lead offset
     cams_offset_h = float(cams_lead_offset_hours(t_iss, degradation_level=degradation_level))
@@ -247,7 +266,11 @@ def build_feature_table(
 
         # Static Station Covariates
         stn_meta: dict[str, Any] = {"location_id": loc_id}
-        if registry_df is not None and not registry_df.empty and "location_id" in registry_df.columns:
+        if (
+            registry_df is not None
+            and not registry_df.empty
+            and "location_id" in registry_df.columns
+        ):
             stn_slice = registry_df[registry_df["location_id"] == loc_id]
             if not stn_slice.empty:
                 stn_meta = dict(stn_slice.iloc[0])

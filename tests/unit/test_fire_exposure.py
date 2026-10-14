@@ -1,7 +1,19 @@
-"""Wind-aligned exposure.
+"""Wind-aligned exposure."""
 
-Test specification (cases to implement):
-- Fire directly upwind outranks equal fire downwind
-- Exposure decays with distance for fixed wind
-- Platform normalisation removes the step at Suomi-NPP retirement
-"""
+from tests.unit.features.test_fire_exposure import (
+    test_amritsar_to_lahore_worked_example,
+    test_exposure_decays_with_detection_age,
+    test_exposure_decays_with_distance,
+    test_exposure_schema_validation,
+    test_extract_block_fire_features_rings_and_sectors,
+    test_platform_normalisation_removes_satellite_density_step,
+)
+
+__all__ = [
+    "test_amritsar_to_lahore_worked_example",
+    "test_exposure_decays_with_detection_age",
+    "test_exposure_decays_with_distance",
+    "test_exposure_schema_validation",
+    "test_extract_block_fire_features_rings_and_sectors",
+    "test_platform_normalisation_removes_satellite_density_step",
+]

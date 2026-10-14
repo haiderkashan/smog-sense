@@ -385,9 +385,13 @@ def assert_no_target_leakage(
 
     # 1. Check for target column names in feature columns
     forbidden_prefixes = ("y_", "y_h", "target_", "label_")
-    forbidden_found = [c for c in feature_matrix.columns if any(c.startswith(p) for p in forbidden_prefixes)]
+    forbidden_found = [
+        c for c in feature_matrix.columns if any(c.startswith(p) for p in forbidden_prefixes)
+    ]
     if forbidden_found:
-        raise ValueError(f"Target leakage detected! Found target columns in feature matrix: {forbidden_found}")
+        raise ValueError(
+            f"Target leakage detected! Found target columns in feature matrix: {forbidden_found}"
+        )
 
     # 2. Check for timestamp leakage if timestamp column is present
     for ts_col in ("available_at_utc", "available_at", "ts_utc"):

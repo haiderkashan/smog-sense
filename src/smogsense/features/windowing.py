@@ -157,14 +157,18 @@ def build_sequence_tensor(
         if "location_id" in obs_copy.columns:
             obs_copy = obs_copy[obs_copy["location_id"] == location_id]
         # Filter strictly within [window_start, t_iss)
-        stn_obs = obs_copy[(obs_copy["ts_utc"] >= window_start) & (obs_copy["ts_utc"] < t_iss)].set_index("ts_utc")
+        stn_obs = obs_copy[
+            (obs_copy["ts_utc"] >= window_start) & (obs_copy["ts_utc"] < t_iss)
+        ].set_index("ts_utc")
 
     pm25_obs_mask = np.zeros(n_steps, dtype=np.float32)
     for idx, h_ts in enumerate(grid_hours):
         if h_ts in stn_obs.index:
             row = stn_obs.loc[h_ts]
             val = float(pd.Series(row["pm25_ugm3"]).iloc[0]) if "pm25_ugm3" in row else float("nan")
-            is_imputed = bool(pd.Series(row["imputed"]).fillna(False).iloc[0]) if "imputed" in row else False
+            is_imputed = (
+                bool(pd.Series(row["imputed"]).fillna(False).iloc[0]) if "imputed" in row else False
+            )
             if pd.notna(val) and val >= 0.0 and not is_imputed:
                 log_val = float(np.log1p(max(0.0, val)))
                 values[idx, 0] = log_val
@@ -186,15 +190,30 @@ def build_sequence_tensor(
             c_sub = c_copy[c_copy["location_id"] == location_id]
             if not c_sub.empty:
                 c_copy = c_sub
-        cams_stn = c_copy[(c_copy["ts_utc"] >= window_start) & (c_copy["ts_utc"] < t_iss)].set_index("ts_utc")
+        cams_stn = c_copy[
+            (c_copy["ts_utc"] >= window_start) & (c_copy["ts_utc"] < t_iss)
+        ].set_index("ts_utc")
 
-    cams_pm25_col = next((c for c in ("cams_pm25", "pm25", "particulate_matter_2.5um") if c in cams_stn.columns), None)
-    aod_col = next((c for c in ("aod550", "total_aerosol_optical_depth_550nm") if c in cams_stn.columns), None)
-    blh_col = next((c for c in ("blh_m", "boundary_layer_height", "blh") if c in cams_stn.columns), None)
-    u_col = next((c for c in ("u10_ms", "u10", "10m_u_component_of_wind") if c in cams_stn.columns), None)
-    v_col = next((c for c in ("v10_ms", "v10", "10m_v_component_of_wind") if c in cams_stn.columns), None)
+    cams_pm25_col = next(
+        (c for c in ("cams_pm25", "pm25", "particulate_matter_2.5um") if c in cams_stn.columns),
+        None,
+    )
+    aod_col = next(
+        (c for c in ("aod550", "total_aerosol_optical_depth_550nm") if c in cams_stn.columns), None
+    )
+    blh_col = next(
+        (c for c in ("blh_m", "boundary_layer_height", "blh") if c in cams_stn.columns), None
+    )
+    u_col = next(
+        (c for c in ("u10_ms", "u10", "10m_u_component_of_wind") if c in cams_stn.columns), None
+    )
+    v_col = next(
+        (c for c in ("v10_ms", "v10", "10m_v_component_of_wind") if c in cams_stn.columns), None
+    )
     t2m_col = next((c for c in ("t2m_c", "t2m", "2m_temperature") if c in cams_stn.columns), None)
-    d2m_col = next((c for c in ("d2m_c", "d2m", "2m_dewpoint_temperature") if c in cams_stn.columns), None)
+    d2m_col = next(
+        (c for c in ("d2m_c", "d2m", "2m_dewpoint_temperature") if c in cams_stn.columns), None
+    )
     rh_col = next((c for c in ("rh_pct", "rh", "relativehumidity") if c in cams_stn.columns), None)
 
     for idx, h_ts in enumerate(grid_hours):
@@ -258,8 +277,12 @@ def build_sequence_tensor(
     if fire_exposure_df is not None and not fire_exposure_df.empty:
         f_copy = fire_exposure_df.copy()
         f_copy["ts_utc"] = pd.to_datetime(f_copy["ts_utc"], utc=True)
-        f_stn = f_copy[(f_copy["ts_utc"] >= window_start) & (f_copy["ts_utc"] < t_iss)].set_index("ts_utc")
-        exp_col = next((c for c in ("exposure_e24", "fire_exposure", "exposure") if c in f_stn.columns), None)
+        f_stn = f_copy[(f_copy["ts_utc"] >= window_start) & (f_copy["ts_utc"] < t_iss)].set_index(
+            "ts_utc"
+        )
+        exp_col = next(
+            (c for c in ("exposure_e24", "fire_exposure", "exposure") if c in f_stn.columns), None
+        )
         if exp_col:
             for idx, h_ts in enumerate(grid_hours):
                 if h_ts in f_stn.index:

@@ -140,7 +140,9 @@ def compute_wind_alignment_weight(
     1.0 when wind blows directly from fire toward target, 0.0 when blowing away or orthogonal.
     """
     is_scalar = np.isscalar(phi_deg) and np.isscalar(beta_deg)
-    diff_rad = np.radians(np.asarray(phi_deg, dtype=np.float64) - np.asarray(beta_deg, dtype=np.float64))
+    diff_rad = np.radians(
+        np.asarray(phi_deg, dtype=np.float64) - np.asarray(beta_deg, dtype=np.float64)
+    )
     alignment = np.maximum(0.0, np.cos(diff_rad))
 
     if is_scalar:
@@ -213,12 +215,7 @@ def compute_hourly_fire_exposure(
     if "acq_datetime_utc" in dets.columns:
         dets["acq_dt"] = pd.to_datetime(dets["acq_datetime_utc"], utc=True)
     elif "acq_date" in dets.columns and "acq_time" in dets.columns:
-        time_strs = (
-            dets["acq_time"]
-            .astype(str)
-            .str.replace(".0", "", regex=False)
-            .str.zfill(4)
-        )
+        time_strs = dets["acq_time"].astype(str).str.replace(".0", "", regex=False).str.zfill(4)
         dets["acq_dt"] = pd.to_datetime(
             dets["acq_date"].astype(str) + " " + time_strs.str[:2] + ":" + time_strs.str[2:],
             utc=True,
@@ -254,10 +251,18 @@ def compute_hourly_fire_exposure(
         wdf["ts_utc"] = pd.to_datetime(wdf["ts_utc"], utc=True)
         wdf = wdf.set_index("ts_utc")
 
-    u_col = next((c for c in ("u10_ms", "u10", "10m_u_component_of_wind") if c in wdf.columns), None)
-    v_col = next((c for c in ("v10_ms", "v10", "10m_v_component_of_wind") if c in wdf.columns), None)
+    u_col = next(
+        (c for c in ("u10_ms", "u10", "10m_u_component_of_wind") if c in wdf.columns), None
+    )
+    v_col = next(
+        (c for c in ("v10_ms", "v10", "10m_v_component_of_wind") if c in wdf.columns), None
+    )
 
-    frp_vals = active_dets["frp"].to_numpy(dtype=np.float64) if "frp" in active_dets.columns else np.ones(len(active_dets))
+    frp_vals = (
+        active_dets["frp"].to_numpy(dtype=np.float64)
+        if "frp" in active_dets.columns
+        else np.ones(len(active_dets))
+    )
     betas_arr = active_dets["beta_deg"].to_numpy(dtype=np.float64)
     dists_arr = active_dets["dist_km"].to_numpy(dtype=np.float64)
     acq_dts = active_dets["acq_dt"].tolist()
@@ -341,12 +346,7 @@ def extract_block_fire_features(
     if "acq_datetime_utc" in dets.columns:
         dets["acq_dt"] = pd.to_datetime(dets["acq_datetime_utc"], utc=True)
     elif "acq_date" in dets.columns and "acq_time" in dets.columns:
-        time_strs = (
-            dets["acq_time"]
-            .astype(str)
-            .str.replace(".0", "", regex=False)
-            .str.zfill(4)
-        )
+        time_strs = dets["acq_time"].astype(str).str.replace(".0", "", regex=False).str.zfill(4)
         dets["acq_dt"] = pd.to_datetime(
             dets["acq_date"].astype(str) + " " + time_strs.str[:2] + ":" + time_strs.str[2:],
             utc=True,
@@ -364,9 +364,7 @@ def extract_block_fire_features(
     if not active_24h.empty:
         lats = active_24h["latitude"].to_numpy(dtype=np.float64)
         lons = active_24h["longitude"].to_numpy(dtype=np.float64)
-        _, _, dists, sector_idxs = compute_single_angle_geometry(
-            target_lat, target_lon, lats, lons
-        )
+        _, _, dists, sector_idxs = compute_single_angle_geometry(target_lat, target_lon, lats, lons)
         active_24h["dist_km"] = dists
         active_24h["sector_idx"] = sector_idxs
 
@@ -378,9 +376,7 @@ def extract_block_fire_features(
         )
 
         for r_min, r_max, r_name in RING_BOUNDS:
-            r_slice = in_radius[
-                (in_radius["dist_km"] >= r_min) & (in_radius["dist_km"] < r_max)
-            ]
+            r_slice = in_radius[(in_radius["dist_km"] >= r_min) & (in_radius["dist_km"] < r_max)]
             features[f"f_fire_count_{r_name}"] = float(len(r_slice)) / norm_plat
             features[f"f_fire_frp_{r_name}"] = (
                 float(r_slice["frp"].sum()) / norm_plat
@@ -432,7 +428,9 @@ def exposure(
     if isinstance(target, str):
         domain = target.lower().strip()
         if domain not in DOMAIN_CENTROIDS:
-            raise ValueError(f"Unknown target domain '{target}'. Expected one of {list(DOMAIN_CENTROIDS.keys())}")
+            raise ValueError(
+                f"Unknown target domain '{target}'. Expected one of {list(DOMAIN_CENTROIDS.keys())}"
+            )
         target_lat, target_lon = DOMAIN_CENTROIDS[domain]
     else:
         target_lat, target_lon = target
@@ -500,7 +498,9 @@ def exposure(
             if n_total > 0:
                 r_sub = h_dets[(h_dets["dist_km"] >= r_min) & (h_dets["dist_km"] < r_max)]
                 ring_counts[r_name] = float(len(r_sub)) / norm_plat
-                ring_frps[r_name] = float(r_sub["frp"].sum()) / norm_plat if "frp" in r_sub.columns else 0.0
+                ring_frps[r_name] = (
+                    float(r_sub["frp"].sum()) / norm_plat if "frp" in r_sub.columns else 0.0
+                )
             else:
                 ring_counts[r_name] = 0.0
                 ring_frps[r_name] = 0.0
