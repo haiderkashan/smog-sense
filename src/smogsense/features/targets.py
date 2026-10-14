@@ -330,7 +330,7 @@ def block_targets(
     if obs_df is None or obs_df.empty or "location_id" not in obs_df.columns:
         cols = ["location_id", "issuance_utc"]
         for h in horizons:
-            cols.extend([f"y_{h}", f"valid_{h}"])
+            cols.extend([f"y_{h}", f"y_h{h}", f"valid_{h}", f"valid_h{h}"])
         return pd.DataFrame(columns=cols)
 
     df = obs_df.copy()
@@ -358,11 +358,45 @@ def block_targets(
             blk = st_df[(st_df["ts_utc"] >= w_start) & (st_df["ts_utc"] < w_end)]
             n_hrs = int(blk["ts_utc"].dt.floor("h").nunique())
             if n_hrs >= min_valid_hours:
-                row[f"y_{h}"] = float(pd.to_numeric(blk["pm25_ugm3"]).mean())
+                mean_val = float(pd.to_numeric(blk["pm25_ugm3"]).mean())
+                row[f"y_{h}"] = mean_val
+                row[f"y_h{h}"] = mean_val
                 row[f"valid_{h}"] = True
+                row[f"valid_h{h}"] = True
             else:
                 row[f"y_{h}"] = np.nan
+                row[f"y_h{h}"] = np.nan
                 row[f"valid_{h}"] = False
+                row[f"valid_h{h}"] = False
         records.append(row)
 
     return pd.DataFrame(records)
+
+
+def assert_no_target_leakage(
+    feature_matrix: pd.DataFrame,
+    issuance_utc: datetime | pd.Timestamp,
+) -> None:
+    """Assert that no target columns or future observation data leak into the feature matrix.
+
+    Raises ValueError if target variables or records beyond issuance_utc are present.
+    """
+    t_iss = pd.to_datetime(issuance_utc, utc=True)
+
+    # 1. Check for target column names in feature columns
+    forbidden_prefixes = ("y_", "y_h", "target_", "label_")
+    forbidden_found = [c for c in feature_matrix.columns if any(c.startswith(p) for p in forbidden_prefixes)]
+    if forbidden_found:
+        raise ValueError(f"Target leakage detected! Found target columns in feature matrix: {forbidden_found}")
+
+    # 2. Check for timestamp leakage if timestamp column is present
+    for ts_col in ("available_at_utc", "available_at", "ts_utc"):
+        if ts_col in feature_matrix.columns:
+            ts_series = pd.to_datetime(feature_matrix[ts_col], utc=True)
+            future_mask = ts_series > t_iss
+            if future_mask.any():
+                n_future = int(future_mask.sum())
+                max_ts = ts_series.max()
+                raise ValueError(
+                    f"Lookahead leakage detected! {n_future} records have {ts_col} > issuance {t_iss} (max={max_ts})"
+                )
