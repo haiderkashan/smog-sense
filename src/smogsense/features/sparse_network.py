@@ -14,6 +14,8 @@ Specification:
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -79,7 +81,9 @@ def cluster_stations(
             parent[root_i] = root_j
 
     # 1. Cluster by explicit colocated_group_id if present
-    group_col = next((c for c in ("colocated_group_id", "colocated_group", "group_id") if c in df.columns), None)
+    group_col = next(
+        (c for c in ("colocated_group_id", "colocated_group", "group_id") if c in df.columns), None
+    )
     if group_col is not None:
         seen_groups: dict[Any, int] = {}
         for i, val in enumerate(df[group_col]):
@@ -305,7 +309,9 @@ def compute_idw_history(
     dist_nearest_km = min(distances_km.values())
 
     # Check for singularity: exact match or d <= 10 m (0.010 km)
-    singular_stations = [sid for sid, d in distances_km.items() if d <= 0.010 or sid == target_location_id]
+    singular_stations = [
+        sid for sid, d in distances_km.items() if d <= 0.010 or sid == target_location_id
+    ]
     weights: dict[int, float] = {}
 
     if singular_stations:
@@ -326,7 +332,9 @@ def compute_idw_history(
         return idw_zero, float(dist_nearest_km), mask_false
 
     # Prepare observation slice
-    obs_id_col = next((c for c in ("location_id", "station_id", "id", "sensor_id") if c in obs_df.columns), None)
+    obs_id_col = next(
+        (c for c in ("location_id", "station_id", "id", "sensor_id") if c in obs_df.columns), None
+    )
     if not obs_id_col:
         raise ValueError(f"Could not find station ID column in obs_df: {list(obs_df.columns)}")
 
@@ -344,7 +352,9 @@ def compute_idw_history(
         pm_series = pm_series.where(~obs_sub["imputed"].astype(bool))
     obs_sub["clean_pm25"] = pm_series
 
-    obs_dedup = obs_sub.dropna(subset=["clean_pm25"]).drop_duplicates(subset=["ts_utc", obs_id_col], keep="last")
+    obs_dedup = obs_sub.dropna(subset=["clean_pm25"]).drop_duplicates(
+        subset=["ts_utc", obs_id_col], keep="last"
+    )
 
     # Pivot to timestamp x station table
     if obs_dedup.empty:
@@ -375,3 +385,208 @@ def compute_idw_history(
 
     return idw_series, float(dist_nearest_km), mask_series
 
+
+@dataclass(frozen=True)
+class SparseNetworkTask:
+    """Sparse-network task representation T = (d, p, A, B, W_sup, W_qry)."""
+
+    domain: str
+    season: str
+    n_available: int
+    available_stations: tuple[int, ...]
+    held_out_stations: tuple[int, ...]
+    support_window_start_utc: datetime
+    support_window_end_utc: datetime
+    query_window_start_utc: datetime
+    query_window_end_utc: datetime
+    adaptation_status: str  # "eligible" | "skipped_n0" | "skipped_insufficient_support"
+    colocated_groups: dict[int, tuple[int, ...]]
+
+
+def apply_modality_dropout(
+    feature_values: np.ndarray,
+    feature_masks: np.ndarray,
+    channel_names: Sequence[str],
+    pm25_dropout_p: float = 0.3,
+    fire_dropout_p: float = 0.1,
+    aod_dropout_p: float = 0.1,
+    eval_mode: bool = False,
+    rng: np.random.Generator | int | None = None,
+) -> tuple[np.ndarray, np.ndarray, dict[str, bool]]:
+    """Apply stochastic modality and group dropout returning modified values, masks, and drop flags.
+
+    1. PM2.5 history dropout (p = 0.3):
+       Masks ground PM2.5 observation history (values -> 0.0, mask -> 0.0).
+       Does NOT alter CAMS PM2.5 channels.
+       If delta_t channel is present, resets delta_t to elapsed time from window start.
+    2. Fire exposure group dropout (p = 0.1):
+       Masks all fire exposure channels (values -> 0.0, mask -> False/0.0).
+    3. AOD group dropout (p = 0.1):
+       Masks all CAMS AOD channels (values -> 0.0, mask -> False/0.0).
+    4. Evaluation mode:
+       When eval_mode is True, no dropout occurs.
+
+    Returns:
+    tuple[np.ndarray, np.ndarray, dict[str, bool]]:
+        (dropped_values, dropped_masks, drop_flags_dict)
+    """
+    vals = np.array(feature_values, copy=True)
+    masks = np.array(feature_masks, copy=True)
+
+    if eval_mode:
+        return vals, masks, {"dropped_pm25": False, "dropped_fire": False, "dropped_aod": False}
+
+    if isinstance(rng, np.random.Generator):
+        gen = rng
+    elif isinstance(rng, (int, np.integer)):
+        gen = np.random.default_rng(int(rng))
+    else:
+        gen = np.random.default_rng()
+
+    drop_pm25 = bool(gen.random() < pm25_dropout_p)
+    drop_fire = bool(gen.random() < fire_dropout_p)
+    drop_aod = bool(gen.random() < aod_dropout_p)
+
+    names = [c.lower() for c in channel_names]
+
+    # 1. PM2.5 ground observation history dropout
+    if drop_pm25:
+        for idx, name in enumerate(names):
+            # Matches ground PM2.5 history (not cams_pm25)
+            if ("pm25" in name or "idw" in name) and "cams" not in name:
+                vals[..., idx] = 0.0
+                masks[..., idx] = 0.0 if masks.dtype.kind in ("f", "i", "u") else False
+
+        # Reset delta_t if present
+        if "delta_t" in names:
+            d_idx = names.index("delta_t")
+            if vals.ndim == 2:
+                # Shape (T, C): linear ramp 1, 2, ..., T
+                seq_len = vals.shape[0]
+                vals[:, d_idx] = np.arange(1, seq_len + 1, dtype=vals.dtype)
+            elif vals.ndim == 1:
+                vals[d_idx] = 1.0
+
+    # 2. Fire exposure group dropout
+    if drop_fire:
+        for idx, name in enumerate(names):
+            if "fire" in name or "exposure_e" in name:
+                vals[..., idx] = 0.0
+                masks[..., idx] = 0.0 if masks.dtype.kind in ("f", "i", "u") else False
+
+    # 3. AOD group dropout
+    if drop_aod:
+        for idx, name in enumerate(names):
+            if "aod" in name:
+                vals[..., idx] = 0.0
+                masks[..., idx] = 0.0 if masks.dtype.kind in ("f", "i", "u") else False
+
+    flags = {
+        "dropped_pm25": drop_pm25,
+        "dropped_fire": drop_fire,
+        "dropped_aod": drop_aod,
+    }
+    return vals, masks, flags
+
+
+def create_sparse_network_task(
+    domain: str,
+    season: str,
+    stations_df: pd.DataFrame,
+    obs_df: pd.DataFrame,
+    n: int | None = None,
+    support_window_days: int = 14,
+    query_window_days: int = 7,
+    embargo_hours: int = 72,
+    min_support_days: int = 5,
+    reference_time_utc: datetime | None = None,
+    rng: np.random.Generator | int | None = None,
+) -> SparseNetworkTask:
+    """Construct a full sparse-network task T = (d, p, A, B, W_sup, W_qry) enforcing 72h embargo and C7.
+
+    Invariants enforced:
+    1. Cluster atomicity: Stations in the same co-located cluster are never split across A and B.
+    2. Mandatory 72-hour embargo: T_qry,start - T_sup,end >= embargo_hours.
+    3. Condition C7 adaptation_status:
+       - If N = 0: "skipped_n0"
+       - If N >= 1 and valid support days < min_support_days: "skipped_insufficient_support"
+       - Otherwise: "eligible"
+    """
+    avail, held_out, _sampled_n = sample_available_stations(stations_df, n=n, rng=rng)
+
+    clusters_dict = cluster_stations(stations_df)
+    colocated_groups = {cid: tuple(sorted(stns)) for cid, stns in clusters_dict.items()}
+
+    # Compute time windows
+    if reference_time_utc is not None:
+        t_ref = pd.to_datetime(reference_time_utc, utc=True).to_pydatetime()
+    elif not obs_df.empty and "ts_utc" in obs_df.columns:
+        t_ref = pd.to_datetime(obs_df["ts_utc"].max(), utc=True).to_pydatetime()
+    else:
+        t_ref = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+
+    t_qry_end = t_ref
+    t_qry_start = t_qry_end - timedelta(days=query_window_days)
+    t_sup_end = t_qry_start - timedelta(hours=embargo_hours)
+    t_sup_start = t_sup_end - timedelta(days=support_window_days)
+
+    # Verify embargo invariant
+    actual_embargo = (t_qry_start - t_sup_end).total_seconds() / 3600.0
+    if actual_embargo < float(embargo_hours):
+        raise ValueError(
+            f"Embargo violation: gap between support end {t_sup_end} and query start "
+            f"{t_qry_start} is {actual_embargo:.1f}h (expected >= {embargo_hours}h)"
+        )
+
+    # Condition C7: Adaptation status
+    if len(avail) == 0:
+        adaptation_status = "skipped_n0"
+    else:
+        # Check observations in support window
+        stn_id_col = next(
+            (c for c in ("location_id", "station_id", "id", "sensor_id") if c in obs_df.columns),
+            None,
+        )
+        pm_col = next((c for c in ("pm25_ugm3", "pm25", "value") if c in obs_df.columns), None)
+
+        if obs_df.empty or not stn_id_col or not pm_col or "ts_utc" not in obs_df.columns:
+            adaptation_status = "skipped_insufficient_support"
+        else:
+            obs_copy = obs_df.copy()
+            obs_copy["ts_utc"] = pd.to_datetime(obs_copy["ts_utc"], utc=True)
+            sup_slice = obs_copy[
+                (obs_copy["ts_utc"] >= t_sup_start)
+                & (obs_copy["ts_utc"] < t_sup_end)
+                & (obs_copy[stn_id_col].isin(avail))
+            ]
+
+            # Valid non-null non-imputed readings
+            valid_mask = sup_slice[pm_col].notna() & (
+                pd.to_numeric(sup_slice[pm_col], errors="coerce") >= 0.0
+            )
+            if "imputed" in sup_slice.columns:
+                valid_mask = valid_mask & (~sup_slice["imputed"].astype(bool))
+
+            valid_sup = sup_slice[valid_mask]
+            if valid_sup.empty:
+                adaptation_status = "skipped_insufficient_support"
+            else:
+                valid_days = valid_sup["ts_utc"].dt.date.nunique()
+                if valid_days < min_support_days:
+                    adaptation_status = "skipped_insufficient_support"
+                else:
+                    adaptation_status = "eligible"
+
+    return SparseNetworkTask(
+        domain=domain,
+        season=season,
+        n_available=len(avail),
+        available_stations=tuple(sorted(avail)),
+        held_out_stations=tuple(sorted(held_out)),
+        support_window_start_utc=t_sup_start,
+        support_window_end_utc=t_sup_end,
+        query_window_start_utc=t_qry_start,
+        query_window_end_utc=t_qry_end,
+        adaptation_status=adaptation_status,
+        colocated_groups=colocated_groups,
+    )
