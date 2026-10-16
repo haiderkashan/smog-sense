@@ -23,7 +23,7 @@
 | H5 | meta-learned vs supervised init (M7 vs M6) | 1, **powered** | **Delhi season T**, $N\in\{1,2\}$, ≥ 20 stations | CRPS-ratio M7/M6: CI upper bound < 1 **and** point ≤ 0.97 |
 | H6 | calibration of the 80 % interval | 2, descriptive | pooled | report coverage with CI; flag if the CI excludes [0.70, 0.90] |
 
-**Tiers.** *Tier 1, powered* (H5): Delhi season T has many stations and days, so a 3 % effect is detectable. *Tier 1, indicative* (H1–H4): Lahore has one confirmatory window and few stations, so these are reported with effect sizes and intervals and are not claimed as confirmed unless the interval criteria are met *and* $n_{\rm eff}$ is adequate. *Tier 2* (H6): descriptive only.
+**Tiers.** *Tier 1, powered* (H5): Delhi season T has many stations and days, so a 3 % effect is detectable. H5 is the pre-registered comparison on clean Delhi data. A secondary, **descriptive** condition **H5-C** repeats it with the corruption prior of [ML architecture §8](ml-architecture.md#8-meta-learning-maml-meta-sgd-and-adaptation) applied to the available stations' inputs (held-out draws), because the augmentation targets artefacts that regulatory data do not contain; H5-C does not enter H5's pass condition. M6 is trained with the same augmentation, so H5 isolates the meta-learned inner loop. *Tier 1, indicative* (H1–H4): Lahore has one confirmatory window and few stations, so these are reported with effect sizes and intervals and are not claimed as confirmed unless the interval criteria are met *and* $n_{\rm eff}$ is adequate. *Tier 2* (H6): descriptive only.
 **Multiplicity.** Holm correction over the family {H1–H4} (§8). H5 is its own family. Report $n_{\rm eff}$ beside every result; below about 25 the Lahore tests are indicative only. If fewer than **35 confirmatory days** remain, H1–H4 become descriptive (§6).
 
 **Power illustration** (hand-computed under a normal approximation, one-sided $\alpha=0.05$, independent days, $n_{\rm eff}=28$; effect = $-\ln(1-\text{CRPSS})$, i.e. 0.1625 for H1 and 0.1054 for H2; $\sigma$ = assumed daily SD of the log-CRPS ratio, **unknown until the P2-14 pilot**; power $=\Phi\!\big(d\sqrt{n_{\rm eff}}/\sigma-1.645\big)$):
@@ -35,7 +35,7 @@
 
 Holm correction lowers these further. For a 56-day confirmatory window at lag-1 autocorrelation ρ ≈ 0.5, $n_{\rm eff}\approx19$, lower still. The standard error of an empirical 80 % coverage at $n_{\rm eff}=28$ is $\sqrt{0.8\cdot0.2/28}\approx0.076$, so coverage claims in the first season are descriptive (H6).
 
-These thresholds are *hypotheses*, not promises: typical post-processing gains of a 40 km model with local data are large against raw CAMS (which under-predicts Lahore's peaks) and moderate against a bias-corrected CAMS. A failed hypothesis is a result. If the stacker is not shipped and M5 is the headline ([ML architecture §6](ml-architecture.md#6-lightgbm-quantile-ensemble-and-the-decoupled-stacker)), H1–H4 are tested for M5 and H5 is reported as "not testable: no stacker".
+These thresholds are *hypotheses*, not promises: typical post-processing gains of a 40 km model with local data are large against raw CAMS (which under-predicts Lahore's peaks) and moderate against a bias-corrected CAMS. A failed hypothesis is a result. If the calibrator is not shipped and M5 is the headline ([ML architecture §6](ml-architecture.md#6-lightgbm-quantile-ensemble-the-frozen-physics-base)), H1–H4 are tested for M5; H5 is unaffected, because it compares M7 with M6 on Delhi and does not depend on what ships.
 
 ## 2. Forecast targets and verification data
 
@@ -58,7 +58,7 @@ A claim to "beat CAMS" is only meaningful against a baseline that has *seen loca
 | **M3b Linear quantile regression** | linear quantile regression on {CAMS PM2.5, ln VC, RH, recent bias, fire $E_{24}$, δ}, fit on the available set A's support window | native (one linear model per level) |
 
 The original plan lists only persistence and raw CAMS. Raw CAMS under-predicts Lahore's extremes at 40 km, so beating it is easy and says little; **M2 is the reference for H1, H2, H4.** M3b answers a different question: does anything beyond a *linear* local post-processor help?
-**Baseline statistics use the available set A only.** At $N=0$ only M1 (deterministic) and the sensor-free learned methods are defined; M0, M3 and M3b are undefined and M2 equals M1.
+**Baseline statistics use the available set A only.** At $N=0$ only M1 (deterministic) and M5 (with M6/M7, which equal it there) are defined; M0, M3 and M3b are undefined and M2 equals M1.
 Deterministic baselines are scored with their exact point-forecast CRPS, $|y-\hat y|$; the probabilistic versions are scored with the same estimator as the learned models.
 
 ## 4. CRPS and quantile scoring
@@ -108,7 +108,7 @@ Hence the 19-level scoring grid; the public product shows only $\tau\in\{0.10,0.
 
 ## 6. Data splits and leakage control
 
-* **Source domain (Delhi).** Chronological **E/S/V/T season blocks** ([ML architecture §7](ml-architecture.md#7-sparse-network-task-construction)): E trains the encoder, S supplies the stacker rows (simulated deployments), V tunes and calibrates thresholds, **T is the Delhi confirmatory block (H5)** and is untouched until the freeze. Station hold-out inside each block; 72-hour embargo and purging at every boundary.
+* **Source domain (Delhi).** Chronological **E/V/T season blocks** ([ML architecture §7](ml-architecture.md#7-sparse-network-task-construction)): E trains the base (season-blocked cross-fit, so the calibrator only ever sees out-of-fold base predictions), pre-trains and meta-trains the calibrator; V tunes, stops the final base early and calibrates the residual-bound threshold; **T is the Delhi confirmatory block (H5)** and is untouched until the freeze. Station hold-out inside each block; 72-hour embargo and purging at every boundary.
 * **Target domain (Lahore).** Blocked, with a 72-hour embargo between *adaptation* and *test* blocks: sequential 14-day adaptation windows followed by test windows; stations in the held-out set $B$ contribute **nothing** (no inputs, no labels) to adaptation and are used only as truth. Co-located twins are never split across $A$ and $B$.
 * **Purging.** Remove any sample whose 72-hour lookback or target block overlaps another split (López de Prado, 2018). Overlap is the dominant leakage path because lookbacks and targets are autocorrelated.
 * **Frozen preprocessing.** Scalers, thresholds and hyper-parameters are fit/selected on source-domain E/V data and Lahore *early-season support data only*; the pre-registered Lahore test blocks are untouched until the freeze.
@@ -119,8 +119,8 @@ Hence the 19-level scoring grid; the public product shows only $\tau\in\{0.10,0.
 
 | Period | Dates | Content |
 |---|---|---|
-| History | ≤ 2026-10-18 | seed baselines; E/S/V/T source splits fixed |
-| Dev | 2026-10-19 → 2026-11-30 | G2 probe, G3 ladder, hyper-parameters, stacker choices, mask audit/ablation, threshold pilot, replay |
+| History | ≤ 2026-10-18 | seed baselines; E/V/T source splits fixed |
+| Dev | 2026-10-19 → 2026-11-30 | G2 probe, G3 ladder, hyper-parameters, calibrator and corruption-prior choices, mask audit/ablation, threshold pilot, replay |
 | Freeze | **2026-12-04** | freeze register: HM, thresholds, configs, bundle hashes, city panel |
 | Confirmatory (Lahore) | 2026-12-07 → 2027-01-31 | H1–H4, H6 |
 | Confirmatory (Delhi) | season T | H5 |
@@ -129,7 +129,7 @@ If the challenger isn't ready, freeze later; with fewer than 35 confirmatory day
 
 ## 7. Sensor-sparsity experiment
 
-**Purpose.** Map forecast skill against the number $N$ of *available* Lahore stations; test the central claim that physical priors from Delhi flatten the error curve at small $N$.
+**Purpose.** Map forecast skill against the number $N$ of *available* Lahore stations; test the central claim that physical priors from Delhi flatten the error curve at small $N$. M5 (the frozen physics base) uses no station data, so it is a *flat line* by construction and marks what physical transfer alone achieves; the curves of M6/M7 show what local data add on top.
 
 **Definitions.** $N$ = number of Lahore stations contributing labels for adaptation **and** observed history at inference (see [ML architecture §7](ml-architecture.md#7-sparse-network-task-construction)). The original plan's $N=0$ ("pure zero-shot") is therefore *sensor-free mode*: no Lahore PM2.5 enters adaptation or inputs.
 
@@ -137,7 +137,7 @@ If the challenger isn't ready, freeze later; with fewer than 35 confirmatory day
 
 1. Fix the eligible Lahore set $\mathcal S_L$ (Phase 1 audit) and $M_{\min}=3$ held-out stations; $N$-grid $\{0,1,2,3,5,8,13,21\}$ truncated at $|\mathcal S_L|-M_{\min}$ (values above 8 are among the first cuts).
 2. For each $N$, draw $R=30$ random available sets $A$ (stratified so every station appears about equally often; twin-aware). For $N=0$ there is a single configuration.
-3. For each $(N,A)$ and method in {M3b, M4, M5, M6, M7} (M8 if built): adapt using only $A$'s data in the **support block**; forecast the **later test block** at held-out stations $B=\mathcal S_L\setminus A$, using only $A$ for inputs. Reference lines: M1 (constant), M2 (= M1 at $N=0$), M0, M3. **Every (N, draw, method) cell logs its `adaptation_status`.**
+3. For each $(N,A)$ and method in {M3b, M4, M6, M7} (M8 if built; M5 is independent of $A$ and is computed once per test block as a flat reference line): adapt using only $A$'s data in the **support block**; forecast the **later test block** at held-out stations $B=\mathcal S_L\setminus A$, using only $A$ for inputs. Reference lines: M1 (constant), M2 (= M1 at $N=0$), M0, M3. **Every (N, draw, method) cell logs its `adaptation_status`.**
 4. Score CRPS per (draw, station-day); aggregate to daily means; summarise each $N$ by the mean over draws with a **block-bootstrap 95 % band** over days and draws.
 5. **Second axis (backlog):** support duration $D\in\{7,14,30,60\}$ days at fixed $N=5$ → a sparsity *surface*. Dropped from the planned scope (see the roadmap); the support window is sampled from {7, 14, 30} days inside the recipe.
 6. **Own-history mode** (forecast the future at stations in $A$) is run as a secondary panel.
@@ -158,7 +158,7 @@ If the challenger isn't ready, freeze later; with fewer than 35 confirmatory day
 
 **Why.** Historical backtesting is vulnerable to leakage and tuning; the smog season (late October through January) provides a genuine out-of-sample test. This is the plan's "shadow run", made operational:
 
-1. **Freeze register.** Before the first scored issuance, record the git tag, `config_hash`, bundle sha256 (including `encoder_sha256`), the city panel and the pre-registered `configs/evaluation.yaml`. Anything changed afterwards is a *new model version* with its own start date; scores are never recomputed retroactively.
+1. **Freeze register.** Before the first scored issuance, record the git tag, `config_hash`, bundle sha256 (including `base_sha256`), the city panel and the pre-registered `configs/evaluation.yaml`. Anything changed afterwards is a *new model version* with its own start date; scores are never recomputed retroactively.
 2. **Baselines from day 1.** The pipeline logs M0–M3 (and M3b once built) forecasts for every issuance from the first scheduled run, so the season is never lost while the learned model is still being built.
 3. **Challenger mode.** A candidate bundle is logged but not published (`method` ≠ the published one) until promoted; promotion is a reviewed PR.
 4. **Scoring.** `shadow-scoring.yml` runs daily: *provisional* scores at window end + 6 h from the API; *settled* scores at +96 h from the archive. Both go to the append-only `score_log`. **Only the first valid issuance per issuance date is scored prospectively** (identified by `run_id`, with `is_rerun = false`); reruns are logged but not scored.
@@ -178,7 +178,7 @@ If the challenger isn't ready, freeze later; with fewer than 35 confirmatory day
 | Season report with H1–H6 verdicts | `eval report` | markdown → thesis |
 | Public scorecard | `site build` from `score_log` | JSON scorecard (HTML `site/accuracy/` when built) |
 
-**Negative-results policy.** If M6 ties M7, or transfer from Delhi is negative at $N=0$, or the stacker is not robust and M5 becomes the headline, that is reported with the same prominence as a positive result, and the corresponding decision record is updated.
+**Negative-results policy.** If M6 ties M7, or transfer from Delhi is negative at $N=0$, or the calibrator is not robust and M5 becomes the headline, that is reported with the same prominence as a positive result, and the corresponding decision record is updated.
 
 ## References
 

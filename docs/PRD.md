@@ -1,6 +1,6 @@
 # Product & Scientific Requirements Document (PRD)
 
-> **Version 0.2 · revised 10 October 2026 (original 0.1: 4 October 2026).** Requirement IDs (`FR-xx`, `NFR-xx`) are referenced from commit messages, pull requests and tests. Priorities: **MUST** (ships in the capstone), **SHOULD**, **COULD**.
+> **Version 0.3 · revised 16 October 2026 (0.2: 10 October 2026; original 0.1: 4 October 2026).** Requirement IDs (`FR-xx`, `NFR-xx`) are referenced from commit messages, pull requests and tests. Priorities: **MUST** (ships in the capstone), **SHOULD**, **COULD**.
 > Phases refer to the [roadmap](../README.md#status-and-roadmap) (0 scaffolding · 1 ETL · 2 features + transfer learning · 3 probabilistic engine + evaluation · 4 delivery · 5 shadow season and defence).
 
 ## 1. Purpose and scope
@@ -9,7 +9,7 @@
 degrades exactly where it is needed. The work supports **SDG 3** (health and well-being), **SDG 11** (sustainable cities) and **SDG 13** (climate action).
 
 **Product.** SmogSense is a fully automated, zero-cost pipeline that every morning (05:00 Pakistan time) publishes a **probabilistic, bilingual (English/Urdu) 72-hour PM2.5 forecast for Lahore** as (a) a lightweight website, (b) a machine-readable JSON, and (c) WhatsApp-ready image cards. It combines satellite fire detections, CAMS atmospheric forecasts and a
-few-shot transfer-learning model pre-trained on Delhi's dense monitoring network. The learned model is a **decoupled design**: a meta-learned neural encoder adapts to the few available Lahore stations, and an independent LightGBM quantile stacker maps the adapted latent plus physical features to the forecast quantiles.
+few-shot transfer-learning model pre-trained on Delhi's dense monitoring network. The learned model is a **physics base plus a meta-learned residual**: frozen LightGBM quantile trees trained on Delhi forecast the regional distribution from physical features, and a small neural network (a GRU over the local 72-hour station history, adapted with first-order MAML and meta-learned step sizes) predicts the local correction for all 19 quantile levels on top of them. When adaptation is rejected or impossible the correction is zero and the forecast is the physics base.
 
 **Research contributions** (what the capstone must demonstrate): the **Sensor-Sparsity Curve** (forecast skill vs number of available stations), **few-shot transfer** from a data-rich to a data-sparse city (with honest negative-transfer reporting), and **calibrated quantile forecasts** verified prospectively against a fair baseline.
 
@@ -58,15 +58,17 @@ few-shot transfer-learning model pre-trained on Delhi's dense monitoring network
 | FR-12 | Compute ventilation coefficient, dilution index, stagnation run-lengths, stability and RH from CAMS fields | MUST | 2 | unit tests (monotonicity, floors) |
 | FR-13 | Target-centric, wind-aligned fire exposure with platform normalisation, one angle convention (β = bearing fire→target; φ = direction air moves toward) | MUST | 2 | unit tests (worked example a ≈ 0.97 / 0; step removal) |
 | FR-14 | 72 h lookback tensors with mask and delta channels; forecast age δ as an input; all features point-in-time correct | MUST | 2 | as-of tests |
-| FR-15 | Sparse-network task generator for $N\in\{0,1,2,3,5,8\}$ with modality dropout, twin-aware splits and E/S/V/T season blocks | MUST | 2 | unit tests (seed determinism, no twin leakage) |
+| FR-15 | Sparse-network task generator for $N\in\{0,1,2,3,5,8\}$ with twin-aware splits and E/V/T season blocks (the base is cross-fitted over the seasons of E) | MUST | 2 | unit tests (seed determinism, no twin leakage) |
 | FR-16 | Baselines M0–M3 and **M3b** (linear quantile regression) emitting 19-level quantiles, computed from the available set A only | MUST | 1 | unit tests; shadow log |
-| FR-17 | Delhi supervised pre-training and **MAML (FOMAML) meta-learning of the neural encoder and a temporary 3-level × 3-horizon head** | MUST | 2 | ladder |
-| FR-18 | **LightGBM quantile ensemble (3 × 19 = 57 boosters) as a stacker on [adapted latent ‖ tabular ‖ δ]**, trained on rows from simulated deployments, with monotone rearrangement; bound to its encoder by `encoder_sha256`; no neural/GBM blend and no warm-start boosting in the product path | MUST | 3 | property tests; binding test; ladder |
+| FR-17 | Delhi supervised pre-training and **MAML (FOMAML) with meta-learned step sizes (Meta-SGD) of the residual calibrator** (GRU over six local channels + 57-output head, zero-initialised, trained on all 19 levels); M6 uses the same network with supervised initialisation | MUST | 2 | ladder; parameter-count test |
+| FR-18 | **Frozen physics base (M5): LightGBM quantile ensemble, 3 × 19 = 57 boosters, on physical features only** (no recent CAMS bias, no absolute coordinates, no Indian-only flags), cross-fitted over season folds so the calibrator sees only out-of-fold predictions; published quantiles = base + residual, then monotone rearrangement; calibrator bound to its base by `base_sha256`; no neural/GBM blend and no warm-start boosting in the product path | MUST | 3 | property tests; OOF-integrity test; binding test; ladder |
 | FR-19 | CQR + ACI online calibration (M8, γ = 0.02) — **backlog**, only if time allows | COULD | 3 | coverage tests |
 | FR-20 | Few-shot adaptation to Lahore from the fixed meta-initialisation (shared recipe, pinball loss with gradient clip 1.0) | MUST | 3 | unit + sparsity experiment |
-| FR-21 | Versioned model bundles with sha256 manifest and encoder↔stacker binding; promotion by reviewed PR | MUST | 3 | loader tests |
+| FR-21 | Versioned model bundles with sha256 manifest and base↔calibrator binding; promotion by reviewed PR | MUST | 3 | loader tests |
 | FR-38 | **City-panel target:** the city value is a pseudo-location equal to the mean of group-collapsed station block means over a panel frozen at season freeze (≥ 3 valid stations; reference first, else median of corrected low-cost); modelled directly | MUST | 1 | unit tests; panel recorded in the freeze register |
-| FR-39 | **Adaptation acceptance and `adaptation_status`:** chronological fit / 72-h embargo / check split; accept iff check pinball improves ≥ 2 % on ≥ 60 % of days **and** latent drift ≤ the 99th percentile over simulated tasks; status ∈ {`adapted`, `skipped_n0`, `skipped_insufficient_support`, `rejected_no_gain`, `rejected_latent_drift`} logged per forecast; rejection falls back to meta-initial latents without changing the degradation level | MUST | 3 | unit tests; status-enum schema test; threshold pilot |
+| FR-39 | **Adaptation acceptance and `adaptation_status`:** chronological fit / 72-h embargo / check split; accept iff check pinball beats the zero-residual forecast (M5) by ≥ 2 % on ≥ 60 % of days **and** the mean absolute residual is ≤ the 99th percentile over simulated deployments on block V (the residual bound); status ∈ {`adapted`, `skipped_n0`, `skipped_insufficient_support`, `rejected_no_gain`, `rejected_residual_bound`} logged per forecast; rejection sets the residual to zero (the forecast is M5) without changing the degradation level | MUST | 3 | unit tests; status-enum schema test; threshold pilot |
+| FR-41 | **Synthetic low-cost corruption augmentation** during meta-training and M6 pre-training: per-task gain, RH slope and offset on the PM2.5 inputs (priors from the co-location audit), clean query labels, identical augmentation for M6; never applied to evaluation rows except condition H5-C | MUST | 2 | unit test (formula, ranges, labels clean); experiment X-11 |
+| FR-42 | **Out-of-fold base predictions:** the base is cross-fitted over season-blocked folds of block E with embargo and purge; the calibrator trains only on out-of-fold predictions; partition hash stored in the bundle | MUST | 2 | OOF-integrity test; experiment X-02 |
 
 ### 3.4 Evaluation
 
@@ -97,7 +99,7 @@ few-shot transfer-learning model pre-trained on Delhi's dense monitoring network
 | FR-34 | Alerting (issue per failure/degradation) and dead-man's-switch watchdog | MUST | 1 | forced-failure drill |
 | FR-35 | Daily point-in-time input snapshot to the `state` branch (enables replay shadow) | MUST | 1 | integration test |
 | FR-36 | `make check` reproduces every CI gate locally | MUST | 0 | CI |
-| FR-40 | **Expiry notice via three paths:** every bulletin carries `valid_until_utc` = issuance + 30 h; a static "valid until" line, a client-side JS banner, and a watchdog-published static expiry notice | MUST | 4 | e2e test with a stale bulletin |
+| FR-40 | **Expiry notice via three paths:** every bulletin carries `valid_until_utc` = issuance + 30 h; a static "valid until" line, a client-side JS banner (both independent of the scheduler and the primary safety net), and a watchdog-published static expiry notice (which shares the scheduler's fate and covers only partial failures) | MUST | 4 | e2e test with a stale bulletin |
 
 ## 4. Non-functional requirements
 
@@ -141,7 +143,7 @@ All scores use the 24-hour block-mean target, settled truth, the 19-level CRPS e
 | 72 h | **≥ 0.10** (H2) | ≥ 0.25 (H3) | $N_H$ |
 | 24 h, sensor-free | **≥ 0.05** vs M1 (H4) | – | 0 |
 
-Fewer than 35 confirmatory days ⇒ H1–H4 are reported descriptively. If the stacker is not robust to latent shift, or adaptation adds nothing, **M5 becomes the headline and the negative result is reported**.
+Fewer than 35 confirmatory days ⇒ H1–H4 are reported descriptively. If the calibrator is not robust (residual bound, acceptance), or adaptation adds nothing, **M5 becomes the headline and the negative result is reported**.
 
 **Operational gates.** *Promote* a bundle only if, on validation and the Lahore support-block test, CRPSS vs M2 ≥ 0.05 at all three horizons and 80 % coverage ∈ [0.75, 0.85]. *Retrain trigger:* CAMS cycle change, CRPSS vs M2 < 0.05 for 14 days, or coverage outside [0.70, 0.90] for 14 days.
 *Kill-switch:* CRPSS vs M2 < 0 for 14 consecutive days ⇒ set `promoted_bundle: none` (baseline-only) via one-line PR.
@@ -173,7 +175,7 @@ Fewer than 35 confirmatory days ⇒ H1–H4 are reported descriptively. If the s
 ## 8. Risks (top eleven)
 
 R1 negative transfer from Delhi · R2 CAMS model-cycle upgrades · R3 sensor right-censoring in extreme smog · R4 late model vs early season (mitigated by baselines from day 1 and replay shadow) · R5 ADS publication delays · R6 platform retirements (Suomi-NPP, MODIS) ·
-R7 GitHub schedule drops or auto-disable (mitigated by retries, watchdog, keep-alive) · R8 public misinterpretation of intervals (comprehension test) · R9 single-maintainer bus factor · R10 scope creep to "whole Pakistan" · R11 latent shift or negligible adaptation gain in the decoupled model (mitigated by the acceptance rule, drift guard and the M5 fallback). Details, owners and mitigations: [ML §12](ml-architecture.md#12-failure-analysis-and-known-risks), [system §7](system-architecture.md#7-failure-handling-and-degradation-ladder), [ops §11](deployment-and-ops.md#11-disaster-recovery). (Numbers here are the PRD's own and differ from the ML risk table's.)
+R7 GitHub schedule drops or auto-disable (mitigated by retries, watchdog, keep-alive) · R8 public misinterpretation of intervals (comprehension test) · R9 single-maintainer bus factor · R10 scope creep to "whole Pakistan" · R11 residual overshoot or negligible adaptation gain in the calibrator (mitigated by the acceptance rule, residual bound and the M5 fallback). Details, owners and mitigations: [ML §12](ml-architecture.md#12-failure-analysis-and-known-risks), [system §7](system-architecture.md#7-failure-handling-and-degradation-ladder), [ops §11](deployment-and-ops.md#11-disaster-recovery). (Numbers here are the PRD's own and differ from the ML risk table's.)
 
 ## 9. Definition of done (project level)
 
@@ -187,18 +189,18 @@ R7 GitHub schedule drops or auto-disable (mitigated by retries, watchdog, keep-a
 |---|---|
 | **AOD** | Aerosol optical depth (here: CAMS total AOD at 550 nm) |
 | **ACI / CQR** | Adaptive conformal inference / conformalised quantile regression |
-| **`adaptation_status`** | Outcome of the daily adaptation: `adapted`, `skipped_n0`, `skipped_insufficient_support`, `rejected_no_gain`, `rejected_latent_drift` |
+| **`adaptation_status`** | Outcome of the daily adaptation: `adapted`, `skipped_n0`, `skipped_insufficient_support`, `rejected_no_gain`, `rejected_residual_bound` |
 | **CAMS** | Copernicus Atmosphere Monitoring Service; **CAMS-BC** = trailing-window bias-corrected CAMS (reference M2) |
 | **CRPS / CRPSS** | Continuous ranked probability score / skill score vs a reference |
 | **δ (forecast age)** | $T-B^\*$: age of the CAMS cycle used (12 or 18 h at level 0), an input to the model |
-| **E/S/V/T** | Source-season blocks: encoder training / stacker rows / tuning / Delhi confirmatory test |
+| **E/V/T** | Source-season blocks: base, pre-training and meta-training (with season-blocked cross-fit folds) / tuning and residual-bound threshold / Delhi confirmatory test |
 | **FRP** | Fire radiative power (MW) |
 | **IGP** | Indo-Gangetic Plain |
 | **Issuance $T_0$** | Forecast reference time, 00:00 UTC (05:00 PKT) |
-| **MAML / FOMAML / ANIL** | Model-agnostic meta-learning / first-order variant / adapt-head-only variant (used here only as a negative control) |
+| **MAML / FOMAML / Meta-SGD / ANIL** | Model-agnostic meta-learning / first-order variant / MAML with meta-learned per-tensor step sizes / adapt-head-only variant (an ablation of the adaptation scope) |
 | **$N$** | Number of *available* stations (labels for adaptation and observed-history input) |
 | **PBLH / VC / DI** | Planetary boundary-layer height / ventilation coefficient (PBLH × wind) / dilution index (mean of 1/VC) |
 | **Pinball loss** | Quantile loss $\rho_\tau(u)=u(\tau-\mathbf 1\{u<0\})$ |
 | **Replay vs live shadow** | Scoring a late model on logged inputs vs forecasts issued before outcomes existed |
-| **Stacker** | The independent LightGBM quantile model that consumes the frozen encoder's latent plus tabular features |
+| **Physics base (M5) / residual calibrator** | The frozen LightGBM quantile ensemble trained on Delhi physical features / the GRU + 57-output head that adds a local correction to every base quantile |
 | **`valid_until_utc`** | Issuance + 30 h; after it the page shows an expiry notice |

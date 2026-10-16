@@ -1,6 +1,6 @@
 # Deployment and Operations
 
-> **Audience:** the person who owns the repository and must have a live pipeline before the peak of the smog season (revision 2). All limits below were verified in October 2026
+> **Audience:** the person who owns the repository and must have a live pipeline before the peak of the smog season (revision 3). All limits below were verified in October 2026
 > (sources in the [verification log](verification-log.md)); recheck before the season starts ([season-start checklist](runbooks/season-start-checklist.md)).
 
 ## 1. Zero-cost resource budget
@@ -66,7 +66,7 @@ Rotation: replace the secret in the UI; no code change. If any secret is ever co
 | `daily-forecast.yml` | **00:17, 02:47, 05:47 UTC**, manual | the heartbeat: checkout → prepare → attach state (sparse partial clone) → **host pre-check** → login/pull (skipped when the pre-check says skip) → run → publish. All downstream conditions test `skip != 'true'`. The pre-check exits **before any image pull** when the manifest says the issuance is published | `contents: write`, `packages: read`, `issues: write` | ≈ 25 min, cap 40 |
 | `shadow-scoring.yml` | 06:07 UTC | **watchdog** (alerts if today's forecast is missing, then publishes the static expiry notice from the last good bulletin; shared concurrency group); provisional and settled scoring (first issuance only); push score journals | as above | ≈ 5 min |
 | `historical-backfill.yml` | manual | resumable backfill to the rolling `data-backfill` release. API-using sources run under the quota partitions | `contents: write` | cap 345 min |
-| `model-retrain.yml` | manual | staged training (scalers → supervised pre-training → meta-training → simulated deployments + stacker → calibration) + ladder/sparsity evaluation → `models-vX.Y.Z` pre-release | `contents: write` | cap 350 min |
+| `model-retrain.yml` | manual | staged training (scalers → cross-fitted physics base + out-of-fold predictions → supervised pre-training → meta-training → residual-bound simulation on block V → calibration) + ladder/sparsity evaluation → `models-vX.Y.Z` pre-release | `contents: write` | cap 350 min |
 | `repo-keepalive.yml` | monthly | re-enable schedules; heartbeat; **git-bundle backup of `state`** to the `state-backups` release | `contents: write`, `actions: write` | ≈ 3 min |
 
 All third-party actions are pinned by commit SHA (Dependabot, weekly, keeps them current); every job has `timeout-minutes`; no workflow uses `pull_request_target`. Daily, scoring, keep-alive and watchdog jobs share the concurrency group `smogsense-state`.
@@ -75,7 +75,7 @@ All third-party actions are pinned by commit SHA (Dependabot, weekly, keeps them
 
 * **Off-the-hour minutes.** GitHub documents that scheduled runs may be delayed, particularly at the start of every hour. We trigger at `:17` / `:47`. A test fails the build if a cron uses minute 0.
 * **Three idempotent triggers** (00:17, 02:47, 05:47 UTC): the retries exit 11 in ~2 minutes if the primary succeeded, and rescue a dropped event or a late CAMS publication (the 00 UTC CAMS run is guaranteed only by 10:00 UTC; the **previous** 12 UTC run, guaranteed by 22:00 UTC, is what the 00:17 job consumes, forecast age δ = 12 h).
-* **Dead-man's switch and expiry.** `shadow-scoring.yml` (06:07 UTC) checks that the day's issuance exists; if not it opens an issue **and publishes the static expiry notice**. Independently, every bulletin expires on its own (`valid_until_utc` = issuance + **30 h**, static line + JS banner), so even a dead scheduler cannot leave a forecast looking current.
+* **Dead-man's switch and expiry.** `shadow-scoring.yml` (06:07 UTC) checks that the day's issuance exists; if not it opens an issue **and publishes the static expiry notice**. Independently, every bulletin expires on its own (`valid_until_utc` = issuance + **30 h**, static line + JS banner), so even a dead scheduler cannot leave a forecast looking current. **Caveat:** the watchdog runs on the same scheduler. If GitHub Actions cron fails repository-wide (an outage, or the 60-day auto-disable), `shadow-scoring.yml` does not trigger either, so the static line and the JS banner (both already inside the published page) are the primary independent safety net; the watchdog covers only partial failures.
 * **60-day auto-disable.** GitHub disables scheduled workflows in a public repository after 60 days without repository activity. **Unverified:** whether the daily `state` push counts as activity, so nothing relies on it. Real mitigations: GitHub e-mails the owner when it disables one, a monthly manual check of the Actions tab, and `repo-keepalive.yml`, which runs monthly to re-enable workflows.
 * **Concurrency.** Group `smogsense-state` (cancel-in-progress: false) serialises every job that writes `state`. A pending job replaced by a newer one is acceptable because the triggers are idempotent.
 * **Default-branch rule.** Schedules run on the latest commit of the default branch; keep `main` deployable.
@@ -92,11 +92,11 @@ All third-party actions are pinned by commit SHA (Dependabot, weekly, keeps them
 ## 7. Release and model promotion
 
 * **Versioning.** `models-vMAJOR.MINOR.PATCH`: MAJOR = feature-set or output-schema change; MINOR = retrain with the same features; PATCH = calibration refresh.
-* **Bundle** (`models/README.md`): encoder weights + **stacker boosters** + `manifest.json` (sha256 of every file, **`encoder_sha256` binding the stacker to its encoder**, git SHA, config hash, latency table, CAMS cycles in training window, library versions) + model card + evaluation outputs. The loader refuses a bundle whose hashes, `encoder_sha256` or `feature_set_version` do not match (degradation level 2). M6 and M7 are separate bundles with separate stackers; M5 is a tabular bundle with no encoder.
-* **Promotion = reviewed PR** changing `promoted_bundle` in `configs/model.yaml` (initially `none` ⇒ baseline-only, level 2 of the ladder). The PR must attach the ladder table, sparsity curve and the `adaptation_status` distribution, tick the guardrail checklist, and show that H-tests were not tuned on test blocks. If the stacker is not robust, the PR proposes **M5** as the headline.
+* **Bundle** (`models/README.md`): **physics-base boosters** (57, shared by M6/M7) + **residual-calibrator weights and the learned step sizes** + `manifest.json` (sha256 of every file, **`base_sha256` and the OOF-fold partition hash binding the calibrator to its base**, git SHA, config hash, latency table, CAMS cycles in training window, library versions) + model card + evaluation outputs. The loader refuses a bundle whose hashes, `base_sha256` or `feature_set_version` do not match (degradation level 2). M6 and M7 are separate calibrator bundles over the same M5 base; M5 is a tabular bundle with no neural part.
+* **Promotion = reviewed PR** changing `promoted_bundle` in `configs/model.yaml` (initially `none` ⇒ baseline-only, level 2 of the ladder). The PR must attach the ladder table, sparsity curve and the `adaptation_status` distribution, tick the guardrail checklist, and show that H-tests were not tuned on test blocks. If the calibrator is not robust, the PR proposes **M5** as the headline.
 * **Challenger mode** logs a candidate beside the published model before promotion.
 * **Rollback = revert the one line.** Previous bundles stay in Releases.
-* **Retrain triggers:** a CAMS model-cycle change; CRPSS vs CAMS-BC < 0.05 for 14 days; coverage of the 80 % interval outside 0.70–0.90 for 14 days; a sensor-network change that alters $N$ materially; `rejected_latent_drift` on more than half of the days in a week.
+* **Retrain triggers:** a CAMS model-cycle change; CRPSS vs CAMS-BC < 0.05 for 14 days; coverage of the 80 % interval outside 0.70–0.90 for 14 days; a sensor-network change that alters $N$ materially; `rejected_residual_bound` on more than half of the days in a week.
 
 ## 8. Alerting
 
@@ -108,7 +108,7 @@ Free, GitHub-native, de-duplicated (one open issue per title, repeats become com
 | Published in degraded mode (exit 10) | Issue "published in DEGRADED mode" (label `degraded`) | medium |
 | No forecast by 06:07 UTC (watchdog) | Issue "no forecast published for today's issuance" + static expiry notice | high |
 | Shadow scoring failed | Issue | medium |
-| Soft validation gates (implausible median, stale CAMS/FIRMS, > 40 % stations rejected, latent drift flagged) | Annotation in job summary + issue | low |
+| Soft validation gates (implausible median, stale CAMS/FIRMS, > 40 % stations rejected, residual bound flagged) | Annotation in job summary + issue | low |
 | Adaptation rejected (`rejected_*`) on 3 consecutive days | Annotation in job summary | low |
 | State branch size ≥ 400 MB (warn) / ≥ 700 MB (alert) | Issue | medium / high |
 | Optional (deferred) | Telegram message to the operator chat | – |
@@ -138,11 +138,11 @@ GHCR package visibility still public; Release asset sizes; the run-manifest requ
 |---|---|
 | `state` branch damaged or force-pushed | `git clone state-YYYY-MM.bundle` from the `state-backups` release (≤ 1 month old), then re-ingest the gap from the OpenAQ archive; forecasts after the backup are lost *unless* a local `.state/` clone exists |
 | Bad bulletin published | Re-run `daily-forecast` via *workflow_dispatch* with `issuance` and `force` (the page then shows the true generation time), or `scripts/publish_ghpages.sh` with a prior site rebuilt by `make daily ISSUANCE=…`. Emergency: disable Pages |
-| Scheduler dead / no run | Bulletin expires by itself at issuance + 30 h; watchdog publishes the static expiry notice; fix the schedule and re-run |
+| Scheduler dead / no run | Bulletin expires by itself at issuance + 30 h (static line and JS banner; the watchdog cannot run if the whole scheduler is down); with a partial failure the watchdog also publishes the static expiry notice; fix the schedule and re-run |
 | Secret leaked | Rotate in the provider UI first; update the GitHub secret; purge history; document in the incident log |
 | Provider outage (OpenAQ/ADS/FIRMS) | Degradation ladder handles it; alert issue; no action unless > 24 h |
 | ADS publishes late after a model upgrade | Level 1 (previous cycle, δ + 12 h) and the 02:47 / 05:47 retries |
-| Bundle/stacker mismatch | Loader refuses (`encoder_sha256`); level 2 baseline; rebuild the bundle |
+| Base/calibrator mismatch | Loader refuses (`base_sha256`); level 2 baseline; rebuild the bundle |
 | GitHub outage | Static site stays up (Pages/Cloudflare) but expires on schedule; resume when Actions return; idempotent triggers catch up the missed issuance |
 | Repository deleted/locked | Clones + Release assets + monthly bundles; keep a personal clone of `state` |
 | A satellite or product retires (e.g. Suomi-NPP on 2026-11-01) | Config-driven platform table; platform-normalised features; `docs/runbooks/incident-response.md` |
