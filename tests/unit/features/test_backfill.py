@@ -29,6 +29,7 @@ from smogsense.features.backfill import (
     get_season_date_range,
     get_seasons_for_interval,
     is_boundary_purged,
+    load_backfilled_observations,
     partition_block_e_folds,
     partition_seasons,
     run_feature_backfill,
@@ -290,6 +291,22 @@ def test_run_feature_backfill_end_to_end(tmp_path: Path) -> None:
     assert "fold_id" in df_loaded.columns
 
 
+def test_load_backfilled_observations(tmp_path: Path) -> None:
+    """Test loading backfilled OpenAQ observations from partition files."""
+    # Test non-existent directory returns empty DataFrame
+    empty_df = load_backfilled_observations("delhi", backfill_dir=tmp_path / "nonexistent")
+    assert empty_df.empty
+
+    # Test loading real backfilled observations if present
+    real_dir = Path("data/processed/backfill")
+    if real_dir.exists() and list(real_dir.glob("openaq_delhi_*.parquet")):
+        df_delhi = load_backfilled_observations("delhi", backfill_dir=real_dir)
+        assert not df_delhi.empty
+        assert "location_id" in df_delhi.columns
+        assert "pm25_ugm3" in df_delhi.columns
+        assert "ts_utc" in df_delhi.columns
+
+
 def test_cli_features_backfill(tmp_path: Path) -> None:
     """Test CLI command `smogsense features backfill`."""
     runner = CliRunner()
@@ -308,6 +325,8 @@ def test_cli_features_backfill(tmp_path: Path) -> None:
             "E",
             "--out-dir",
             str(tmp_path),
+            "--backfill-dir",
+            "data/processed/backfill",
             "--verify-schema",
         ],
     )
