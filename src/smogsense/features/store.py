@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,7 @@ SCHEMA_VERSION = "1.0.0"
 DEFAULT_FEATURE_SET_VERSION = "fs1"
 
 
+@lru_cache(maxsize=1)
 def _load_feature_store_schema() -> pa.DataFrameSchema:
     candidates = [
         Path("data/schemas/feature_store.schema.yaml"),
@@ -161,6 +163,7 @@ def build_feature_table(
     source_split: str | None = None,
     fold_id: int | None = None,
     degradation_level: int = 0,
+    verify_schema: bool = True,
 ) -> pd.DataFrame:
     """Construct model-ready feature store table conforming to feature_store.schema.yaml.
 
@@ -327,8 +330,10 @@ def build_feature_table(
     if "fold_id" in df_out.columns:
         df_out["fold_id"] = df_out["fold_id"].astype("Int32")
 
-    schema = _load_feature_store_schema()
-    return validate_frame(df_out, schema)
+    if verify_schema:
+        schema = _load_feature_store_schema()
+        return validate_frame(df_out, schema)
+    return df_out
 
 
 def save_feature_table(
