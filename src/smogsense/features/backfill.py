@@ -50,10 +50,12 @@ from structlog import get_logger
 from smogsense.features.fire_exposure import DOMAIN_CENTROIDS
 from smogsense.features.store import (
     DEFAULT_FEATURE_SET_VERSION,
+    _load_feature_store_schema,
     build_feature_table,
     compute_config_hash,
     save_feature_table,
 )
+from smogsense.utils.io import validate_frame
 
 logger = get_logger(__name__)
 
@@ -244,6 +246,48 @@ def compute_oof_partition_hash(df: pd.DataFrame) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def load_backfilled_observations(
+    domain: str,
+    backfill_dir: str | Path = "data/processed/backfill",
+) -> pd.DataFrame:
+    """Load real ground observations from downloaded historical archive partitions."""
+    b_path = Path(backfill_dir)
+    if not b_path.exists():
+        return pd.DataFrame()
+
+    dom_clean = domain.lower().strip()
+    files = sorted(b_path.glob(f"*openaq*{dom_clean}*.parquet"))
+    if not files:
+        files = sorted(b_path.glob(f"*{dom_clean}*.parquet"))
+    if not files:
+        return pd.DataFrame()
+
+    dfs: list[pd.DataFrame] = []
+    for f in files:
+        try:
+            df = pd.read_parquet(f)
+            if not df.empty and "ts_utc" in df.columns:
+                dfs.append(df)
+        except Exception as exc:
+            logger.warning("load_backfill_parquet_error", file=str(f), error=str(exc))
+
+    if not dfs:
+        return pd.DataFrame()
+
+    combined = pd.concat(dfs, ignore_index=True)
+    combined["ts_utc"] = pd.to_datetime(combined["ts_utc"], utc=True)
+    if "available_at_utc" in combined.columns:
+        combined["available_at_utc"] = pd.to_datetime(combined["available_at_utc"], utc=True)
+    elif "available_at" in combined.columns:
+        combined["available_at_utc"] = pd.to_datetime(combined["available_at"], utc=True)
+    else:
+        combined["available_at_utc"] = combined["ts_utc"].dt.floor("D") + timedelta(
+            days=1, hours=72
+        )
+
+    return combined.sort_values(by="ts_utc").reset_index(drop=True)
+
+
 def _ensure_available_at_series(df: pd.DataFrame, source_type: str = "archive") -> pd.DataFrame:
     """Ensure DataFrame has a valid available_at_utc column derived from temporal alignment rules."""
     if df.empty:
@@ -401,6 +445,7 @@ def _synthesize_historical_fire(
                     "longitude": lon,
                     "acq_date": ts.strftime("%Y-%m-%d"),
                     "acq_time": ts.strftime("%H%M"),
+                    "acq_datetime_utc": ts,
                     "ts_utc": ts,
                     "available_at_utc": avail_ts,
                     "frp": frp,
@@ -442,6 +487,7 @@ def run_feature_backfill(
     embargo_hours: float = 72.0,
     verify_schema: bool = True,
     write_parquet: bool = True,
+    backfill_dir: str | Path = "data/processed/backfill",
     feature_set_version: str = DEFAULT_FEATURE_SET_VERSION,
     config_hash: str | None = None,
 ) -> BackfillResult:
@@ -485,12 +531,31 @@ def run_feature_backfill(
         block_e_folds=block_e_folds,
     )
 
-    # 2. Determine target stations
+    # 2. Load observations if not passed explicitly
+    if obs_df is None or obs_df.empty:
+        obs_df = load_backfilled_observations(dom, backfill_dir=backfill_dir)
+        if not obs_df.empty:
+            logger.info(
+                "run_feature_backfill.loaded_real_observations",
+                domain=dom,
+                rows=len(obs_df),
+                stations=obs_df["location_id"].nunique(),
+            )
+
+    # Determine target stations and metadata
+    if registry_df is None or registry_df.empty:
+        try:
+            from smogsense.data_ingestion.fixtures_mode import load_fixture_locations
+
+            registry_df = load_fixture_locations(domain=dom)
+        except Exception:
+            registry_df = None
+
     stations: list[int] = []
-    if registry_df is not None and not registry_df.empty and "location_id" in registry_df.columns:
-        stations = [int(x) for x in registry_df["location_id"].dropna().unique()]
-    elif obs_df is not None and not obs_df.empty and "location_id" in obs_df.columns:
-        stations = [int(x) for x in obs_df["location_id"].dropna().unique()]
+    if obs_df is not None and not obs_df.empty and "location_id" in obs_df.columns:
+        stations = sorted([int(x) for x in obs_df["location_id"].dropna().unique()])
+    elif registry_df is not None and not registry_df.empty and "location_id" in registry_df.columns:
+        stations = sorted([int(x) for x in registry_df["location_id"].dropna().unique()])
     else:
         # Verified default stations
         stations = [7001, 7002, 7003] if dom == "delhi" else [1001]
@@ -502,6 +567,9 @@ def run_feature_backfill(
     end_utc = datetime(e_date.year, e_date.month, e_date.day, 23, 59, 59, tzinfo=UTC) + timedelta(
         hours=96
     )
+
+    if obs_df is not None and not obs_df.empty:
+        obs_df = obs_df[(obs_df["ts_utc"] >= start_utc) & (obs_df["ts_utc"] <= end_utc)]
 
     if obs_df is None or obs_df.empty:
         obs_df = _synthesize_historical_observations(dom, stations, start_utc, end_utc)
@@ -516,86 +584,97 @@ def run_feature_backfill(
     fire_df = _ensure_available_at_series(fire_df, source_type="firms")
 
     # 4. Generate issuances on the 6-hourly training lattice
-    curr_date = s_date
     all_feature_dfs: list[pd.DataFrame] = []
     purged_count = 0
     total_count = 0
 
-    while curr_date <= e_date:
-        for hour in lattice_hours:
-            issuance_utc = datetime(
-                curr_date.year, curr_date.month, curr_date.day, hour, 0, 0, tzinfo=UTC
-            )
-            season = get_season(issuance_utc)
-            s_split = season_partitions.get(season, "eval")
-            fold_id = block_e_folds.get(season, None) if s_split == "E" else None
+    for season in seasons:
+        season_start, season_end = get_season_date_range(season)
+        c_start = max(s_date, season_start.date())
+        c_end = min(e_date, season_end.date())
+        if c_start > c_end:
+            continue
 
-            # Boundary purging check across season window
-            season_start, season_end = get_season_date_range(season)
-            if is_boundary_purged(
-                issuance_utc,
-                window_start_utc=season_start,
-                window_end_utc=season_end,
-                embargo_hours=embargo_hours,
-            ):
-                purged_count += len(stations)
-                logger.debug(
-                    "run_feature_backfill.purged",
-                    issuance=issuance_utc.isoformat(),
-                    season=season,
-                    reason="embargo_boundary",
-                )
-                continue
+        s_split = season_partitions.get(season, "eval")
+        fold_id = block_e_folds.get(season, None) if s_split == "E" else None
 
-            # Point-in-time slicing
-            # Past observations strictly available at T and timestamp < T
-            obs_slice = obs_df[
-                (obs_df["available_at_utc"] <= issuance_utc) & (obs_df["ts_utc"] < issuance_utc)
-            ]
+        c_cur = c_start
+        while c_cur <= c_end:
+            for hour in lattice_hours:
+                issuance_utc = datetime(c_cur.year, c_cur.month, c_cur.day, hour, 0, 0, tzinfo=UTC)
 
-            # Past CAMS strictly available at T and timestamp < T
-            cams_slice = cams_df[
-                (cams_df["available_at_utc"] <= issuance_utc) & (cams_df["ts_utc"] < issuance_utc)
-            ]
+                # Boundary purging check across season window
+                if is_boundary_purged(
+                    issuance_utc,
+                    window_start_utc=season_start,
+                    window_end_utc=season_end,
+                    embargo_hours=embargo_hours,
+                ):
+                    purged_count += len(stations)
+                    logger.debug(
+                        "run_feature_backfill.purged",
+                        issuance=issuance_utc.isoformat(),
+                        season=season,
+                        reason="embargo_boundary",
+                    )
+                    continue
 
-            # Past fire detections knowable at T
-            fire_slice = fire_df[fire_df["available_at_utc"] <= issuance_utc]
+                # Point-in-time slicing
+                # Lookback windowing to relevant history (lookback <= 8 days) while strictly enforcing available_at_utc <= T
+                t_lookback_start = issuance_utc - timedelta(days=8)
+                obs_slice = obs_df[
+                    (obs_df["ts_utc"] >= t_lookback_start)
+                    & (obs_df["available_at_utc"] <= issuance_utc)
+                    & (obs_df["ts_utc"] < issuance_utc)
+                ]
 
-            # Future ground observations for target calculation [T, T+72h)
-            fut_slice = obs_df[
-                (obs_df["ts_utc"] >= issuance_utc)
-                & (obs_df["ts_utc"] < issuance_utc + timedelta(hours=72))
-            ]
+                cams_slice = cams_df[
+                    (cams_df["ts_utc"] >= t_lookback_start)
+                    & (cams_df["available_at_utc"] <= issuance_utc)
+                    & (cams_df["ts_utc"] < issuance_utc)
+                ]
 
-            try:
-                feat_table = build_feature_table(
-                    domain=dom,
-                    issuance_utc=issuance_utc,
-                    obs_df=obs_slice,
-                    cams_df=cams_slice,
-                    fire_exposure_df=fire_slice,
-                    registry_df=registry_df,
-                    future_obs_df=fut_slice,
-                    feature_set_version=feature_set_version,
-                    config_hash=c_hash,
-                    source_split=s_split,
-                    fold_id=fold_id,
-                )
-            except Exception as e:
-                logger.error(
-                    "run_feature_backfill.build_failed",
-                    issuance=issuance_utc.isoformat(),
-                    error=str(e),
-                )
-                raise
+                fire_slice = fire_df[
+                    (fire_df["available_at_utc"] <= issuance_utc)
+                    & (fire_df["ts_utc"] >= t_lookback_start)
+                ]
 
-            # Tag season partition column for convenience
-            feat_table = feat_table.copy()
-            feat_table["season"] = season
-            all_feature_dfs.append(feat_table)
-            total_count += len(feat_table)
+                # Future ground observations for target calculation [T, T+72h)
+                fut_slice = obs_df[
+                    (obs_df["ts_utc"] >= issuance_utc)
+                    & (obs_df["ts_utc"] < issuance_utc + timedelta(hours=72))
+                ]
 
-        curr_date += timedelta(days=1)
+                try:
+                    feat_table = build_feature_table(
+                        domain=dom,
+                        issuance_utc=issuance_utc,
+                        obs_df=obs_slice,
+                        cams_df=cams_slice,
+                        fire_exposure_df=fire_slice,
+                        registry_df=registry_df,
+                        future_obs_df=fut_slice,
+                        feature_set_version=feature_set_version,
+                        config_hash=c_hash,
+                        source_split=s_split,
+                        fold_id=fold_id,
+                        verify_schema=False,
+                    )
+                except Exception as e:
+                    logger.error(
+                        "run_feature_backfill.build_failed",
+                        issuance=issuance_utc.isoformat(),
+                        error=str(e),
+                    )
+                    raise
+
+                # Tag season partition column for convenience
+                feat_table = feat_table.copy()
+                feat_table["season"] = season
+                all_feature_dfs.append(feat_table)
+                total_count += len(feat_table)
+
+            c_cur += timedelta(days=1)
 
     # 5. Compute deterministic OOF partition hash
     combined_df = (
@@ -603,6 +682,12 @@ def run_feature_backfill(
     )
     oof_hash = compute_oof_partition_hash(combined_df)
     logger.info("run_feature_backfill.oof_hash", oof_partition_hash=oof_hash)
+
+    # 5b. Pandera schema validation across full feature dataset (Principle P4 & Task P2-03)
+    if verify_schema and not combined_df.empty:
+        schema = _load_feature_store_schema()
+        validate_frame(combined_df.drop(columns=["season"], errors="ignore"), schema)
+        logger.info("run_feature_backfill.schema_verified", rows=len(combined_df))
 
     # 6. Partitioned Parquet Storage
     written_paths: list[Path] = []
@@ -648,6 +733,7 @@ __all__ = [
     "get_season_date_range",
     "get_seasons_for_interval",
     "is_boundary_purged",
+    "load_backfilled_observations",
     "partition_block_e_folds",
     "partition_seasons",
     "run_feature_backfill",

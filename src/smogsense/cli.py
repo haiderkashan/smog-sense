@@ -259,6 +259,9 @@ def features_backfill_cmd(
     out_dir: str = typer.Option(
         "data/processed/feature_store", "--out-dir", help="Path to feature store root"
     ),
+    backfill_dir: str = typer.Option(
+        "data/processed/backfill", "--backfill-dir", help="Path to raw backfill archive partitions"
+    ),
     verify_schema: bool = typer.Option(
         True, "--verify-schema/--no-verify-schema", help="Enforce Pandera schema validation"
     ),
@@ -273,6 +276,7 @@ def features_backfill_cmd(
         end_date=end,
         split=split,
         out_dir=out_dir,
+        backfill_dir=backfill_dir,
         verify_schema=verify_schema,
     )
     print(f"Feature backfill complete for {domain.upper()}:")
