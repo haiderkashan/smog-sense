@@ -6,5 +6,5 @@ init_score residual boosting.
 
 Specification: docs/ml-architecture.md → 'LightGBM quantile ensemble (the frozen physics base)'
 
-Contract update: stacker bound to the encoder hash; remove warm-start and blend.
+Contract update: frozen physics base M5 (57 boosters), season-blocked cross-fit OOF base for calibrator training.
 """

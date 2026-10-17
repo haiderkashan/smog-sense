@@ -5,5 +5,5 @@ calls. LightGBM is not differentiable and is therefore adapted separately.
 
 Specification: docs/ml-architecture.md → 'Meta-learning (MAML, Meta-SGD) and adaptation'
 
-Contract update: neural only, temporary head, shared recipe.
+Contract update: neural residual calibrator, permanent head (57 outputs, zero-initialised last layer), Meta-SGD with per-tensor step sizes.
 """

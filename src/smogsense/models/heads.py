@@ -1,6 +1,8 @@
-"""smogsense.models.heads — Non-crossing neural quantile head.
+"""smogsense.models.heads — Residual quantile head (46 -> 64 -> 57).
 
-q_1 = a_1, q_k = q_{k-1} + softplus(a_k) for 19 levels x 3 horizons in log1p space.
+MLP 46 -> 64 (ReLU) -> 57 (linear) predicting local quantile residuals Delta z_{tau, h}
+for 19 levels x 3 horizons. Last layer is zero-initialised so an unadapted calibrator
+reproduces M5 exactly. Monotone rearrangement applied at inference.
 
 Specification: docs/ml-architecture.md → 'Quantile loss, the residual head, and the quantile function'
 """

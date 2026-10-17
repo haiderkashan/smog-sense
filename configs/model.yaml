@@ -68,12 +68,14 @@ encoder:
     convs_per_block: 2
     dropout: 0.1
 head:
+  input_dim: 46
   hidden:
-  - 128
   - 64
-  activation: gelu
-  dropout: 0.1
-  monotone: cumulative_softplus
+  output_dim: 57
+  activation: relu
+  dropout: 0.0
+  zero_init_last_layer: true
+  rearrange: monotone_sort
 lgbm:
   objective: quantile
   params:
@@ -102,7 +104,10 @@ meta:
     query_days: 14
   inner:
     steps: 3
-    lr: 0.01
+    step_size_granularity: per_tensor
+    lr_init: 0.01
+    loss: pinball
+    grad_clip: 1.0
   outer:
     optimizer: adam
     lr: 0.001
@@ -119,22 +124,12 @@ adaptation:
     - 30
     grad_clip: 1.0
     adapt_scope: all
-  head:
-    levels:
-    - 0.1
-    - 0.5
-    - 0.9
-    horizons:
-    - 24
-    - 48
-    - 72
-    temporary: true
   acceptance:
     embargo_h: 72
     min_improvement: 0.02
     min_days_better_fraction: 0.6
-  latent_drift:
-    statistic: mean_abs_std_shift
+  residual_bound:
+    statistic: mean_abs_residual
     threshold_quantile: 0.99
   rh_mask:
     enabled: false
@@ -142,16 +137,32 @@ adaptation:
     source: device_else_cams
     scope: lowcost_only
     min_support_fraction: 0.5
+corruption:
+  enabled: true
+  p: 1.0
+  gain_range:
+  - 0.8
+  - 1.3
+  rh_slope_range:
+  - 0.0
+  - 1.5
+  offset_range:
+  - -10.0
+  - 25.0
+  support_labels: clean
 calibration:
   aci_gamma: 0.02
   aci_gamma_grid:
   - 0.01
   - 0.02
   - 0.05
-stacker:
+base:
   inputs:
-  - latent
   - tabular
   - cams_lead_offset_h
   boosters_per_horizon: 19
-  bind_encoder_sha256: true
+  bind_base_sha256: true
+  cross_fit:
+    max_folds: 3
+    embargo_h: 72
+    purging: true

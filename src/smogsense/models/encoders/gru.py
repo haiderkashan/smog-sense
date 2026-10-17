@@ -1,6 +1,6 @@
 """smogsense.models.encoders.gru — Two-layer GRU encoder with missingness-aware inputs.
 
-Consumes [x*m, m, delta] per hour and returns a latent vector z (default 32-d).
+Consumes the six local observation channels (C = 6) per hour and returns latent vector z in R^{32}.
 
 Specification: docs/ml-architecture.md → 'Sequence encoder'
 """

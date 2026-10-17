@@ -44,7 +44,7 @@ def test_compute_elapsed_time_since_observation() -> None:
 
 
 def test_build_sequence_tensor_dimensions_and_channels() -> None:
-    """Validate 72h historical sequence tensor shape (72, 10) and channel alignment."""
+    """Validate 72h historical sequence tensor shape (72, 6) and channel alignment."""
     t_iss = datetime(2026, 11, 2, 0, 0, tzinfo=UTC)
     loc_id = 1001
 
@@ -91,17 +91,28 @@ def test_build_sequence_tensor_dimensions_and_channels() -> None:
         lookback_hours=72,
     )
 
-    assert seq.shape == (72, 10)
+    assert seq.shape == (72, 6)
     assert seq.location_id == loc_id
     assert seq.channels == list(SEQUENCE_CHANNELS)
     assert len(seq.timestamps) == 72
-    assert seq.values.shape == (72, 10)
-    assert seq.mask.shape == (72, 10)
+    assert seq.values.shape == (72, 6)
+    assert seq.mask.shape == (72, 6)
     assert seq.delta_t.shape == (72,)
 
-    # Combined array must have 12 columns: 10 channels + pm25_mask + delta_t
+    # Combined array has 6 columns matching C = 6 channels
     combined = seq.to_combined_array()
-    assert combined.shape == (72, 12)
+    assert combined.shape == (72, 6)
+
+    # Verify channel semantic values
+    # Channel 0: pm25_log1p_masked
+    np.testing.assert_allclose(seq.values[:, 0], np.log1p(np.linspace(50.0, 200.0, 72)))
+    # Channel 1: obs_minus_cams_pm25 (obs - cams)
+    expected_diff = np.linspace(50.0, 200.0, 72) - np.linspace(40.0, 180.0, 72)
+    np.testing.assert_allclose(seq.values[:, 1], expected_diff, rtol=1e-5)
+    # Channel 4: pm25_mask (all valid)
+    np.testing.assert_allclose(seq.values[:, 4], np.ones(72))
+    # Channel 5: delta_t (all observed -> 0.0)
+    np.testing.assert_allclose(seq.values[:, 5], np.zeros(72))
 
 
 def test_sequence_tensor_point_in_time_rejection() -> None:

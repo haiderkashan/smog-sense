@@ -5,5 +5,5 @@ feature_set_version or config hash is incompatible with the running code.
 
 Specification: docs/deployment-and-ops.md → 'Release and model promotion'
 
-Contract update: encoder <-> stacker binding.
+Contract update: base <-> calibrator binding (base_sha256).
 """

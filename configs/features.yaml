@@ -19,16 +19,12 @@ targets:
   block_hours: 24
   min_valid_hours: 18
 sequence_channels:
-- pm25_log1p
-- cams_pm25_log1p
-- aod550
-- blh_log
-- u10_ms
-- v10_ms
-- vc10_log
+- pm25_log1p_masked
+- obs_minus_cams_pm25
 - rh_pct
 - t2m_c
-- fire_exposure_e24
+- pm25_mask
+- delta_t
 meteorology:
   rh_formula: magnus_alduchov_eskridge
   blh_floor_m: 50.0
