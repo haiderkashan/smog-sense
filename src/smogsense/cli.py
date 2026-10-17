@@ -250,6 +250,43 @@ def features_snapshot_cmd(
     safe_exit(0)
 
 
+@app_features.command("backfill")
+def features_backfill_cmd(
+    domain: str = typer.Option("delhi", "--domain", help="Target domain (delhi, lahore)"),
+    start: str = typer.Option(..., "--start", help="Start date (YYYY-MM-DD)"),
+    end: str = typer.Option(..., "--end", help="End date (YYYY-MM-DD)"),
+    split: str | None = typer.Option(None, "--split", help="Split partition (E, V, T, eval)"),
+    out_dir: str = typer.Option(
+        "data/processed/feature_store", "--out-dir", help="Path to feature store root"
+    ),
+    verify_schema: bool = typer.Option(
+        True, "--verify-schema/--no-verify-schema", help="Enforce Pandera schema validation"
+    ),
+) -> None:
+    """Run multi-season feature store backfill engine (Task P2-03)."""
+    from smogsense.features.backfill import run_feature_backfill
+
+    print(f"Starting feature store backfill for domain: {domain.upper()} [{start} to {end}]")
+    result = run_feature_backfill(
+        domain=domain,
+        start_date=start,
+        end_date=end,
+        split=split,
+        out_dir=out_dir,
+        verify_schema=verify_schema,
+    )
+    print(f"Feature backfill complete for {domain.upper()}:")
+    print(f"  Seasons: {result.seasons}")
+    print(f"  Partitions: {result.season_partitions}")
+    if result.block_e_folds:
+        print(f"  Block E Folds: {result.block_e_folds}")
+    print(f"  OOF Partition Hash: {result.oof_partition_hash}")
+    print(f"  Total Samples Extracted: {result.total_samples}")
+    print(f"  Purged Samples (Embargo): {result.purged_samples}")
+    print(f"  Partitions Written: {len(result.partitions_written)}")
+    safe_exit(0)
+
+
 @app_reconcile.command("archive-api")
 def reconcile_archive_api_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (lahore, delhi)"),
