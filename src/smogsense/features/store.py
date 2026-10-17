@@ -159,6 +159,7 @@ def build_feature_table(
     feature_set_version: str = DEFAULT_FEATURE_SET_VERSION,
     config_hash: str | None = None,
     source_split: str | None = None,
+    fold_id: int | None = None,
     degradation_level: int = 0,
 ) -> pd.DataFrame:
     """Construct model-ready feature store table conforming to feature_store.schema.yaml.
@@ -254,6 +255,7 @@ def build_feature_table(
             "config_hash": str(c_hash),
             "n_available_stations": np.int32(n_available_stations),
             "source_split": source_split,
+            "fold_id": int(fold_id) if fold_id is not None else None,
         }
 
         # Targets
@@ -322,6 +324,9 @@ def build_feature_table(
         elif col.startswith("m_"):
             df_out[col] = df_out[col].astype("bool")
 
+    if "fold_id" in df_out.columns:
+        df_out["fold_id"] = df_out["fold_id"].astype("Int32")
+
     schema = _load_feature_store_schema()
     return validate_frame(df_out, schema)
 
@@ -329,11 +334,16 @@ def build_feature_table(
 def save_feature_table(
     df: pd.DataFrame,
     base_dir: str | Path = "data/processed/feature_store",
+    season: str | None = None,
+    oof_partition_hash: str | None = None,
 ) -> Path:
     """Serialize feature store DataFrame into partitioned Parquet with PyArrow metadata.
 
     File layout:
-    {base_dir}/{domain}/issuance=YYYY-MM-DD/features.parquet
+    - If season is provided:
+      {base_dir}/{domain}/season={season}/issuance={YYYY-MM-DD}/features.parquet
+    - Otherwise:
+      {base_dir}/{domain}/issuance={YYYY-MM-DD}/features.parquet
     """
     if df.empty:
         raise ValueError("Cannot save empty feature table")
@@ -342,11 +352,20 @@ def save_feature_table(
     iss_ts = pd.to_datetime(df["issuance_utc"].iloc[0], utc=True)
     iss_date_str = iss_ts.strftime("%Y-%m-%d")
 
-    target_dir = Path(base_dir) / domain / f"issuance={iss_date_str}"
+    if season:
+        target_dir = Path(base_dir) / domain / f"season={season}" / f"issuance={iss_date_str}"
+    else:
+        target_dir = Path(base_dir) / domain / f"issuance={iss_date_str}"
+
     target_dir.mkdir(parents=True, exist_ok=True)
     target_path = target_dir / "features.parquet"
 
     # Embedded PyArrow metadata
+    source_split_val = (
+        str(df["source_split"].iloc[0])
+        if "source_split" in df.columns and pd.notna(df["source_split"].iloc[0])
+        else "none"
+    )
     meta = {
         "feature_set_version": str(df["feature_set_version"].iloc[0]),
         "config_hash": str(df["config_hash"].iloc[0]),
@@ -354,6 +373,9 @@ def save_feature_table(
         "n_stations": str(len(df)),
         "domain": domain,
         "issuance_utc": iss_ts.isoformat(),
+        "source_split": source_split_val,
+        "season": str(season or "none"),
+        "oof_partition_hash": str(oof_partition_hash or "none"),
     }
     encoded_meta = {k.encode("utf-8"): v.encode("utf-8") for k, v in meta.items()}
 
@@ -370,6 +392,7 @@ def load_feature_table(
     domain: str,
     issuance_date: str | date | datetime,
     base_dir: str | Path = "data/processed/feature_store",
+    season: str | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Load partitioned feature store table and associated PyArrow metadata.
 
@@ -381,7 +404,22 @@ def load_feature_table(
         date_str = str(issuance_date)[:10]
 
     dom_clean = domain.lower().strip()
-    target_path = Path(base_dir) / dom_clean / f"issuance={date_str}" / "features.parquet"
+    if season:
+        target_path = (
+            Path(base_dir)
+            / dom_clean
+            / f"season={season}"
+            / f"issuance={date_str}"
+            / "features.parquet"
+        )
+    else:
+        target_path = Path(base_dir) / dom_clean / f"issuance={date_str}" / "features.parquet"
+        if not target_path.exists():
+            candidates = sorted(
+                (Path(base_dir) / dom_clean).glob(f"**/issuance={date_str}/features.parquet")
+            )
+            if candidates:
+                target_path = candidates[0]
 
     if not target_path.exists():
         raise FileNotFoundError(f"Feature table not found at: {target_path}")

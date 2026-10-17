@@ -82,6 +82,11 @@ columns:
     type: str
     nullable: true
     description: Train/val/test split.
+  fold_id:
+    description: Season-blocked cross-fitting fold id for Block E (0..K-1). Nullable for V/T/eval.
+    type: int
+    nullable: true
+    required: false
 coerce: true
 strict: true
 name: feature_store

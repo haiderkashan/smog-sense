@@ -249,7 +249,9 @@ def compute_hourly_fire_exposure(
     wdf = wind_df.copy()
     if "ts_utc" in wdf.columns:
         wdf["ts_utc"] = pd.to_datetime(wdf["ts_utc"], utc=True)
-        wdf = wdf.set_index("ts_utc")
+        wdf = wdf.drop_duplicates(subset=["ts_utc"]).set_index("ts_utc")
+    elif not wdf.empty and not wdf.index.is_unique:
+        wdf = wdf[~wdf.index.duplicated(keep="first")]
 
     u_col = next(
         (c for c in ("u10_ms", "u10", "10m_u_component_of_wind") if c in wdf.columns), None
