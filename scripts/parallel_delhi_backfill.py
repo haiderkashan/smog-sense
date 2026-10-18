@@ -23,7 +23,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from smogsense.features.backfill import (
@@ -66,18 +65,17 @@ SEASON_CONFIGS: list[dict[str, Any]] = [
 
 
 def _extract_season_worker(
-    cfg: dict[str, Any], backfill_dir: str
+    cfg: dict[str, Any], backfill_dir: str, domain: str = "delhi"
 ) -> tuple[str, list[pd.DataFrame], int, int]:
     """Worker function executed in separate process to extract features for one season."""
     season = cfg["season"]
-    split = cfg["split"]
-    fold_id = cfg["fold_id"]
+    split = "eval" if domain == "lahore" else cfg["split"]
+    fold_id = None if domain == "lahore" else cfg["fold_id"]
     s_date = datetime.strptime(cfg["start"], "%Y-%m-%d").date()
     e_date = datetime.strptime(cfg["end"], "%Y-%m-%d").date()
 
-    print(f"[{season}] Worker started (Split: {split}, Fold: {fold_id})...")
+    print(f"[{season}] Worker started for {domain.upper()} (Split: {split}, Fold: {fold_id})...")
 
-    domain = "delhi"
     c_hash = compute_config_hash()
 
     # Load real observations for domain
@@ -119,14 +117,12 @@ def _extract_season_worker(
         .sort_values(by="ts_utc")
         .reset_index(drop=True)
     )
-    obs_ts_vals = season_obs["ts_utc"].to_numpy()
 
     season_cams = (
         cams_df[(cams_df["ts_utc"] >= s_min_ts) & (cams_df["ts_utc"] <= s_max_ts)]
         .sort_values(by="ts_utc")
         .reset_index(drop=True)
     )
-    cams_ts_vals = season_cams["ts_utc"].to_numpy()
 
     season_fire = fire_df[
         (fire_df["ts_utc"] >= s_min_ts) & (fire_df["ts_utc"] <= s_max_ts)
@@ -151,16 +147,17 @@ def _extract_season_worker(
                 continue
 
             t_lookback_start = issuance_utc - timedelta(days=8)
-            t_lookback_np = pd.Timestamp(t_lookback_start).to_numpy()
-            t_iss_np = pd.Timestamp(issuance_utc).to_numpy()
+            ts_lookback = pd.Timestamp(t_lookback_start)
+            ts_iss = pd.Timestamp(issuance_utc)
+            ts_fut_end = pd.Timestamp(issuance_utc + timedelta(hours=72))
 
-            i_obs_start = int(np.searchsorted(obs_ts_vals, t_lookback_np))
-            i_obs_end = int(np.searchsorted(obs_ts_vals, t_iss_np))
+            i_obs_start = int(season_obs["ts_utc"].searchsorted(ts_lookback))
+            i_obs_end = int(season_obs["ts_utc"].searchsorted(ts_iss))
             obs_win = season_obs.iloc[i_obs_start:i_obs_end]
             obs_slice = obs_win[obs_win["available_at_utc"] <= issuance_utc]
 
-            i_cams_start = int(np.searchsorted(cams_ts_vals, t_lookback_np))
-            i_cams_end = int(np.searchsorted(cams_ts_vals, t_iss_np))
+            i_cams_start = int(season_cams["ts_utc"].searchsorted(ts_lookback))
+            i_cams_end = int(season_cams["ts_utc"].searchsorted(ts_iss))
             cams_win = season_cams.iloc[i_cams_start:i_cams_end]
             cams_slice = cams_win[cams_win["available_at_utc"] <= issuance_utc]
 
@@ -170,8 +167,7 @@ def _extract_season_worker(
                 & (season_fire["ts_utc"] < issuance_utc)
             ]
 
-            t_fut_end_np = pd.Timestamp(issuance_utc + timedelta(hours=72)).to_numpy()
-            i_fut_end = int(np.searchsorted(obs_ts_vals, t_fut_end_np))
+            i_fut_end = int(season_obs["ts_utc"].searchsorted(ts_fut_end))
             fut_slice = season_obs.iloc[i_obs_end:i_fut_end]
 
             tbl = build_feature_table(
@@ -199,7 +195,12 @@ def _extract_season_worker(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Parallel multi-season backfill for Delhi.")
+    parser = argparse.ArgumentParser(
+        description="Parallel multi-season backfill for Delhi or Lahore."
+    )
+    parser.add_argument(
+        "--domain", default="delhi", choices=["delhi", "lahore"], help="Domain to process"
+    )
     parser.add_argument(
         "--workers", type=int, default=4, help="Number of concurrent worker processes"
     )
@@ -215,7 +216,7 @@ def main() -> None:
     out_path.mkdir(parents=True, exist_ok=True)
 
     print("=" * 80)
-    print("STARTING PARALLEL MULTI-SEASON FEATURE STORE BACKFILL (DELHI)")
+    print(f"STARTING PARALLEL MULTI-SEASON FEATURE STORE BACKFILL ({args.domain.upper()})")
     print(f"Workers: {args.workers} | Seasons: {len(SEASON_CONFIGS)}")
     print("=" * 80)
 
@@ -225,7 +226,9 @@ def main() -> None:
 
     with ProcessPoolExecutor(max_workers=args.workers) as executor:
         futures = {
-            executor.submit(_extract_season_worker, cfg, args.backfill_dir): cfg["season"]
+            executor.submit(_extract_season_worker, cfg, args.backfill_dir, args.domain): cfg[
+                "season"
+            ]
             for cfg in SEASON_CONFIGS
         }
         for future in as_completed(futures):
@@ -269,7 +272,7 @@ def main() -> None:
             )
             written_count += 1
 
-    print(f"Successfully wrote {written_count} daily partitions for Delhi.")
+    print(f"Successfully wrote {written_count} daily partitions for {args.domain.capitalize()}.")
     print("=" * 80)
 
 

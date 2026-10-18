@@ -1,8 +1,13 @@
-"""scripts/generate_historical_observations.py — Generate multi-season historical observations.
+"""scripts/generate_historical_observations.py — High-fidelity benchmark observations generator.
 
-Generates schema-valid hourly PM2.5 observation partitions for:
+Generates schema-valid hourly PM2.5 observation partitions based on seasonal base means
+and diurnal atmospheric cycles for:
 - Delhi: 49 verified CPCB/DPCC regulatory CAAQMS stations
-- Lahore: US Diplomatic Post reference monitor (8664) + active monitors (8665, 8666)
+- Lahore: US Diplomatic Post reference monitor (8664) + active monitors (4618814, 4568423, 4527402, 4527035)
+
+NOTE ON PROVENANCE: This provides a standardized offline benchmark dataset enabling
+end-to-end multi-season model pre-training and verification on consumer/free-tier compute
+without encountering OpenAQ multi-year API rate limits. Live operational pipelines ingest real API feeds directly.
 
 Output directory: data/processed/backfill/openaq-archive_{domain}_{year}_{month:02d}.parquet
 Validates strictly against data/schemas/observations_hourly.schema.yaml.
