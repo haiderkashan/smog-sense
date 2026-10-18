@@ -36,6 +36,7 @@ Specification:
 from __future__ import annotations
 
 import calendar
+import contextlib
 import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -228,21 +229,14 @@ def compute_oof_partition_hash(df: pd.DataFrame) -> str:
     if df.empty or "fold_id" not in df.columns or df["fold_id"].isna().all():
         return hashlib.sha256(b"none").hexdigest()
 
-    sub = df[df["fold_id"].notna()].copy()
+    sub = df[df["fold_id"].notna()].sort_values(by=["location_id", "issuance_utc"])
     if sub.empty:
         return hashlib.sha256(b"none").hexdigest()
 
-    sub["iss_ts"] = pd.to_datetime(sub["issuance_utc"], utc=True)
-    sub = sub.sort_values(by=["location_id", "iss_ts"])
-
-    lines: list[str] = []
-    for _, r in sub.iterrows():
-        loc_id = int(r["location_id"])
-        ts_str = pd.to_datetime(r["iss_ts"]).strftime("%Y-%m-%dT%H:%M:%SZ")
-        fid = int(r["fold_id"])
-        lines.append(f"{loc_id}:{ts_str}:{fid}\n")
-
-    content = "".join(lines)
+    loc_strs = sub["location_id"].astype(str)
+    ts_strs = pd.to_datetime(sub["issuance_utc"], utc=True).dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    fid_strs = sub["fold_id"].astype(int).astype(str)
+    content = "".join((loc_strs + ":" + ts_strs + ":" + fid_strs + "\n").values)
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
@@ -544,12 +538,17 @@ def run_feature_backfill(
 
     # Determine target stations and metadata
     if registry_df is None or registry_df.empty:
-        try:
-            from smogsense.data_ingestion.fixtures_mode import load_fixture_locations
+        reg_file = Path("data/registry") / f"registry_{dom}.parquet"
+        if reg_file.exists():
+            with contextlib.suppress(Exception):
+                registry_df = pd.read_parquet(reg_file)
+        if registry_df is None or registry_df.empty:
+            try:
+                from smogsense.data_ingestion.fixtures_mode import load_fixture_locations
 
-            registry_df = load_fixture_locations(domain=dom)
-        except Exception:
-            registry_df = None
+                registry_df = load_fixture_locations(domain=dom)
+            except Exception:
+                registry_df = None
 
     stations: list[int] = []
     if obs_df is not None and not obs_df.empty and "location_id" in obs_df.columns:
@@ -558,7 +557,9 @@ def run_feature_backfill(
         stations = sorted([int(x) for x in registry_df["location_id"].dropna().unique()])
     else:
         # Verified default stations
-        stations = [7001, 7002, 7003] if dom == "delhi" else [1001]
+        from smogsense.data_ingestion.openaq_archive import _discover_pilot_locations
+
+        stations = _discover_pilot_locations(dom)
 
     # 3. Load or synthesize raw source data across the time horizon
     start_utc = datetime(s_date.year, s_date.month, s_date.day, 0, 0, 0, tzinfo=UTC) - timedelta(
@@ -598,6 +599,32 @@ def run_feature_backfill(
         s_split = season_partitions.get(season, "eval")
         fold_id = block_e_folds.get(season, None) if s_split == "E" else None
 
+        # Pre-filter source DataFrames to season bounds (+/- 9 days) and sort by ts_utc for fast searchsorted slicing
+        s_min_ts = datetime(
+            c_start.year, c_start.month, c_start.day, 0, 0, 0, tzinfo=UTC
+        ) - timedelta(days=9)
+        s_max_ts = datetime(c_end.year, c_end.month, c_end.day, 23, 59, 59, tzinfo=UTC) + timedelta(
+            days=9
+        )
+
+        season_obs_df = (
+            obs_df[(obs_df["ts_utc"] >= s_min_ts) & (obs_df["ts_utc"] <= s_max_ts)]
+            .sort_values(by="ts_utc")
+            .reset_index(drop=True)
+        )
+        obs_ts_series = season_obs_df["ts_utc"]
+
+        season_cams_df = (
+            cams_df[(cams_df["ts_utc"] >= s_min_ts) & (cams_df["ts_utc"] <= s_max_ts)]
+            .sort_values(by="ts_utc")
+            .reset_index(drop=True)
+        )
+        cams_ts_series = season_cams_df["ts_utc"]
+
+        season_fire_df = fire_df[
+            (fire_df["ts_utc"] >= s_min_ts) & (fire_df["ts_utc"] <= s_max_ts)
+        ].reset_index(drop=True)
+
         c_cur = c_start
         while c_cur <= c_end:
             for hour in lattice_hours:
@@ -622,28 +649,41 @@ def run_feature_backfill(
                 # Point-in-time slicing
                 # Lookback windowing to relevant history (lookback <= 8 days) while strictly enforcing available_at_utc <= T
                 t_lookback_start = issuance_utc - timedelta(days=8)
-                obs_slice = obs_df[
-                    (obs_df["ts_utc"] >= t_lookback_start)
-                    & (obs_df["available_at_utc"] <= issuance_utc)
-                    & (obs_df["ts_utc"] < issuance_utc)
-                ]
+                ts_lookback = (
+                    pd.Timestamp(t_lookback_start).tz_convert(UTC)
+                    if pd.Timestamp(t_lookback_start).tzinfo
+                    else pd.Timestamp(t_lookback_start, tz=UTC)
+                )
+                ts_iss = (
+                    pd.Timestamp(issuance_utc).tz_convert(UTC)
+                    if pd.Timestamp(issuance_utc).tzinfo
+                    else pd.Timestamp(issuance_utc, tz=UTC)
+                )
+                ts_fut_end = (
+                    pd.Timestamp(issuance_utc + timedelta(hours=72)).tz_convert(UTC)
+                    if pd.Timestamp(issuance_utc + timedelta(hours=72)).tzinfo
+                    else pd.Timestamp(issuance_utc + timedelta(hours=72), tz=UTC)
+                )
 
-                cams_slice = cams_df[
-                    (cams_df["ts_utc"] >= t_lookback_start)
-                    & (cams_df["available_at_utc"] <= issuance_utc)
-                    & (cams_df["ts_utc"] < issuance_utc)
-                ]
+                i_obs_start = int(obs_ts_series.searchsorted(ts_lookback))
+                i_obs_end = int(obs_ts_series.searchsorted(ts_iss))
+                obs_window = season_obs_df.iloc[i_obs_start:i_obs_end]
+                obs_slice = obs_window[obs_window["available_at_utc"] <= issuance_utc]
 
-                fire_slice = fire_df[
-                    (fire_df["available_at_utc"] <= issuance_utc)
-                    & (fire_df["ts_utc"] >= t_lookback_start)
+                i_cams_start = int(cams_ts_series.searchsorted(ts_lookback))
+                i_cams_end = int(cams_ts_series.searchsorted(ts_iss))
+                cams_window = season_cams_df.iloc[i_cams_start:i_cams_end]
+                cams_slice = cams_window[cams_window["available_at_utc"] <= issuance_utc]
+
+                fire_slice = season_fire_df[
+                    (season_fire_df["available_at_utc"] <= issuance_utc)
+                    & (season_fire_df["ts_utc"] >= t_lookback_start)
+                    & (season_fire_df["ts_utc"] < issuance_utc)
                 ]
 
                 # Future ground observations for target calculation [T, T+72h)
-                fut_slice = obs_df[
-                    (obs_df["ts_utc"] >= issuance_utc)
-                    & (obs_df["ts_utc"] < issuance_utc + timedelta(hours=72))
-                ]
+                i_fut_end = int(obs_ts_series.searchsorted(ts_fut_end))
+                fut_slice = season_obs_df.iloc[i_obs_end:i_fut_end]
 
                 try:
                     feat_table = build_feature_table(

@@ -344,6 +344,60 @@ async def fetch_archive_day(
             return await _do_fetch(default_client)
 
 
+VERIFIED_DELHI_LOCATIONS = [
+    17,
+    50,
+    235,
+    301,
+    5404,
+    5509,
+    5541,
+    5570,
+    5610,
+    5613,
+    5622,
+    5626,
+    5627,
+    5630,
+    5634,
+    5665,
+    6357,
+    6358,
+    6359,
+    6924,
+    6929,
+    6931,
+    6932,
+    6934,
+    6936,
+    6938,
+    6953,
+    6957,
+    6960,
+    6978,
+    6980,
+    6986,
+    7005,
+    7044,
+    8118,
+    8235,
+    8239,
+    8365,
+    8472,
+    8475,
+    8915,
+    8917,
+    10484,
+    10485,
+    10486,
+    10488,
+    10831,
+    10919,
+    10921,
+]
+VERIFIED_LAHORE_LOCATIONS = [8664, 8665, 8666]
+
+
 def _discover_pilot_locations(domain: str) -> list[int]:
     """Retrieve verified station location IDs for domain strictly within station_bbox."""
     settings = Settings.load("configs")
@@ -381,10 +435,10 @@ def _discover_pilot_locations(domain: str) -> list[int]:
 
     # Fallback to verified real domain stations within station_bbox
     if domain == "delhi":
-        return [7021, 7022, 7023, 7024, 7025]
+        return sorted(VERIFIED_DELHI_LOCATIONS)
     if domain == "lahore":
-        return [1001]
-    return [1001]
+        return sorted(VERIFIED_LAHORE_LOCATIONS)
+    return sorted(VERIFIED_LAHORE_LOCATIONS)
 
 
 async def run_backfill_pilot_async(

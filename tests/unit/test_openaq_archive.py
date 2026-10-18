@@ -118,9 +118,9 @@ async def test_fetch_archive_day_200_and_404() -> None:
 def test_run_backfill_pilot(tmp_path: Path) -> None:
     gz_bytes = _make_sample_archive_csv_gz()
 
-    # Mock all archive URLs: return 200 for loc 1001, 404 otherwise
+    # Mock all archive URLs: return 200 for loc 8664 or 1001, 404 otherwise
     def _mock_s3(request: httpx.Request) -> httpx.Response:
-        if "locationid=1001" in str(request.url):
+        if "locationid=8664" in str(request.url) or "locationid=1001" in str(request.url):
             return httpx.Response(200, content=gz_bytes)
         return httpx.Response(404)
 

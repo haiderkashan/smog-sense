@@ -107,19 +107,17 @@ def compute_recent_cams_bias(
     ):
         return 0.0
 
-    o_df = obs_df.copy()
-    o_df["ts_utc"] = pd.to_datetime(o_df["ts_utc"], utc=True)
-    if "location_id" in o_df.columns:
-        o_df = o_df[o_df["location_id"] == location_id]
-    o_slice = o_df[(o_df["ts_utc"] >= lookback_start) & (o_df["ts_utc"] < t_iss)]
+    o_slice = obs_df
+    if "location_id" in o_slice.columns:
+        o_slice = o_slice[o_slice["location_id"] == location_id]
+    if "ts_utc" in o_slice.columns:
+        o_slice = o_slice[(o_slice["ts_utc"] >= lookback_start) & (o_slice["ts_utc"] < t_iss)]
 
-    c_df = cams_df.copy()
-    c_df["ts_utc"] = pd.to_datetime(c_df["ts_utc"], utc=True)
-    if "location_id" in c_df.columns:
-        c_sub = c_df[c_df["location_id"] == location_id]
-        if not c_sub.empty:
-            c_df = c_sub
-    c_slice = c_df[(c_df["ts_utc"] >= lookback_start) & (c_df["ts_utc"] < t_iss)]
+    c_slice = cams_df
+    if "location_id" in c_slice.columns:
+        c_slice = c_slice[c_slice["location_id"] == location_id]
+    if "ts_utc" in c_slice.columns:
+        c_slice = c_slice[(c_slice["ts_utc"] >= lookback_start) & (c_slice["ts_utc"] < t_iss)]
 
     if o_slice.empty or c_slice.empty:
         return 0.0
@@ -198,8 +196,9 @@ def build_feature_table(
         stations = [int(x) for x in obs_df["location_id"].dropna().unique()]
     else:
         # Default domain location fallback
-        default_loc = 1001 if dom_clean == "lahore" else 7001
-        stations = [default_loc]
+        from smogsense.data_ingestion.openaq_archive import _discover_pilot_locations
+
+        stations = _discover_pilot_locations(dom_clean)
 
     n_available_stations = len(stations)
 
@@ -247,6 +246,49 @@ def build_feature_table(
         horizons=horizons,
     )
 
+    # Pre-index registry for fast O(1) dictionary lookup
+    reg_lookup: dict[int, dict[str, Any]] = {}
+    if registry_df is not None and not registry_df.empty and "location_id" in registry_df.columns:
+        for r_dict in registry_df.to_dict("records"):
+            reg_lookup[int(r_dict["location_id"])] = {str(k): v for k, v in r_dict.items()}
+
+    # Batch compute recent CAMS bias if observations and CAMS data are available
+    cams_bias_map: dict[int, float] = {}
+    if (
+        obs_df is not None
+        and cams_df is not None
+        and not obs_df.empty
+        and not cams_df.empty
+        and "location_id" in obs_df.columns
+        and "location_id" in cams_df.columns
+    ):
+        lookback_7d = t_iss - timedelta(days=7)
+        o_recent = obs_df[(obs_df["ts_utc"] >= lookback_7d) & (obs_df["ts_utc"] < t_iss)]
+        c_recent = cams_df[(cams_df["ts_utc"] >= lookback_7d) & (cams_df["ts_utc"] < t_iss)]
+        c_col = next((c for c in ("cams_pm25", "pm25_ugm3", "pm25") if c in c_recent.columns), None)
+        if c_col and "pm25_ugm3" in o_recent.columns:
+            m = (
+                o_recent[["location_id", "ts_utc", "pm25_ugm3"]]
+                .dropna()
+                .merge(
+                    c_recent[["location_id", "ts_utc", c_col]].dropna(),
+                    on=["location_id", "ts_utc"],
+                )
+            )
+            if not m.empty:
+                m["diff"] = m["pm25_ugm3"] - m[c_col]
+                counts = m.groupby("location_id")["diff"].count()
+                valid_lids = counts[counts >= 6].index
+                if not valid_lids.empty:
+                    cams_bias_map = {
+                        int(str(k)): float(v)
+                        for k, v in m[m["location_id"].isin(valid_lids)]
+                        .groupby("location_id")["diff"]
+                        .mean()
+                        .to_dict()
+                        .items()
+                    }
+
     rows: list[dict[str, Any]] = []
 
     for loc_id in stations:
@@ -270,15 +312,7 @@ def build_feature_table(
             row[f"valid_h{h}"] = v_val
 
         # Static Station Covariates
-        stn_meta: dict[str, Any] = {"location_id": loc_id}
-        if (
-            registry_df is not None
-            and not registry_df.empty
-            and "location_id" in registry_df.columns
-        ):
-            stn_slice = registry_df[registry_df["location_id"] == loc_id]
-            if not stn_slice.empty:
-                stn_meta = dict(stn_slice.iloc[0])
+        stn_meta = reg_lookup.get(loc_id, {"location_id": loc_id})
 
         stat_features = extract_station_static_covariates(stn_meta, domain=dom_clean)
         for k, v in stat_features.items():
@@ -295,13 +329,16 @@ def build_feature_table(
         row["f_cams_lead_offset_h"] = np.float32(cams_offset_h)
         row["m_cams_lead_offset_h"] = False
 
-        cams_bias = compute_recent_cams_bias(
-            obs_df=obs_df,
-            cams_df=cams_df,
-            location_id=loc_id,
-            issuance_utc=t_iss,
-            window_days=7,
-        )
+        if loc_id in cams_bias_map:
+            cams_bias = cams_bias_map[loc_id]
+        else:
+            cams_bias = compute_recent_cams_bias(
+                obs_df=obs_df,
+                cams_df=cams_df,
+                location_id=loc_id,
+                issuance_utc=t_iss,
+                window_days=7,
+            )
         row["f_cams_bias_trailing_7d"] = np.float32(cams_bias)
         row["m_cams_bias_trailing_7d"] = bool(pd.isna(cams_bias))
 
