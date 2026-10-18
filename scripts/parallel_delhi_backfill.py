@@ -27,21 +27,21 @@ import numpy as np
 import pandas as pd
 
 from smogsense.features.backfill import (
-    DEFAULT_FEATURE_SET_VERSION,
-    compute_config_hash,
     compute_oof_partition_hash,
     get_season_date_range,
     is_boundary_purged,
     load_backfilled_observations,
 )
 from smogsense.features.store import (
+    DEFAULT_FEATURE_SET_VERSION,
     _load_feature_store_schema,
     build_feature_table,
+    compute_config_hash,
     save_feature_table,
 )
 from smogsense.utils.io import validate_frame
 
-SEASON_CONFIGS = [
+SEASON_CONFIGS: list[dict[str, Any]] = [
     {"season": "2018-2019", "split": "E", "fold_id": 0, "start": "2018-10-01", "end": "2019-02-28"},
     {"season": "2019-2020", "split": "E", "fold_id": 0, "start": "2019-10-01", "end": "2020-02-29"},
     {"season": "2020-2021", "split": "E", "fold_id": 1, "start": "2020-10-01", "end": "2021-02-28"},
