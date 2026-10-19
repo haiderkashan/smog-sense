@@ -296,6 +296,52 @@ def test_cli_low_cost_correction(tmp_path: Path) -> None:
     runner = CliRunner()
     json_out = tmp_path / "cv_report.json"
 
+    # Create mock registry in tmp_path
+    reg_df = pd.DataFrame(
+        {
+            "location_id": [8664, 4527035],
+            "name": ["US Consulate General Lahore", "Civil Secretariat"],
+            "lat": [31.5601, 31.5659],
+            "lon": [74.3359, 74.2994],
+            "is_reference": [True, False],
+            "sensor_model": ["Regulatory CAAQMS", "Optical Low-Cost"],
+        }
+    )
+    reg_file = tmp_path / "test_registry.parquet"
+    reg_df.to_parquet(reg_file, index=False)
+
+    # Create mock backfill observation partition in tmp_path with realistic variance
+    rng = np.random.default_rng(20261019)
+    n_records = 600
+    ts = pd.date_range("2026-01-01", periods=n_records, freq="h", tz="UTC")
+    pm_ref = rng.uniform(50.0, 200.0, size=n_records)
+    rh_val = rng.uniform(30.0, 80.0, size=n_records)
+    pm_cand = 1.3 * pm_ref + 0.2 * rh_val + 10.0 + rng.normal(0.0, 2.0, size=n_records)
+
+    obs_ref = pd.DataFrame(
+        {
+            "location_id": [8664] * n_records,
+            "ts_utc": ts,
+            "pm25_ugm3": pm_ref,
+            "pm25_raw_ugm3": pm_ref,
+            "rh_pct": rh_val,
+        }
+    )
+    obs_cand = pd.DataFrame(
+        {
+            "location_id": [4527035] * n_records,
+            "ts_utc": ts,
+            "pm25_ugm3": pm_cand,
+            "pm25_raw_ugm3": pm_cand,
+            "rh_pct": rh_val,
+        }
+    )
+    backfill_dir = tmp_path / "backfill"
+    backfill_dir.mkdir(parents=True, exist_ok=True)
+    pd.concat([obs_ref, obs_cand], ignore_index=True).to_parquet(
+        backfill_dir / "openaq-archive_lahore_2026_01.parquet", index=False
+    )
+
     res = runner.invoke(
         app,
         [
@@ -303,6 +349,14 @@ def test_cli_low_cost_correction(tmp_path: Path) -> None:
             "low-cost-correction",
             "--domain",
             "lahore",
+            "--registry-path",
+            str(reg_file),
+            "--backfill-dir",
+            str(backfill_dir),
+            "--min-pairs",
+            "50",
+            "--window-days",
+            "60",
             "--output-json",
             str(json_out),
         ],
