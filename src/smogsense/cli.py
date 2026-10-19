@@ -687,6 +687,100 @@ def score_settled_cmd(
     safe_exit(0 if res.get("status") in ("ok", "no_forecasts") else 1)
 
 
+@app_train.command("lgbm")
+def train_lgbm_cmd(
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    domain: str = typer.Option("delhi", "--domain", help="Source domain (delhi)"),
+    split: str = typer.Option("E", "--split", help="Split to train on (E)"),
+    oof: bool = typer.Option(False, "--oof", help="Run season-blocked cross-fitting on Block E"),
+    out_dir: str = typer.Option(
+        "data/processed/models/lgbm_m5", "--out-dir", "-o", help="Output directory for model"
+    ),
+    num_boost_round: int = typer.Option(120, "--num-boost-round", help="Boosting rounds"),
+) -> None:
+    """Train LightGBM M5 physics base ensemble with optional OOF cross-fitting (Task P2-04 / P3-01)."""
+    import pandas as pd
+
+    from smogsense.models.lgbm_quantile import (
+        DEFAULT_HORIZONS,
+        DEFAULT_QUANTILES,
+        LGBMQuantileEnsemble,
+        fit_cross_fit_oof,
+    )
+
+    fs_path = Path(feature_store_dir)
+    pattern = f"{domain}/**/features.parquet"
+    files = sorted(fs_path.glob(pattern))
+    if not files:
+        print(f"Error: No partitions found under {fs_path / domain}")
+        safe_exit(1)
+        return
+
+    dfs = [pd.read_parquet(f) for f in files]
+    df_all = pd.concat(dfs, ignore_index=True)
+    if "source_split" in df_all.columns:
+        df_train = df_all[df_all["source_split"] == split].copy()
+    else:
+        df_train = df_all
+
+    print(f"Loaded {len(df_train):,} training samples for domain '{domain}' (split: {split}).")
+
+    out_path = Path(out_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    if oof:
+        print("Executing season-blocked cross-fitting on Block E...")
+        oof_df, base_model = fit_cross_fit_oof(
+            df_block_e=df_train,
+            horizons=DEFAULT_HORIZONS,
+            quantiles=DEFAULT_QUANTILES,
+            num_boost_round=num_boost_round,
+        )
+        oof_file = out_path / "m5_oof_predictions.parquet"
+        oof_df.to_parquet(oof_file, index=False)
+        print(f"Saved out-of-fold base predictions to: {oof_file} ({len(oof_df):,} rows)")
+        base_model.save(out_path / "base_model")
+        print(f"Saved base model ensemble to: {out_path / 'base_model'}")
+    else:
+        print("Training LightGBM M5 physics base on full split...")
+        base_model = LGBMQuantileEnsemble(model_type="M5")
+        base_model.fit(df_train, num_boost_round=num_boost_round)
+        base_model.save(out_path)
+        print(f"Saved LightGBM M5 ensemble to: {out_path}")
+
+    print(f"Deterministic Base SHA256: {base_model.compute_base_sha256()}")
+    safe_exit(0)
+
+
+@app_eval.command("probe")
+def eval_probe_cmd(
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    subsample_train: int | None = typer.Option(
+        None, "--subsample-train", help="Subsample Delhi training rows for rapid execution"
+    ),
+    location_id: int = typer.Option(8664, "--location-id", help="Lahore monitor ID to evaluate"),
+    num_boost_round: int = typer.Option(120, "--num-boost-round", help="Boosting iterations"),
+    output_json: str | None = typer.Option(
+        None, "--output-json", "-o", help="Path to write JSON probe report"
+    ),
+) -> None:
+    from smogsense.models.lgbm_quantile import run_early_transfer_probe
+
+    res = run_early_transfer_probe(
+        feature_store_dir=feature_store_dir,
+        subsample_train=subsample_train,
+        eval_location_id=location_id,
+        num_boost_round=num_boost_round,
+        out_json=output_json,
+    )
+    passed = res.get("gate_g2_passed", False)
+    safe_exit(0 if passed else 1)
+
+
 def main() -> None:
     try:
         app()
