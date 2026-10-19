@@ -41,7 +41,7 @@ imputation:
   long_gap:
     policy: mask
 lowcost_correction:
-  enabled: false
+  enabled: true
   form: pm25_corrected = a * pm25_raw + b * rh_pct + c
   fit:
     reference: reference_monitors

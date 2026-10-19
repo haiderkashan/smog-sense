@@ -1,11 +1,25 @@
-"""smogsense.preprocessing.lowcost_correction — Humidity-aware correction of low-cost optical PM2.5 readings.
+"""smogsense.preprocessing.lowcost_correction — Alias for smogsense.preprocessing.low_cost_correction.
 
-Fits and applies a linear RH-dependent correction (form of Barkjohn et al. 2021) against
-reference monitors; coefficients are fitted on Lahore data, never hard-coded.
-
-Public contract (implemented in Phase 2):
-- fit(pairs) -> CorrectionModel
-- apply(df, model) -> df
-
-Specification: docs/data-engineering.md → 'Quality control and low-cost sensor handling'
+Provides backward and alternate naming compatibility.
+Specification: docs/data-engineering.md §5, docs/ml-architecture.md §8, and PRD FR-11.
 """
+
+from __future__ import annotations
+
+from smogsense.preprocessing.low_cost_correction import (
+    LowCostCorrectionModel,
+    audit_corruption_priors,
+    build_paired_observations,
+    find_candidate_stations,
+    haversine_distance_km,
+    update_preprocessing_config_decision,
+)
+
+__all__ = [
+    "LowCostCorrectionModel",
+    "audit_corruption_priors",
+    "build_paired_observations",
+    "find_candidate_stations",
+    "haversine_distance_km",
+    "update_preprocessing_config_decision",
+]

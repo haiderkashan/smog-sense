@@ -43,6 +43,7 @@ app_state = typer.Typer(no_args_is_help=True)
 app_run = typer.Typer(no_args_is_help=True)
 app_reconcile = typer.Typer(no_args_is_help=True)
 app_audit = typer.Typer(no_args_is_help=True)
+app_preprocess = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -57,6 +58,7 @@ app.add_typer(app_state, name="state")
 app.add_typer(app_run, name="run")
 app.add_typer(app_reconcile, name="reconcile")
 app.add_typer(app_audit, name="audit")
+app.add_typer(app_preprocess, name="preprocess")
 
 
 @app.command()
@@ -779,6 +781,63 @@ def eval_probe_cmd(
     )
     passed = res.get("gate_g2_passed", False)
     safe_exit(0 if passed else 1)
+
+
+@app_preprocess.command("low-cost-correction")
+def preprocess_low_cost_correction_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
+    backfill_dir: str = typer.Option(
+        "data/processed/backfill",
+        "--backfill-dir",
+        help="Path to backfilled observation partitions",
+    ),
+    registry_path: str | None = typer.Option(
+        None, "--registry-path", help="Path to registry parquet file (default: auto)"
+    ),
+    window_days: int = typer.Option(
+        60, "--window-days", help="Window in days for pairing (default: 60)"
+    ),
+    max_distance_km: float = typer.Option(
+        8.0,
+        "--max-distance-km",
+        help="Maximum distance in km from reference monitor (default: 8.0)",
+    ),
+    min_pairs: int = typer.Option(
+        500, "--min-pairs", help="Minimum required hourly pairs (default: 500)"
+    ),
+    output_json: str | None = typer.Option(
+        None, "--output-json", "-o", help="Path to write JSON validation and audit report"
+    ),
+    output_model: str | None = typer.Option(
+        None, "--output-model", help="Path to save serialized model (JSON or Parquet)"
+    ),
+    update_config: bool = typer.Option(
+        False, "--update-config", help="Update configs/preprocessing.yaml based on decision rule"
+    ),
+    config_path: str = typer.Option(
+        "configs/preprocessing.yaml", "--config-path", help="Path to preprocessing.yaml"
+    ),
+    model_config_path: str = typer.Option(
+        "configs/model.yaml", "--model-config-path", help="Path to model.yaml"
+    ),
+) -> None:
+    """Fit, validate, and audit empirical humidity-aware low-cost sensor correction (Task P2-05)."""
+    from smogsense.preprocessing.low_cost_correction import run_fitting_pipeline
+
+    run_fitting_pipeline(
+        domain=domain,
+        backfill_dir=backfill_dir,
+        registry_path=registry_path,
+        window_days=window_days,
+        max_distance_km=max_distance_km,
+        min_pairs=min_pairs,
+        output_json=output_json,
+        output_model=output_model,
+        update_config=update_config,
+        config_path=config_path,
+        model_config_path=model_config_path,
+    )
+    safe_exit(0)
 
 
 def main() -> None:

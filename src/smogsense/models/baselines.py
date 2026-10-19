@@ -15,7 +15,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import QuantileRegressor  # type: ignore[import-untyped]
+from sklearn.linear_model import QuantileRegressor
 
 from smogsense.models.distribution import QuantileFunction
 
