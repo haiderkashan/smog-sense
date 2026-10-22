@@ -115,7 +115,7 @@ class MaskedResidualPinballLoss(nn.Module):
             y_true = y_true.view(-1, 1, 1)
 
         # Pinball loss per quantile: shape (B, 3, 19)
-        taus = self.taus.view(1, 1, -1)
+        taus = self.taus.to(device=y_pred.device, dtype=y_pred.dtype).view(1, 1, -1)
         error = y_true - y_pred
         loss_per_q = torch.maximum(taus * error, (taus - 1.0) * error)
 
@@ -129,9 +129,10 @@ class MaskedResidualPinballLoss(nn.Module):
             mask_float = mask.to(dtype=loss_per_horizon.dtype, device=loss_per_horizon.device)
             masked_loss = loss_per_horizon * mask_float
             mask_sum = mask_float.sum()
+            safe_mask_sum = torch.clamp(mask_sum, min=1.0)
             loss = torch.where(
                 mask_sum > 0,
-                masked_loss.sum() / mask_sum,
+                masked_loss.sum() / safe_mask_sum,
                 torch.zeros((), dtype=loss_per_horizon.dtype, device=loss_per_horizon.device),
             )
         else:

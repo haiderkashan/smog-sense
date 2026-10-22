@@ -73,19 +73,24 @@ class LocalGRUEncoder(nn.Module):
         Returns:
             Latent representation z of shape (B, latent_dim) or (latent_dim,).
         """
-        unbatched = x.ndim == 2
+        orig_shape = x.shape[:-2]
+        unbatched = len(orig_shape) == 0
         if unbatched:
             x = x.unsqueeze(0)
+        elif len(orig_shape) > 1:
+            x = x.reshape(-1, x.shape[-2], x.shape[-1])
 
-        # gru output: out of shape (B, L, hidden_size), h_n of shape (num_layers, B, hidden_size)
+        # gru output: out of shape (B_flat, L, hidden_size), h_n of shape (num_layers, B_flat, hidden_size)
         _, h_n = self.gru(x)
 
-        # Top-layer hidden state at final step: h_n[-1] has shape (B, hidden_size)
+        # Top-layer hidden state at final step: h_n[-1] has shape (B_flat, hidden_size)
         h_last = h_n[-1]
 
-        z = self.proj(h_last)  # shape (B, latent_dim)
+        z = self.proj(h_last)  # shape (B_flat, latent_dim)
 
         if unbatched:
             z = z.squeeze(0)
+        elif len(orig_shape) > 1:
+            z = z.reshape(*orig_shape, self.latent_dim)
 
         return cast(torch.Tensor, z)

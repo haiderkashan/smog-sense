@@ -326,16 +326,54 @@ def test_masked_residual_pinball_loss_masking_effect() -> None:
 
 
 def test_masked_residual_pinball_loss_all_zero_mask_safety() -> None:
-    """Verify that if all targets in a batch are invalid (mask sum = 0), loss is safe zero."""
+    """Verify that if all targets in a batch are invalid (mask sum = 0), loss and gradients are safe zero."""
     criterion = MaskedResidualPinballLoss(quantiles=CANONICAL_QUANTILES, n_horizons=3)
 
     y_true = torch.rand(2, 3)
-    delta_z = torch.rand(2, 3, 19)
+    delta_z = torch.rand(2, 3, 19, requires_grad=True)
     mask = torch.zeros(2, 3)  # all invalid
 
     loss = criterion(y_true, delta_z, mask=mask)
     assert not torch.isnan(loss)
     assert loss.item() == 0.0
+
+    # Critical vulnerability regression check: backward pass must not yield NaN gradients
+    loss.backward()
+    assert delta_z.grad is not None
+    assert not torch.isnan(delta_z.grad).any()
+    assert torch.all(delta_z.grad == 0.0)
+
+
+def test_masked_residual_pinball_loss_float64_dtype_resilience() -> None:
+    """Verify MaskedResidualPinballLoss handles float64 inputs without dtype mismatch."""
+    criterion = MaskedResidualPinballLoss(quantiles=CANONICAL_QUANTILES, n_horizons=3)
+
+    y_true = torch.rand(2, 3, dtype=torch.float64)
+    delta_z = torch.randn(2, 3, 19, dtype=torch.float64, requires_grad=True)
+    mask = torch.ones(2, 3, dtype=torch.float64)
+
+    loss = criterion(y_true, delta_z, mask=mask)
+    assert loss.dtype == torch.float64
+    assert not torch.isnan(loss)
+    loss.backward()
+    assert delta_z.grad is not None
+    assert not torch.isnan(delta_z.grad).any()
+
+
+def test_multidimensional_batch_support() -> None:
+    """Verify encoder and head support multi-task leading dimensions (e.g. (B_tasks, N_samples, ...))."""
+    encoder = LocalGRUEncoder()
+    head = ResidualQuantileHead()
+
+    # Shape: 2 tasks, 4 samples per task, 72 hours, 6 channels
+    x_tasks = torch.randn(2, 4, 72, 6)
+    z_tasks = encoder(x_tasks)
+    assert z_tasks.shape == (2, 4, 32)
+
+    # Context tabular: (2, 4, 14) -> combined (2, 4, 46)
+    u_tasks = torch.cat([z_tasks, torch.randn(2, 4, 14)], dim=-1)
+    delta_z_tasks = head(u_tasks, reshape=True)
+    assert delta_z_tasks.shape == (2, 4, 3, 19)
 
 
 def test_masked_residual_pinball_loss_composition_equivalence() -> None:

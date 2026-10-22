@@ -134,19 +134,21 @@ class ResidualQuantileHead(nn.Module):
             Residual quantile tensor Delta z of shape (B, 3, 19) (if reshape=True)
             or (B, 57) (if reshape=False), or unbatched (3, 19) / (57,).
         """
-        unbatched = u.ndim == 1
+        orig_shape = u.shape[:-1]
+        unbatched = len(orig_shape) == 0
         if unbatched:
             u = u.unsqueeze(0)
 
         h1 = self.act(self.fc1(u))
         h1 = self.dropout(h1)
-        raw_out = self.fc2(h1)  # shape (B, 57)
+        raw_out = self.fc2(h1)  # shape (*batch_dims, 57)
 
-        grid = raw_out.view(-1, self.n_horizons, self.n_quantiles)  # shape (B, 3, 19)
+        batch_dims = u.shape[:-1]
+        grid = raw_out.view(*batch_dims, self.n_horizons, self.n_quantiles)
         if rearrange:
             grid = rearrange_quantiles(grid, dim=-1)
 
-        out = grid if reshape else grid.reshape(-1, self.output_dim)
+        out = grid if reshape else raw_out
 
         if unbatched:
             out = out.squeeze(0)
@@ -201,8 +203,10 @@ class ResidualCalibrator(nn.Module):
         delta_z = self.head(u, rearrange=False, reshape=True)  # (B, 3, 19)
 
         if base_quantiles is not None:
-            if base_quantiles.ndim == 2 and base_quantiles.shape[-1] == 57:
-                base_quantiles = base_quantiles.view(-1, 3, 19)
+            if base_quantiles.shape[-1] == self.head.output_dim:
+                base_quantiles = base_quantiles.view(
+                    *base_quantiles.shape[:-1], self.head.n_horizons, self.head.n_quantiles
+                )
             pred = base_quantiles + delta_z
             if rearrange:
                 pred = rearrange_quantiles(pred, dim=-1)
