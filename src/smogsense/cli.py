@@ -756,6 +756,51 @@ def train_lgbm_cmd(
     safe_exit(0)
 
 
+@app_train.command("m6")
+def train_m6_cmd(
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models", "--models-dir", help="Output directory for model checkpoints"
+    ),
+    domain: str = typer.Option("delhi", "--domain", help="Source domain (delhi)"),
+    epochs: int = typer.Option(10, "--epochs", help="Number of training epochs"),
+    batch_size: int = typer.Option(64, "--batch-size", help="Batch size"),
+    lr: float = typer.Option(1e-3, "--lr", help="Learning rate"),
+    subsample_train: int | None = typer.Option(
+        None, "--subsample-train", help="Subsample training rows for rapid execution"
+    ),
+    subsample_val: int | None = typer.Option(
+        None, "--subsample-val", help="Subsample validation rows"
+    ),
+    device: str = typer.Option("cpu", "--device", help="Compute device (cpu, cuda)"),
+    out_checkpoint: str | None = typer.Option(
+        None, "--out-checkpoint", "-o", help="Explicit path for saved checkpoint"
+    ),
+) -> None:
+    """Supervised pre-training of Residual Calibrator (Model M6) on Block E OOF base predictions (Task P2-07)."""
+    from smogsense.models.pretraining import train_m6_calibrator
+
+    res = train_m6_calibrator(
+        feature_store_dir=feature_store_dir,
+        models_dir=models_dir,
+        domain=domain,
+        subsample_train=subsample_train,
+        subsample_val=subsample_val,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=lr,
+        device=device,
+        checkpoint_path=out_checkpoint,
+    )
+    print(
+        f"Pre-training complete. Model M6 checkpoint: {out_checkpoint or Path(models_dir) / 'm6_calibrator.pt'}"
+    )
+    print(f"Base SHA256 Binding: {res['base_sha256']}")
+    safe_exit(0)
+
+
 @app_eval.command("probe")
 def eval_probe_cmd(
     feature_store_dir: str = typer.Option(
