@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmogSense Forecast</title>
+    <style>
+        body { font-family: system-ui, sans-serif; line-height: 1.5; padding: 2rem; max-width: 800px; margin: 0 auto; color: #222; }
+        h1 { color: #111; }
+        .forecast-card { border: 1px solid #ccc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+        .badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: bold; background: #eee; }
+        .mode-banner { background: #fff3cd; color: #856404; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .expiry-banner { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem; }
+        .valid-until { color: #555; font-size: 0.95rem; margin-top: -0.5rem; margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div id="expiry-banner" class="expiry-banner" style="display: none;" data-expired="false">
+        <strong>EXPIRED FORECAST</strong> &mdash; No new forecast was published for today's issuance; showing last known bulletin as expired.
+    </div>
+
+    <h1>SmogSense Daily Forecast</h1>
+    <p>Issuance: <span id="issuance-time">2026-10-31T00:00:00+00:00</span></p>
+    <p id="valid-until" class="valid-until">Valid until: <span id="valid-until-time">2026-11-01T06:00:00Z</span></p>
+
+    <div class="mode-banner">
+        <strong>Degraded Mode: baseline_only</strong>
+        <p>The forecast is operating in a degraded mode. Some data sources may be unavailable.</p>
+    </div>
+    <h2>City Aggregate Forecast</h2>
+
+    <div class="forecast-card">
+        <h3>+24h Forecast</h3>
+        <p>Expected PM2.5: <strong>81.9 &mu;g/m&sup3;</strong></p>
+        <p>Category: <span class="badge">unhealthy</span></p>
+    </div>
+
+    <div class="forecast-card">
+        <h3>+48h Forecast</h3>
+        <p>Expected PM2.5: <strong>90.1 &mu;g/m&sup3;</strong></p>
+        <p>Category: <span class="badge">unhealthy</span></p>
+    </div>
+
+    <div class="forecast-card">
+        <h3>+72h Forecast</h3>
+        <p>Expected PM2.5: <strong>96.4 &mu;g/m&sup3;</strong></p>
+        <p>Category: <span class="badge">unhealthy</span></p>
+    </div>
+
+    <script>
+        (function() {
+            const validUntilStr = "2026-11-01T06:00:00Z";
+            if (validUntilStr && validUntilStr !== "unknown") {
+                const validUntil = new Date(validUntilStr);
+                if (!isNaN(validUntil.getTime()) && new Date() > validUntil) {
+                    const banner = document.getElementById("expiry-banner");
+                    if (banner) {
+                        banner.style.display = "block";
+                        banner.setAttribute("data-expired", "true");
+                    }
+                }
+            }
+            console.log("SmogSense forecast page loaded (valid until 2026-11-01T06:00:00Z).");
+        })();
+    </script>
+</body>
+</html>
