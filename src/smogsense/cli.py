@@ -801,6 +801,57 @@ def train_m6_cmd(
     safe_exit(0)
 
 
+@app_train.command("maml")
+def train_maml_cmd(
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models", "--models-dir", help="Output directory for model checkpoints"
+    ),
+    domain: str = typer.Option("delhi", "--domain", help="Source domain (delhi)"),
+    iterations: int = typer.Option(
+        100, "--iterations", help="Number of outer meta-update iterations"
+    ),
+    meta_batch_size: int = typer.Option(
+        4, "--meta-batch-size", help="Batch size of tasks per outer update"
+    ),
+    inner_steps: int = typer.Option(3, "--inner-steps", help="Inner gradient adaptation steps J"),
+    lr_outer: float = typer.Option(1e-3, "--lr-outer", help="Outer Adam learning rate beta"),
+    lr_inner_init: float = typer.Option(
+        0.01, "--lr-inner-init", help="Initial Meta-SGD inner step size alpha"
+    ),
+    adapt_scope: str = typer.Option(
+        "all", "--adapt-scope", help="Adaptation scope (all, head_only, gru_only)"
+    ),
+    device: str = typer.Option("cpu", "--device", help="Compute device (cpu, cuda)"),
+    out_checkpoint: str | None = typer.Option(
+        None, "--out-checkpoint", "-o", help="Explicit path for saved checkpoint"
+    ),
+) -> None:
+    """Execute First-Order MAML (FOMAML) with Meta-SGD and sensor corruption (Task P2-08)."""
+    from smogsense.models.maml import train_maml
+
+    res = train_maml(
+        feature_store_dir=feature_store_dir,
+        models_dir=models_dir,
+        domain=domain,
+        iterations=iterations,
+        meta_batch_size=meta_batch_size,
+        inner_steps=inner_steps,
+        lr_outer=lr_outer,
+        lr_inner_init=lr_inner_init,
+        adapt_scope=adapt_scope,
+        device=device,
+        checkpoint_path=out_checkpoint,
+    )
+    print(
+        f"Meta-training complete. Model M7 checkpoint: {out_checkpoint or Path(models_dir) / 'm7_maml.pt'}"
+    )
+    print(f"Base SHA256 Lineage: {res['base_sha256']}")
+    safe_exit(0)
+
+
 @app_eval.command("probe")
 def eval_probe_cmd(
     feature_store_dir: str = typer.Option(
