@@ -18,6 +18,16 @@ from smogsense.models.lgbm_quantile import (
     fit_cross_fit_oof,
 )
 from smogsense.models.losses import MaskedResidualPinballLoss, pinball_loss
+from smogsense.models.maml import (
+    PARAM_TENSOR_NAMES,
+    MAMLTask,
+    MetaSGDStepSizes,
+    TaskSampler,
+    evaluate_maml,
+    inner_loop_adapt,
+    maml_outer_step,
+    train_maml,
+)
 from smogsense.models.pretraining import (
     ResidualPretrainingDataset,
     apply_sensor_corruption,
@@ -28,16 +38,24 @@ from smogsense.models.pretraining import (
 __all__ = [
     "CANONICAL_HORIZONS",
     "CANONICAL_QUANTILES",
+    "PARAM_TENSOR_NAMES",
     "LGBMQuantileEnsemble",
     "LocalGRUEncoder",
+    "MAMLTask",
     "MaskedResidualPinballLoss",
+    "MetaSGDStepSizes",
     "ResidualCalibrator",
     "ResidualPretrainingDataset",
     "ResidualQuantileHead",
+    "TaskSampler",
     "apply_sensor_corruption",
     "evaluate_calibrator",
+    "evaluate_maml",
     "fit_cross_fit_oof",
+    "inner_loop_adapt",
+    "maml_outer_step",
     "pinball_loss",
     "rearrange_quantiles",
     "train_m6_calibrator",
+    "train_maml",
 ]
