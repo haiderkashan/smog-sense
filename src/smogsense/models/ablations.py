@@ -702,6 +702,7 @@ def run_maml_ablations(
     Returns:
         Structured results dictionary with summary table and serialized JSON.
     """
+    torch.backends.cudnn.enabled = False
     runner = MAMLAblationRunner(
         feature_store_dir=feature_store_dir,
         models_dir=models_dir,

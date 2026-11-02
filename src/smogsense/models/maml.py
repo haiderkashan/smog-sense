@@ -455,64 +455,77 @@ def inner_loop_adapt(
     if task.n_available == 0 or task.support_x.shape[0] == 0:
         return dict(params)
 
-    # Resolve step sizes dictionary
-    alphas = step_sizes.get_step_sizes() if isinstance(step_sizes, MetaSGDStepSizes) else step_sizes
+    # Disable cuDNN RNN backend and ensure training mode during functional calls
+    # to prevent 'cudnn RNN backward can only be called in training mode'.
+    prev_cudnn = torch.backends.cudnn.enabled
+    torch.backends.cudnn.enabled = False
+    was_training = calibrator.training
+    calibrator.train()
 
-    criterion = MaskedResidualPinballLoss(quantiles=CANONICAL_QUANTILES, n_horizons=3)
-    curr_params: dict[str, torch.Tensor] = dict(params)
-
-    for _ in range(inner_steps):
-        # Forward pass on support set using current parameters
-        # rearrange=False preserves uncorrupted smooth pinball gradients
-        preds = functional_call(
-            calibrator,
-            curr_params,
-            (task.support_x, task.support_context, task.support_base_q, False),
+    try:
+        # Resolve step sizes dictionary
+        alphas = (
+            step_sizes.get_step_sizes() if isinstance(step_sizes, MetaSGDStepSizes) else step_sizes
         )
 
-        loss = criterion(
-            y_true=task.support_y,
-            delta_z=preds,
-            z_base=None,
-            mask=task.support_mask,
-        )
+        criterion = MaskedResidualPinballLoss(quantiles=CANONICAL_QUANTILES, n_horizons=3)
+        curr_params: dict[str, torch.Tensor] = dict(params)
 
-        # Filter parameters to differentiate according to adapt_scope
-        target_param_names: list[str] = []
-        target_tensors: list[torch.Tensor] = []
-        for name, p_tensor in curr_params.items():
-            if adapt_scope == "head_only" and not name.startswith("head."):
-                continue
-            if adapt_scope == "gru_only" and not name.startswith("encoder."):
-                continue
-            target_param_names.append(name)
-            target_tensors.append(p_tensor)
+        for _ in range(inner_steps):
+            # Forward pass on support set using current parameters
+            # rearrange=False preserves uncorrupted smooth pinball gradients
+            preds = functional_call(
+                calibrator,
+                curr_params,
+                (task.support_x, task.support_context, task.support_base_q, False),
+            )
 
-        grads = torch.autograd.grad(
-            loss,
-            target_tensors,
-            create_graph=False,
-            retain_graph=False,
-            allow_unused=True,
-        )
+            loss = criterion(
+                y_true=task.support_y,
+                delta_z=preds,
+                z_base=None,
+                mask=task.support_mask,
+            )
 
-        # Compute global L2 norm across all inner gradients
-        total_sq_norm = sum(float(torch.sum(g * g).item()) for g in grads if g is not None)
-        glob_norm = math.sqrt(total_sq_norm)
-        clip_coeff = clip_norm / max(clip_norm, glob_norm + 1e-8)
+            # Filter parameters to differentiate according to adapt_scope
+            target_param_names: list[str] = []
+            target_tensors: list[torch.Tensor] = []
+            for name, p_tensor in curr_params.items():
+                if adapt_scope == "head_only" and not name.startswith("head."):
+                    continue
+                if adapt_scope == "gru_only" and not name.startswith("encoder."):
+                    continue
+                target_param_names.append(name)
+                target_tensors.append(p_tensor)
 
-        # Update parameters with Meta-SGD step sizes: theta_(j+1) = theta_j - alpha * (clip * grad).detach()
-        next_params = dict(curr_params)
-        for name, g in zip(target_param_names, grads, strict=False):
-            if g is None:
-                continue
-            clipped_g = (g * clip_coeff).detach()
-            alpha_k = alphas.get(name, torch.tensor(0.01, device=clipped_g.device))
-            next_params[name] = curr_params[name] - alpha_k * clipped_g
+            grads = torch.autograd.grad(
+                loss,
+                target_tensors,
+                create_graph=False,
+                retain_graph=False,
+                allow_unused=True,
+            )
 
-        curr_params = next_params
+            # Compute global L2 norm across all inner gradients
+            total_sq_norm = sum(float(torch.sum(g * g).item()) for g in grads if g is not None)
+            glob_norm = math.sqrt(total_sq_norm)
+            clip_coeff = clip_norm / max(clip_norm, glob_norm + 1e-8)
 
-    return curr_params
+            # Update parameters with Meta-SGD step sizes: theta_(j+1) = theta_j - alpha * (clip * grad).detach()
+            next_params = dict(curr_params)
+            for name, g in zip(target_param_names, grads, strict=False):
+                if g is None:
+                    continue
+                clipped_g = (g * clip_coeff).detach()
+                alpha_k = alphas.get(name, torch.tensor(0.01, device=clipped_g.device))
+                next_params[name] = curr_params[name] - alpha_k * clipped_g
+
+            curr_params = next_params
+
+        return curr_params
+    finally:
+        calibrator.train(was_training)
+        torch.backends.cudnn.enabled = prev_cudnn
 
 
 # -----------------------------------------------------------------------------
@@ -548,54 +561,59 @@ def maml_outer_step(
     if not batch_tasks:
         return 0.0
 
+    prev_cudnn = torch.backends.cudnn.enabled
+    torch.backends.cudnn.enabled = False
     outer_optimizer.zero_grad()
     criterion = MaskedResidualPinballLoss(quantiles=CANONICAL_QUANTILES, n_horizons=3)
 
-    # Initial meta-parameters theta
-    init_params = dict(calibrator.named_parameters())
-    batch_query_loss = 0.0
-    n_tasks = len(batch_tasks)
+    try:
+        # Initial meta-parameters theta
+        init_params = dict(calibrator.named_parameters())
+        batch_query_loss = 0.0
+        n_tasks = len(batch_tasks)
 
-    for task in batch_tasks:
-        # Inner loop adaptation
-        adapted_params = inner_loop_adapt(
-            calibrator=calibrator,
-            params=init_params,
-            step_sizes=step_sizes,
-            task=task,
-            inner_steps=inner_steps,
-            clip_norm=clip_norm,
-            adapt_scope=adapt_scope,
-        )
+        for task in batch_tasks:
+            # Inner loop adaptation
+            adapted_params = inner_loop_adapt(
+                calibrator=calibrator,
+                params=init_params,
+                step_sizes=step_sizes,
+                task=task,
+                inner_steps=inner_steps,
+                clip_norm=clip_norm,
+                adapt_scope=adapt_scope,
+            )
 
-        # Query evaluation
-        qry_pred = functional_call(
-            calibrator,
-            adapted_params,
-            (task.query_x, task.query_context, task.query_base_q, False),
-        )
+            # Query evaluation
+            qry_pred = functional_call(
+                calibrator,
+                adapted_params,
+                (task.query_x, task.query_context, task.query_base_q, False),
+            )
 
-        qry_loss = criterion(
-            y_true=task.query_y,
-            delta_z=qry_pred,
-            z_base=None,
-            mask=task.query_mask,
-        )
+            qry_loss = criterion(
+                y_true=task.query_y,
+                delta_z=qry_pred,
+                z_base=None,
+                mask=task.query_mask,
+            )
 
-        # Normalize by batch size and backpropagate
-        loss_scaled = qry_loss / n_tasks
-        loss_scaled.backward()
+            # Normalize by batch size and backpropagate
+            loss_scaled = qry_loss / n_tasks
+            loss_scaled.backward()
 
-        batch_query_loss += float(qry_loss.item())
+            batch_query_loss += float(qry_loss.item())
 
-    # Clip outer gradients across both calibrator parameters and Meta-SGD step sizes
-    all_trainable_params = [p for p in calibrator.parameters() if p.requires_grad] + [
-        p for p in step_sizes.parameters() if p.requires_grad
-    ]
-    torch.nn.utils.clip_grad_norm_(all_trainable_params, max_norm=clip_norm)
+        # Clip outer gradients across both calibrator parameters and Meta-SGD step sizes
+        all_trainable_params = [p for p in calibrator.parameters() if p.requires_grad] + [
+            p for p in step_sizes.parameters() if p.requires_grad
+        ]
+        torch.nn.utils.clip_grad_norm_(all_trainable_params, max_norm=clip_norm)
 
-    outer_optimizer.step()
-    return batch_query_loss / n_tasks
+        outer_optimizer.step()
+        return batch_query_loss / n_tasks
+    finally:
+        torch.backends.cudnn.enabled = prev_cudnn
 
 
 # -----------------------------------------------------------------------------
@@ -736,6 +754,9 @@ def train_maml(
     torch.manual_seed(random_state)
     rng = np.random.default_rng(random_state)
     dev = torch.device(device)
+    # Meta-learning uses torch.func.functional_call on GRU layers. Disable cuDNN's
+    # persistent RNN workspace so PyTorch uses its native ATen GRU implementation.
+    torch.backends.cudnn.enabled = False
 
     fs_path = Path(feature_store_dir)
     m_dir = Path(models_dir)
