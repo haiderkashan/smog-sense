@@ -852,6 +852,67 @@ def train_maml_cmd(
     safe_exit(0)
 
 
+@app_train.command("maml-ablation")
+def train_maml_ablation_cmd(
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models", "--models-dir", help="Output directory for model checkpoints"
+    ),
+    domain: str = typer.Option("delhi", "--domain", help="Source domain (delhi)"),
+    iterations: int = typer.Option(
+        50, "--iterations", help="Outer iterations per ablation condition"
+    ),
+    meta_batch_size: int = typer.Option(
+        4, "--meta-batch-size", help="Batch size of tasks per outer update"
+    ),
+    inner_steps: int = typer.Option(3, "--inner-steps", help="Inner gradient adaptation steps J"),
+    lr_outer: float = typer.Option(1e-3, "--lr-outer", help="Outer Adam learning rate beta"),
+    lr_inner_init: float = typer.Option(
+        0.01, "--lr-inner-init", help="Initial Meta-SGD inner step size alpha"
+    ),
+    device: str = typer.Option("cpu", "--device", help="Compute device (cpu, cuda)"),
+    output_json: str | None = typer.Option(
+        None, "--output-json", "-o", help="Explicit path for saved ablation JSON"
+    ),
+) -> None:
+    """Execute MAML scope and X-11 corruption label policy ablations (Task P2-09)."""
+    from smogsense.models.ablations import run_maml_ablations
+
+    res = run_maml_ablations(
+        feature_store_dir=feature_store_dir,
+        models_dir=models_dir,
+        domain=domain,
+        iterations=iterations,
+        meta_batch_size=meta_batch_size,
+        inner_steps=inner_steps,
+        lr_outer=lr_outer,
+        lr_inner_init=lr_inner_init,
+        device=device,
+        output_path=output_json,
+    )
+
+    print("\n" + "=" * 90)
+    print("MAML ADAPTATION SCOPE & X-11 LABEL POLICY ABLATION SUMMARY (Task P2-09)")
+    print("=" * 90)
+    print(
+        f"{'Condition':<24} | {'Scope':<10} | {'Policy':<14} | "
+        f"{'Val CRPS':<10} | {'CRPSS vs M5':<12} | {'Res R':<8} | {'Time (s)':<8}"
+    )
+    print("-" * 90)
+    for row in res["summary_table"]:
+        print(
+            f"{row['Condition']:<24} | {row['Scope']:<10} | {row['Label Policy']:<14} | "
+            f"{row['Val CRPS (ug/m3)']:<10.2f} | {row['CRPSS vs M5 (%)']:>+10.2f}% | "
+            f"{row['Residual R']:<8.4f} | {row['Time (s)']:<8.2f}"
+        )
+    print("=" * 90)
+    out_file = output_json or str(Path(models_dir) / "maml_ablations.json")
+    print(f"Results serialized to: {out_file}")
+    safe_exit(0)
+
+
 @app_eval.command("probe")
 def eval_probe_cmd(
     feature_store_dir: str = typer.Option(
