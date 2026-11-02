@@ -91,8 +91,12 @@ class MetaSGDStepSizes(nn.Module):
         self,
         init_alpha: float = 0.01,
         param_names: Sequence[str] = PARAM_TENSOR_NAMES,
+        *,
+        init_lr: float | None = None,
     ) -> None:
         super().__init__()
+        if init_lr is not None:
+            init_alpha = init_lr
         self.param_names = list(param_names)
         self._name_to_idx = {name: i for i, name in enumerate(self.param_names)}
 
