@@ -675,6 +675,7 @@ class MAMLAblationRunner:
         out_p.parent.mkdir(parents=True, exist_ok=True)
         with out_p.open("w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)
+            f.write("\n")
 
         logger.info("Ablation results successfully serialized", path=str(out_p))
         return payload

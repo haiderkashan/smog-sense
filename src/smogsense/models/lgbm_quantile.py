@@ -340,6 +340,7 @@ class LGBMQuantileEnsemble:
         }
         with (dir_path / "metadata.json").open("w") as f:
             json.dump(meta, f, indent=2)
+            f.write("\n")
 
         for h in self.horizons:
             for q in self.quantiles:
@@ -670,6 +671,7 @@ def run_early_transfer_probe(
         p_json.parent.mkdir(parents=True, exist_ok=True)
         with p_json.open("w") as f:
             json.dump(results, f, indent=2)
+            f.write("\n")
         print(f"Probe results written to: {p_json}")
 
     return results

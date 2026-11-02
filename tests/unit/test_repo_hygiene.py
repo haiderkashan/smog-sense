@@ -37,6 +37,8 @@ SKIP_DIRS = {
     ".ruff_cache",
     ".pytest_cache",
     ".state",
+    "processed",
+    "raw",
 }
 # Packages whose use would break the strict zero-cost constraint (paid inference or billable clouds)
 PAID_OR_BILLABLE = {
