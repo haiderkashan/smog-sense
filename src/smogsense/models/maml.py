@@ -951,6 +951,18 @@ def train_maml(
     print(f"Sample Learned Step Sizes: {learned_alphas_str} ...")
     print("=" * 80 + "\n")
 
+    val_summary = (
+        {
+            "m7_pinball": history[-1]["val_m7_pinball"],
+            "m5_pinball": history[-1]["val_m5_pinball"],
+            "m7_crps": history[-1]["val_m7_crps"],
+            "m5_crps": history[-1]["val_m5_crps"],
+            "crpss_vs_base": history[-1]["crpss_vs_base"],
+        }
+        if history
+        else {}
+    )
+
     return {
         "checkpoint_path": str(out_pt),
         "base_sha256": base_sha256,
@@ -958,4 +970,6 @@ def train_maml(
         "final_query_loss": history[-1]["query_loss"] if history else loss_val,
         "learned_step_sizes": learned_step_sizes,
         "history": history,
+        "loss_history": [h["query_loss"] for h in history],
+        "validation_metrics": val_summary,
     }
