@@ -433,13 +433,27 @@ class MAMLAblationRunner:
         self.oof_partition_hash = compute_oof_partition_hash(delhi_e)
 
         # Merge OOF base predictions into Block E
-        merged_e = delhi_e.copy()
-        for h in CANONICAL_HORIZONS:
-            for q in CANONICAL_QUANTILES:
-                q_tag = round(q * 100)
-                col_name = f"m5_oof_h{h}_q{q_tag}"
-                if col_name in oof_df.columns:
-                    merged_e[col_name] = oof_df[col_name].to_numpy()
+        delhi_e["issuance_utc"] = pd.to_datetime(delhi_e["issuance_utc"], utc=True)
+        oof_df["issuance_utc"] = pd.to_datetime(oof_df["issuance_utc"], utc=True)
+
+        merge_cols = [
+            c
+            for c in ["domain", "location_id", "issuance_utc"]
+            if c in delhi_e.columns and c in oof_df.columns
+        ]
+        if merge_cols:
+            merged_e = delhi_e.merge(
+                oof_df.drop(columns=["fold_id"], errors="ignore"),
+                on=merge_cols,
+                how="inner",
+            )
+        elif len(delhi_e) == len(oof_df):
+            merged_e = delhi_e.copy()
+            for c in oof_df.columns:
+                if c.startswith("m5_oof_"):
+                    merged_e[c] = oof_df[c].to_numpy()
+        else:
+            merged_e = oof_df.copy()
 
         # Predict M5 base on Block V
         base_preds_v = base_model.predict_all_horizons(delhi_v)
