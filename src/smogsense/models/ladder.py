@@ -684,14 +684,16 @@ def run_model_ladder(
 
     # 1. Save JSON results
     json_path = out_d / "ladder.json"
-    with json_path.open("w", encoding="utf-8") as f:
+    with json_path.open("w", encoding="utf-8", newline="\n") as f:
         json.dump(results, f, indent=2)
+        f.write("\n")
 
     # 2. Save Markdown report
     md_report = evaluator.generate_markdown_report(results)
     md_path = out_d / "ladder.md"
-    with md_path.open("w", encoding="utf-8") as f:
+    with md_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write(md_report)
+        f.write("\n")
 
     logger.info("Model ladder evaluation completed", json=str(json_path), md=str(md_path))
     return results

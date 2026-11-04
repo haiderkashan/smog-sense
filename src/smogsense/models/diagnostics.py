@@ -490,14 +490,16 @@ def run_atmospheric_diagnostics(
 
     # Save JSON
     json_path = out_d / "diagnostics.json"
-    with json_path.open("w", encoding="utf-8") as f:
+    with json_path.open("w", encoding="utf-8", newline="\n") as f:
         json.dump(combined_results, f, indent=2)
+        f.write("\n")
 
     # Save Markdown
     md_content = generate_diagnostics_report(lag_results, sector_results, domain=domain)
     md_path = out_d / "diagnostics.md"
-    with md_path.open("w", encoding="utf-8") as f:
+    with md_path.open("w", encoding="utf-8", newline="\n") as f:
         f.write(md_content)
+        f.write("\n")
 
     logger.info("Atmospheric diagnostics completed", json=str(json_path), md=str(md_path))
     return combined_results
