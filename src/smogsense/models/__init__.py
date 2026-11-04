@@ -5,6 +5,10 @@ Neural encoders, quantile heads, LightGBM quantile ensemble, meta-learning and c
 Specification: docs/ml-architecture.md
 """
 
+from smogsense.features.backfill import (
+    compute_oof_partition_hash,
+    verify_twin_aware_folds,
+)
 from smogsense.models.ablations import (
     CANONICAL_ABLATIONS,
     MAMLAblationRunner,
@@ -83,6 +87,7 @@ __all__ = [
     "apply_task_label_policy",
     "compute_atmospheric_lag_correlations",
     "compute_lag_cross_correlation",
+    "compute_oof_partition_hash",
     "compute_sector_importance",
     "corrupt_support_labels",
     "evaluate_ablation_condition",
@@ -100,4 +105,5 @@ __all__ = [
     "run_model_ladder",
     "train_m6_calibrator",
     "train_maml",
+    "verify_twin_aware_folds",
 ]

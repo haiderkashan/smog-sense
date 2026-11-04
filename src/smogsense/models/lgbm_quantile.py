@@ -149,10 +149,12 @@ class LGBMQuantileEnsemble:
         quantiles: Sequence[float] = DEFAULT_QUANTILES,
         horizons: Sequence[int] = DEFAULT_HORIZONS,
         lgbm_params: dict[str, Any] | None = None,
+        oof_partition_hash: str | None = None,
     ) -> None:
         self.model_type = model_type.upper()
         self.quantiles = tuple(quantiles)
         self.horizons = tuple(horizons)
+        self.oof_partition_hash = oof_partition_hash
 
         default_params: dict[str, Any] = {
             "objective": "quantile",
@@ -336,6 +338,7 @@ class LGBMQuantileEnsemble:
             "horizons": list(self.horizons),
             "feature_names": self.feature_names,
             "base_sha256": self.compute_base_sha256(),
+            "oof_partition_hash": self.oof_partition_hash,
             "params": self.params,
         }
         with (dir_path / "metadata.json").open("w") as f:
@@ -364,6 +367,7 @@ class LGBMQuantileEnsemble:
             quantiles=meta["quantiles"],
             horizons=meta["horizons"],
             lgbm_params=meta.get("params"),
+            oof_partition_hash=meta.get("oof_partition_hash"),
         )
         ensemble.feature_names = meta["feature_names"]
 
@@ -380,6 +384,7 @@ class LGBMQuantileEnsemble:
 def fit_cross_fit_oof(
     df_block_e: pd.DataFrame,
     feature_cols: list[str] | None = None,
+    val_df: pd.DataFrame | None = None,
     horizons: Sequence[int] = DEFAULT_HORIZONS,
     quantiles: Sequence[float] = DEFAULT_QUANTILES,
     lgbm_params: dict[str, Any] | None = None,
@@ -391,11 +396,12 @@ def fit_cross_fit_oof(
     Partitions Block E by fold_id (0..K-1). For each fold k:
       1. Fits boosters on all folds != k.
       2. Predicts out-of-fold quantiles for fold k.
-    Finally, fits the full Base ensemble on all of Block E.
+    Finally, fits the full Base ensemble on all of Block E with optional early stopping on val_df.
 
     Args:
         df_block_e: Block E DataFrame with 'fold_id' column.
         feature_cols: Feature columns (or filtered M5 features if None).
+        val_df: Optional validation set (e.g. Block V) for early stopping.
         horizons: Target horizons.
         quantiles: Quantile probability levels.
         lgbm_params: Optional LightGBM parameters.
@@ -404,8 +410,13 @@ def fit_cross_fit_oof(
     Returns:
         tuple (oof_predictions_df, final_base_ensemble).
     """
+    from smogsense.features.backfill import compute_oof_partition_hash, verify_twin_aware_folds
+
     if "fold_id" not in df_block_e.columns:
         raise ValueError("Block E dataframe must contain 'fold_id' for cross-fitting.")
+
+    # Condition C1: Verify twin-aware co-located station preservation across folds
+    verify_twin_aware_folds(df_block_e, raise_on_violation=True)
 
     if feature_cols is None:
         feature_cols = filter_features(list(df_block_e.columns), model_type="M5")
@@ -429,7 +440,12 @@ def fit_cross_fit_oof(
             horizons=horizons,
             lgbm_params=lgbm_params,
         )
-        fold_ensemble.fit(train_folds, feature_cols=feature_cols, num_boost_round=num_boost_round)
+        fold_ensemble.fit(
+            train_folds,
+            feature_cols=feature_cols,
+            val_df=val_df,
+            num_boost_round=num_boost_round,
+        )
 
         fold_oof = test_fold[["domain", "location_id", "issuance_utc", "fold_id"]].copy()
         for h in horizons:
@@ -447,15 +463,26 @@ def fit_cross_fit_oof(
         .reset_index(drop=True)
     )
 
-    # Train final base model on all of Block E
-    logger.info("training_final_base_ensemble_on_all_block_e", rows=len(df_block_e))
+    # Condition C2: Compute deterministic OOF partition hash
+    oof_hash = compute_oof_partition_hash(df_block_e)
+
+    # Train final base model on all of Block E with validation early stopping if provided
+    logger.info(
+        "training_final_base_ensemble_on_all_block_e", rows=len(df_block_e), oof_hash=oof_hash
+    )
     final_base = LGBMQuantileEnsemble(
         model_type="M5",
         quantiles=quantiles,
         horizons=horizons,
         lgbm_params=lgbm_params,
+        oof_partition_hash=oof_hash,
     )
-    final_base.fit(df_block_e, feature_cols=feature_cols, num_boost_round=num_boost_round)
+    final_base.fit(
+        df_block_e,
+        feature_cols=feature_cols,
+        val_df=val_df,
+        num_boost_round=num_boost_round,
+    )
 
     return oof_combined, final_base
 

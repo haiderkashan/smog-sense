@@ -733,10 +733,17 @@ def train_lgbm_cmd(
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
+    val_df = (
+        df_all[df_all["source_split"] == "V"].copy()
+        if "source_split" in df_all.columns and (df_all["source_split"] == "V").any()
+        else None
+    )
+
     if oof:
         print("Executing season-blocked cross-fitting on Block E...")
         oof_df, base_model = fit_cross_fit_oof(
             df_block_e=df_train,
+            val_df=val_df,
             horizons=DEFAULT_HORIZONS,
             quantiles=DEFAULT_QUANTILES,
             num_boost_round=num_boost_round,
@@ -749,11 +756,13 @@ def train_lgbm_cmd(
     else:
         print("Training LightGBM M5 physics base on full split...")
         base_model = LGBMQuantileEnsemble(model_type="M5")
-        base_model.fit(df_train, num_boost_round=num_boost_round)
+        base_model.fit(df_train, val_df=val_df, num_boost_round=num_boost_round)
         base_model.save(out_path)
         print(f"Saved LightGBM M5 ensemble to: {out_path}")
 
     print(f"Deterministic Base SHA256: {base_model.compute_base_sha256()}")
+    if base_model.oof_partition_hash:
+        print(f"OOF Partition Hash: {base_model.oof_partition_hash}")
     safe_exit(0)
 
 
