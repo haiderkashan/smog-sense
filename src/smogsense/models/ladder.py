@@ -105,9 +105,11 @@ def evaluate_predictions(
     n_samples = len(y)
     if n_samples == 0:
         return {
-            "n_samples": 0,
+            "n_samples": 0.0,
             "mae": 0.0,
+            "median_mae": 0.0,
             "pinball": 0.0,
+            "pinball_loss": 0.0,
             "crps": 0.0,
             "crpss_vs_m1": 0.0,
             "crpss_vs_m2": 0.0,
@@ -148,7 +150,9 @@ def evaluate_predictions(
     return {
         "n_samples": float(n_samples),
         "mae": float(mae),
+        "median_mae": float(mae),
         "pinball": float(pinball),
+        "pinball_loss": float(pinball),
         "crps": float(crps),
         "crpss_vs_m1": float(crpss_m1),
         "crpss_vs_m2": float(crpss_m2),
@@ -294,7 +298,14 @@ class ModelLadderEvaluator:
         # Pre-compute M5 predictions if base model available
         m5_preds_all: dict[int, np.ndarray] = {}
         if self._m5_ensemble is not None:
-            m5_preds_all = self._m5_ensemble.predict_all_horizons(self._eval_df, rearrange=True)
+            try:
+                m5_preds_all = self._m5_ensemble.predict_all_horizons(self._eval_df, rearrange=True)
+            except Exception as e:
+                logger.warning(
+                    "Could not predict with loaded M5 base model; falling back to within-domain M4",
+                    error=str(e),
+                )
+                self._m5_ensemble = None
 
         # Pre-compute context vector u for M6 and M7
         context_u = extract_tabular_context(self._eval_df, base_predictions=m5_preds_all)
@@ -458,7 +469,9 @@ class ModelLadderEvaluator:
             # -------------------------------------------------------------
             # Rung M6: Supervised Residual Calibrator
             # -------------------------------------------------------------
-            if self._m6_calibrator is not None:
+            if self._m6_calibrator is not None and all(
+                h_i in m5_preds_all for h_i in self.horizons
+            ):
                 with torch.no_grad():
                     # Reshape for multi-horizon: z_base is (N, 3, 19)
                     full_z_base = torch.stack(
@@ -488,7 +501,9 @@ class ModelLadderEvaluator:
             # -------------------------------------------------------------
             # Rung M7: Meta-Learned Residual Calibrator (Preview)
             # -------------------------------------------------------------
-            if self._m7_calibrator is not None:
+            if self._m7_calibrator is not None and all(
+                h_i in m5_preds_all for h_i in self.horizons
+            ):
                 with torch.no_grad():
                     full_z_base = torch.stack(
                         [
@@ -555,9 +570,19 @@ class ModelLadderEvaluator:
             "domain": self.domain,
             "eval_location_id": self.eval_location_id,
             "n_eval_rows": len(self._eval_df),
+            "n_rows": len(self._eval_df),
             "horizons": list(self.horizons),
             "results_by_horizon": results_by_horizon,
+            "by_horizon": results_by_horizon,
             "overall_summary": overall_table,
+            "ladder_summary": {
+                row["Rung"]: {
+                    "mean_crps": row["Mean CRPS"],
+                    "crpss_vs_m1": row["CRPSS vs M1 (%)"],
+                    "crpss_vs_m2": row["CRPSS vs M2 (%)"],
+                }
+                for row in overall_table
+            },
         }
 
         return payload
