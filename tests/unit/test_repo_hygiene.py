@@ -12,7 +12,14 @@ import yaml
 
 pytestmark = pytest.mark.unit
 
-AI_CONTEXT_FILES = ["memory.md", "decisions.md", "roadmap.md", "AGENTS.md", "CLAUDE.md"]
+AI_CONTEXT_FILES = [
+    "memory.md",
+    "decisions.md",
+    "roadmap.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "studyguide.md",
+]
 PUBLIC_DOC_GLOBS = [
     "README.md",
     "CONTRIBUTING.md",
