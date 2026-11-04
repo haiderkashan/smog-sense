@@ -298,7 +298,7 @@ class ModelLadderEvaluator:
 
         # Pre-compute context vector u for M6 and M7
         context_u = extract_tabular_context(self._eval_df, base_predictions=m5_preds_all)
-        context_u_t = torch.from_numpy(context_u).to(self.device)
+        context_u_t = torch.from_numpy(context_u.copy()).to(self.device)
 
         # Ensure M4 is fitted
         m4_ensemble = self.fit_within_domain_m4()

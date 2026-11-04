@@ -51,6 +51,7 @@ app.add_typer(app_train, name="train")
 app.add_typer(app_forecast, name="forecast")
 app.add_typer(app_score, name="score")
 app.add_typer(app_eval, name="eval")
+app.add_typer(app_eval, name="evaluate")
 app.add_typer(app_bulletin, name="bulletin")
 app.add_typer(app_site, name="site")
 app.add_typer(app_publish, name="publish")
@@ -938,6 +939,69 @@ def eval_probe_cmd(
     )
     passed = res.get("gate_g2_passed", False)
     safe_exit(0 if passed else 1)
+
+
+@app_eval.command("ladder")
+def eval_ladder_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models",
+        "--models-dir",
+        help="Directory holding pre-trained model checkpoints",
+    ),
+    location_id: int = typer.Option(
+        8664, "--location-id", "--eval-location-id", help="Primary evaluation monitor ID"
+    ),
+    output_dir: str = typer.Option(
+        "reports", "--output-dir", "-o", help="Output directory for reports"
+    ),
+    device: str = typer.Option("cpu", "--device", help="Torch device ('cpu' or 'cuda')"),
+) -> None:
+    """Evaluate full model ladder (M0 through M7) on held-out Lahore development data."""
+    from smogsense.models.ladder import run_model_ladder
+
+    run_model_ladder(
+        feature_store_dir=feature_store_dir,
+        models_dir=models_dir,
+        domain=domain,
+        eval_location_id=location_id,
+        output_dir=output_dir,
+        device=device,
+    )
+    print(f"\nModel Ladder evaluation complete. Report written to {output_dir}/ladder.md")
+    safe_exit(0)
+
+
+@app_eval.command("diagnostics")
+def eval_diagnostics_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    location_id: int | None = typer.Option(
+        8664,
+        "--location-id",
+        "--eval-location-id",
+        help="Evaluation monitor ID (or None for domain-wide)",
+    ),
+    output_dir: str = typer.Option(
+        "reports", "--output-dir", "-o", help="Output directory for reports"
+    ),
+) -> None:
+    """Run atmospheric diagnostics: lagged cross-correlations and sector-importance fire decomposition."""
+    from smogsense.models.diagnostics import run_atmospheric_diagnostics
+
+    run_atmospheric_diagnostics(
+        feature_store_dir=feature_store_dir,
+        domain=domain,
+        eval_location_id=location_id,
+        output_dir=output_dir,
+    )
+    print(f"\nAtmospheric diagnostics complete. Report written to {output_dir}/diagnostics.md")
+    safe_exit(0)
 
 
 @app_preprocess.command("low-cost-correction")
