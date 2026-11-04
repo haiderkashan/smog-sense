@@ -17,6 +17,7 @@ from smogsense.features.backfill import (
     partition_block_e_folds,
     partition_seasons,
     run_feature_backfill,
+    verify_twin_aware_folds,
 )
 from smogsense.features.store import (
     build_feature_table,
@@ -38,4 +39,5 @@ __all__ = [
     "partition_seasons",
     "run_feature_backfill",
     "save_feature_table",
+    "verify_twin_aware_folds",
 ]

@@ -199,6 +199,87 @@ def partition_block_e_folds(seasons_in_e: Sequence[str]) -> dict[str, int]:
     return fold_map
 
 
+def verify_twin_aware_folds(
+    df: pd.DataFrame,
+    fold_col: str = "fold_id",
+    group_col: str = "colocated_group_id",
+    raise_on_violation: bool = True,
+) -> bool:
+    """Verify that co-located station pairs never straddle across different folds.
+
+    Under ADR-015 and ADR-024, co-located sensors (within 50 meters or sharing a
+    colocated_group_id) must always be kept together in the same training or
+    evaluation fold to prevent data leakage between evaluation and training sets.
+
+    Args:
+        df: DataFrame containing station identifiers and fold assignments.
+        fold_col: Name of fold identifier column.
+        group_col: Column name identifying co-located station clusters.
+        raise_on_violation: If True, raises ValueError on violation; otherwise returns False.
+
+    Returns:
+        True if all co-located groups are intact (no split across folds); False otherwise.
+    """
+    if df.empty or fold_col not in df.columns:
+        return True
+
+    valid_df = df[df[fold_col].notna()].copy()
+    if valid_df.empty:
+        return True
+
+    # 1. Check explicit group column if present
+    if group_col in valid_df.columns and valid_df[group_col].notna().any():
+        groups = valid_df[valid_df[group_col].notna()].groupby(group_col)[fold_col].nunique()
+        split_groups = groups[groups > 1]
+        if not split_groups.empty:
+            msg = (
+                f"Twin-aware violation: Co-located groups straddle multiple folds: "
+                f"{list(split_groups.index)}"
+            )
+            if raise_on_violation:
+                raise ValueError(msg)
+            return False
+        return True
+
+    # 2. Check geographical co-location (< 50m) if coordinates are available
+    lat_col = next((c for c in ("f_stat_lat", "latitude", "lat") if c in valid_df.columns), None)
+    lon_col = next((c for c in ("f_stat_lon", "longitude", "lon") if c in valid_df.columns), None)
+    loc_col = next((c for c in ("location_id", "station_id") if c in valid_df.columns), None)
+
+    if lat_col and lon_col and loc_col:
+        from smogsense.features.sparse_network import cluster_stations
+
+        station_coords = valid_df[[loc_col, lat_col, lon_col]].drop_duplicates(subset=[loc_col])
+        cluster_dict = cluster_stations(
+            station_coords.rename(
+                columns={loc_col: "location_id", lat_col: "latitude", lon_col: "longitude"}
+            ),
+            max_colocation_dist_m=50.0,
+        )
+        station_to_cluster: dict[Any, int] = {}
+        for cid, sids in cluster_dict.items():
+            for sid in sids:
+                station_to_cluster[sid] = cid
+
+        valid_df["_temp_cluster_id"] = valid_df[loc_col].map(station_to_cluster)
+        cluster_folds = (
+            valid_df.dropna(subset=["_temp_cluster_id"])
+            .groupby("_temp_cluster_id")[fold_col]
+            .nunique()
+        )
+        split_clusters = cluster_folds[cluster_folds > 1]
+        if not split_clusters.empty:
+            msg = (
+                f"Twin-aware violation: Co-located station clusters straddle multiple folds: "
+                f"{list(split_clusters.index)}"
+            )
+            if raise_on_violation:
+                raise ValueError(msg)
+            return False
+
+    return True
+
+
 def is_boundary_purged(
     issuance_utc: datetime,
     window_start_utc: datetime,
@@ -229,9 +310,13 @@ def compute_oof_partition_hash(df: pd.DataFrame) -> str:
     if df.empty or "fold_id" not in df.columns or df["fold_id"].isna().all():
         return hashlib.sha256(b"none").hexdigest()
 
-    sub = df[df["fold_id"].notna()].sort_values(by=["location_id", "issuance_utc"])
+    sub = df[df["fold_id"].notna()].copy()
     if sub.empty:
         return hashlib.sha256(b"none").hexdigest()
+
+    sub = sub.sort_values(by=["location_id", "issuance_utc", "fold_id"]).drop_duplicates(
+        subset=["location_id", "issuance_utc"]
+    )
 
     loc_strs = sub["location_id"].astype(str)
     ts_strs = pd.to_datetime(sub["issuance_utc"], utc=True).dt.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -777,4 +862,5 @@ __all__ = [
     "partition_block_e_folds",
     "partition_seasons",
     "run_feature_backfill",
+    "verify_twin_aware_folds",
 ]
