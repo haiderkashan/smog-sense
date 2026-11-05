@@ -1074,6 +1074,116 @@ def eval_diagnostics_cmd(
     safe_exit(0)
 
 
+@app_eval.command("rh-mask-audit")
+def eval_rh_mask_audit_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    backfill_dir: str = typer.Option(
+        "data/processed/backfill", "--backfill-dir", help="Path to backfilled observations"
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models", "--models-dir", help="Path to models directory"
+    ),
+    output_dir: str = typer.Option(
+        "reports", "--output-dir", "-o", help="Output directory for reports"
+    ),
+    rh_threshold: float = typer.Option(
+        85.0, "--rh-threshold", help="RH cutoff threshold percentage (default: 85.0%)"
+    ),
+    min_support_fraction: float = typer.Option(
+        0.5, "--min-support-fraction", help="Minimum survival fraction to apply mask (default: 0.5)"
+    ),
+    n_windows: int = typer.Option(
+        15, "--n-windows", "-n", help="Number of benchmark evaluation windows (default: 15)"
+    ),
+    seed: int = typer.Option(42, "--seed", help="Random seed for reproducibility"),
+    device: str = typer.Option("cpu", "--device", help="Torch compute device (cpu, cuda)"),
+) -> None:
+    """Audit empirical Relative Humidity distribution on low-cost sensors and evaluate Condition C9 mask (Task P2-13)."""
+    from smogsense.models.rh_mask_audit import run_rh_mask_audit
+
+    print("=" * 75)
+    print(f"RH-MASK AUDIT ON LAHORE LOW-COST SUPPORT HOURS (Domain: {domain})")
+    print("=" * 75)
+    print(f"Feature Store:        {feature_store_dir}")
+    print(f"Backfill Dir:         {backfill_dir}")
+    print(f"Models Dir:           {models_dir}")
+    print(f"Output Directory:     {output_dir}")
+    print(f"RH Threshold:         {rh_threshold:.1f}%")
+    print(f"Min Support Fraction: {min_support_fraction:.2f}")
+    print(f"Evaluation Windows:   {n_windows}")
+    print(f"Random Seed:          {seed}")
+    print(f"Device:               {device}")
+
+    report = run_rh_mask_audit(
+        domain=domain,
+        feature_store_dir=feature_store_dir,
+        backfill_dir=backfill_dir,
+        models_dir=models_dir,
+        output_dir=output_dir,
+        rh_threshold=rh_threshold,
+        min_support_fraction=min_support_fraction,
+        n_windows=n_windows,
+        seed=seed,
+        device=device,
+    )
+
+    dist = report.rh_distribution
+    coin = report.extreme_smog_coincidence
+    imp = report.adaptation_impact
+    pol = report.policy_decision
+
+    print("\n" + "=" * 75)
+    print("1. EMPIRICAL RH DISTRIBUTION (Low-Cost Monitors)")
+    print("=" * 75)
+    print(
+        f"Total Hours: {dist.total_hours:,} | Mean: {dist.mean_rh:.2f}% | Median: {dist.median_rh:.2f}%"
+    )
+    print(f"{'Relative Humidity Bin':<25} | {'Hours':<15} | {'Percentage':<15}")
+    print("-" * 75)
+    for b in dist.bins:
+        print(f"{b.bin_name:<25} | {b.count:<15,} | {b.percentage:.2f}%")
+
+    print("\n" + "=" * 75)
+    print("2. UPPER-TAIL SMOG COINCIDENCE (Risk R14 Truncation)")
+    print("=" * 75)
+    print(
+        f"{'Smog Threshold':<25} | {'Total Hours':<15} | {'Hours RH > 85%':<15} | {'Share with RH > 85%':<20}"
+    )
+    print("-" * 75)
+    print(
+        f"{'PM2.5 >= 150 ug/m3':<25} | {coin.threshold_150.total_hours:<15,} | {coin.threshold_150.hours_high_rh:<15,} | {coin.threshold_150.percentage_high_rh:.2f}%"
+    )
+    print(
+        f"{'PM2.5 >= 250 ug/m3':<25} | {coin.threshold_250.total_hours:<15,} | {coin.threshold_250.hours_high_rh:<15,} | {coin.threshold_250.percentage_high_rh:.2f}%"
+    )
+
+    print("\n" + "=" * 75)
+    print("3. ADAPTATION IMPACT BENCHMARK (Unmasked vs RH-Masked)")
+    print("=" * 75)
+    print(
+        f"{'Metric':<30} | {'Unmasked':<12} | {'RH-Masked':<12} | {'Delta':<12} | {'Rel Delta (%)':<15}"
+    )
+    print("-" * 75)
+    print(
+        f"{'Upper Pinball (tau >= 0.75)':<30} | {imp.unmasked.upper_quantile_pinball:<12.4f} | {imp.masked.upper_quantile_pinball:<12.4f} | {imp.delta_upper_pinball:<+12.4f} | {imp.rel_delta_upper_pinball_pct:>+12.2f}%"
+    )
+    print(
+        f"{'Full 19-Quantile CRPS':<30} | {imp.unmasked.crps:<12.4f} | {imp.masked.crps:<12.4f} | {imp.delta_crps:<+12.4f} | {imp.rel_delta_crps_pct:>+12.2f}%"
+    )
+    print(
+        f"{'High-RH Days Pinball':<30} | {imp.unmasked.high_rh_upper_pinball:<12.4f} | {imp.masked.high_rh_upper_pinball:<12.4f} | {imp.delta_high_rh_pinball:<+12.4f} | {imp.rel_delta_high_rh_pinball_pct:>+12.2f}%"
+    )
+    print("=" * 75)
+    print(f"\nCondition C9 Policy Decision: {pol['recommendation']}")
+    print(
+        f"Audit reports written to: {output_dir}/rh_mask_audit.json and {output_dir}/rh_mask_audit.md"
+    )
+    safe_exit(0)
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
