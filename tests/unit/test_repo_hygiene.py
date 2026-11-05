@@ -278,6 +278,41 @@ def test_configs_are_consistent_with_each_other(repo_root: Path) -> None:
     assert lowers == sorted(lowers) and lowers[0] == 0.0
     assert evaluation["methods"][0] == "m0_persistence" and len(evaluation["methods"]) == 10
 
+    # Revision-3 cross-config invariants (T0-09)
+    assert feats["sequence_channels"] == [
+        "pm25_log1p_masked",
+        "obs_minus_cams_pm25",
+        "rh_pct",
+        "t2m_c",
+        "pm25_mask",
+        "delta_t",
+    ]
+    assert model["base"]["bind_base_sha256"] is True
+    assert model["base"]["cross_fit"]["max_folds"] <= 3
+    assert model["base"]["cross_fit"]["embargo_h"] == 72
+    assert model["base"]["cross_fit"]["purging"] is True
+
+    assert model["corruption"]["gain_range"] == [0.8, 1.3]
+    assert model["corruption"]["rh_slope_range"] == [0.0, 1.5]
+    assert model["corruption"]["offset_range"] == [-10.0, 25.0]
+    assert model["corruption"]["support_labels"] == "clean"
+
+    assert model["adaptation"]["residual_bound"]["statistic"] == "mean_abs_residual"
+    assert model["adaptation"]["residual_bound"]["threshold_quantile"] == 0.99
+    assert model["adaptation"]["rh_mask"]["enabled"] is False
+    assert model["adaptation"]["rh_mask"]["threshold_pct"] == 85
+    assert model["adaptation"]["rh_mask"]["min_support_fraction"] == 0.5
+
+    assert model["adaptation"]["inner"]["steps"] == model["meta"]["inner"]["steps"] == 3
+    assert model["adaptation"]["inner"]["loss"] == model["meta"]["inner"]["loss"] == "pinball"
+    assert model["adaptation"]["inner"]["grad_clip"] == model["meta"]["inner"]["grad_clip"] == 1.0
+    assert model["meta"]["inner"]["step_size_granularity"] == "per_tensor"
+
+    assert model["head"]["output_dim"] == 57
+    assert model["head"]["zero_init_last_layer"] is True
+    assert model["calibration"]["aci_gamma"] in model["calibration"]["aci_gamma_grid"]
+    assert bulletin.get("valid_until_hours") == 30
+
 
 # ----------------------------------------------------------------------------- documentation integrity (anchors, spec references)
 def _github_slug(heading: str) -> str:
