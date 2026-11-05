@@ -214,7 +214,7 @@ def test_audit_season_t_stations_threshold_unmet() -> None:
     records = [
         {
             "location_id": stn_id,
-            "issuance_utc": f"2025-11-0{d+1}T00:00:00Z",
+            "issuance_utc": f"2025-11-0{d + 1}T00:00:00Z",
             "valid_h24": True,
         }
         for stn_id in range(101, 101 + n_stations)
@@ -384,7 +384,9 @@ def test_generate_and_save_reports_roundtrip(tmp_path: Path) -> None:
     assert not raw_md_bytes.endswith(b"\n\n")
 
     md_text = md_path.read_text(encoding="utf-8")
-    assert "# SmogSense Phase 2 Task P2-14: H5 Statistical Power & Pilot Study on Season T" in md_text
+    assert (
+        "# SmogSense Phase 2 Task P2-14: H5 Statistical Power & Pilot Study on Season T" in md_text
+    )
     assert "Condition H5 (Clean Regulatory)" in md_text
     assert "Condition H5-C (Corrupted Inputs Prior)" in md_text
 
