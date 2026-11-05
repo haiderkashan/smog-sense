@@ -47,7 +47,6 @@ from smogsense.models.heads import (
     CANONICAL_QUANTILES,
     ResidualCalibrator,
 )
-from smogsense.models.losses import pinball_loss
 from smogsense.models.maml import (
     MAMLTask,
     MetaSGDStepSizes,
@@ -139,6 +138,20 @@ def split_support_window(
     return df_fit, df_check
 
 
+def _pinball_loss_np(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    tau: float,
+) -> np.ndarray:
+    """Compute asymmetric quantile pinball loss for numpy arrays.
+
+    Formula:
+        rho_tau(u) = max((tau - 1) * (y - q), tau * (y - q))
+    """
+    diff = y_true - y_pred
+    return np.asarray(np.maximum((tau - 1.0) * diff, tau * diff))
+
+
 def compute_residual_statistic(delta_z: np.ndarray | torch.Tensor) -> float:
     """Compute deployment residual statistic R = mean(|Delta z_hat|).
 
@@ -168,7 +181,7 @@ def evaluate_adaptation_acceptance(
     y_mask: np.ndarray | torch.Tensor,
     m5_pred: np.ndarray | torch.Tensor,
     adapted_pred: np.ndarray | torch.Tensor,
-    dates: Sequence[Any] | np.ndarray | pd.Series,
+    dates: Sequence[Any] | np.ndarray | pd.Series | pd.Index,
     rho_99: float,
     unadapted_pred: np.ndarray | torch.Tensor | None = None,
     min_improvement: float = 0.02,
@@ -267,7 +280,7 @@ def evaluate_adaptation_acceptance(
         if not in_log1p:
             unadp_np = np.log1p(np.maximum(0.0, unadp_np))
         u_losses = [
-            pinball_loss(y_np[mask_np[:, h], h], unadp_np[mask_np[:, h], h, i], tau)
+            _pinball_loss_np(y_np[mask_np[:, h], h], unadp_np[mask_np[:, h], h, i], tau)
             for h in range(3)
             if mask_np[:, h].any()
             for i, tau in enumerate(quantiles)
@@ -276,13 +289,13 @@ def evaluate_adaptation_acceptance(
 
     # Compute overall check pinball losses
     m5_losses = [
-        pinball_loss(y_np[mask_np[:, h], h], m5_np[mask_np[:, h], h, i], tau)
+        _pinball_loss_np(y_np[mask_np[:, h], h], m5_np[mask_np[:, h], h, i], tau)
         for h in range(3)
         if mask_np[:, h].any()
         for i, tau in enumerate(quantiles)
     ]
     adp_losses = [
-        pinball_loss(y_np[mask_np[:, h], h], adp_np[mask_np[:, h], h, i], tau)
+        _pinball_loss_np(y_np[mask_np[:, h], h], adp_np[mask_np[:, h], h, i], tau)
         for h in range(3)
         if mask_np[:, h].any()
         for i, tau in enumerate(quantiles)
@@ -321,14 +334,14 @@ def evaluate_adaptation_acceptance(
     for day_str in unique_days:
         day_indices = np.where(dt_series == day_str)[0]
         day_m5_losses = [
-            pinball_loss(y_np[day_idx, h], m5_np[day_idx, h, i], tau)
+            _pinball_loss_np(y_np[day_idx, h], m5_np[day_idx, h, i], tau)
             for day_idx in day_indices
             for h in range(3)
             if mask_np[day_idx, h]
             for i, tau in enumerate(quantiles)
         ]
         day_adp_losses = [
-            pinball_loss(y_np[day_idx, h], adp_np[day_idx, h, i], tau)
+            _pinball_loss_np(y_np[day_idx, h], adp_np[day_idx, h, i], tau)
             for day_idx in day_indices
             for h in range(3)
             if mask_np[day_idx, h]
@@ -631,9 +644,10 @@ def simulate_deployments_on_block_v(
         )
 
         # Adapt theta -> theta' on fit part
+        sim_params = {k: v.clone().detach().requires_grad_(True) for k, v in initial_params.items()}
         adapted_params = inner_loop_adapt(
             calibrator=calibrator,
-            params=initial_params,
+            params=sim_params,
             step_sizes=step_sizes,
             task=fit_task,
             inner_steps=inner_steps,
