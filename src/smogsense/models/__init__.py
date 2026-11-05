@@ -62,6 +62,14 @@ from smogsense.models.pretraining import (
     evaluate_calibrator,
     train_m6_calibrator,
 )
+from smogsense.models.residual_bound import (
+    AdaptationAcceptanceResult,
+    AdaptationStatus,
+    compute_residual_statistic,
+    evaluate_adaptation_acceptance,
+    simulate_deployments_on_block_v,
+    split_support_window,
+)
 
 __all__ = [
     "CANONICAL_ABLATIONS",
@@ -72,6 +80,8 @@ __all__ = [
     "RINGS_4",
     "RUNG_NAMES",
     "SECTORS_8",
+    "AdaptationAcceptanceResult",
+    "AdaptationStatus",
     "LGBMQuantileEnsemble",
     "LocalGRUEncoder",
     "MAMLAblationRunner",
@@ -88,9 +98,11 @@ __all__ = [
     "compute_atmospheric_lag_correlations",
     "compute_lag_cross_correlation",
     "compute_oof_partition_hash",
+    "compute_residual_statistic",
     "compute_sector_importance",
     "corrupt_support_labels",
     "evaluate_ablation_condition",
+    "evaluate_adaptation_acceptance",
     "evaluate_calibrator",
     "evaluate_maml",
     "evaluate_predictions",
@@ -103,6 +115,8 @@ __all__ = [
     "run_atmospheric_diagnostics",
     "run_maml_ablations",
     "run_model_ladder",
+    "simulate_deployments_on_block_v",
+    "split_support_window",
     "train_m6_calibrator",
     "train_maml",
     "verify_twin_aware_folds",
