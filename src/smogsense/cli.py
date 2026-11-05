@@ -621,6 +621,80 @@ def audit_asof_parity_cmd(
     safe_exit(0 if all_ok else 30)
 
 
+@app_audit.command("corruption-prior")
+def audit_corruption_prior_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
+    backfill_dir: str = typer.Option(
+        "data/processed/backfill", "--backfill-dir", help="Path to backfill directory"
+    ),
+    registry_path: str | None = typer.Option(
+        None, "--registry-path", help="Path to station registry"
+    ),
+    config_path: str = typer.Option(
+        "configs/model.yaml", "--config-path", help="Path to model config"
+    ),
+    output_dir: str = typer.Option(
+        "reports", "--output-dir", help="Output directory for reports (default: reports)"
+    ),
+    window_days: int = typer.Option(
+        60, "--window-days", help="Window in days for pairing (default: 60)"
+    ),
+    max_distance_km: float = typer.Option(
+        8.0, "--max-distance-km", help="Max distance in km from reference monitor"
+    ),
+) -> None:
+    """Run empirical corruption-prior audit on Lahore low-cost sensors (Task P2-15)."""
+    from smogsense.models.corruption_audit import run_corruption_prior_audit
+
+    res = run_corruption_prior_audit(
+        domain=domain,
+        backfill_dir=backfill_dir,
+        registry_path=registry_path,
+        config_path=config_path,
+        output_dir=output_dir,
+        window_days=window_days,
+        max_distance_km=max_distance_km,
+    )
+
+    print("=" * 80)
+    print(f"EMPIRICAL CORRUPTION-PRIOR AUDIT (Domain: {domain.upper()})")
+    print("=" * 80)
+    print(f"Reference Station: {res.reference_station_id} ({res.reference_station_name})")
+    print(
+        f"Candidate Low-Cost Stations: {len(res.candidate_stations)} within <= {max_distance_km} km"
+    )
+    print(f"Total Paired Hourly Records: {res.total_paired_records:,}")
+    print("\nFitted Huber Coefficients:")
+    print(
+        f"  a (gain): {res.huber_coefficients['a_gain']:.4f} | "
+        f"b (RH slope): {res.huber_coefficients['b_rh_slope']:.4f} | "
+        f"c (offset): {res.huber_coefficients['c_intercept']:.4f}"
+    )
+
+    print("\nInverted Corruption Priors vs Configured Ranges:")
+    for comp in res.prior_comparisons:
+        print(
+            f"  - {comp.parameter:10s}: Empirical = {comp.empirical_value:7.4f} | "
+            f"Configured = [{comp.configured_min:5.1f}, {comp.configured_max:5.1f}] | "
+            f"Status = {comp.status}"
+        )
+
+    print("\nSupport Window Error Distribution:")
+    for sw in res.support_window_stats:
+        print(
+            f"  - {sw.window_days:2d} Days: Mean Ratio = {sw.mean_ratio:.2f}x | "
+            f"Median = {sw.median_ratio:.2f}x | Ratio > 1.30 = {sw.fraction_ratio_gt_1_30 * 100:.1f}% | "
+            f"RMSE = {sw.rmse_ugm3:.1f} ug/m3"
+        )
+
+    print(
+        f"\nRisk R17 Assessment: {'TRIGGERED' if res.risk_r17_triggered else 'ENVELOPED'} ({res.risk_r17_severity})"
+    )
+    print(f"  Summary: {res.risk_r17_summary}")
+    print(f"\nReports written to: {output_dir}/corruption_prior_audit.json and .md")
+    safe_exit(0)
+
+
 @app_score.command("shadow")
 def score_shadow_cmd(
     stage: str = typer.Option(
