@@ -154,6 +154,51 @@ def test_forecast_log_rejects_unknown_method(schemas: dict[str, pa.DataFrameSche
         validate_frame(schemas["forecast_log"], bad)
 
 
+def test_forecast_log_adaptation_status_revision_3_invariants(
+    schemas: dict[str, pa.DataFrameSchema],
+) -> None:
+    """T0-08: forecast_log strictly accepts 5 Revision-3 statuses and rejects legacy rejected_latent_drift."""
+    schema = schemas["forecast_log"]
+    valid_statuses = {
+        "adapted",
+        "skipped_n0",
+        "skipped_insufficient_support",
+        "rejected_no_gain",
+        "rejected_residual_bound",
+    }
+
+    # Verify each Revision-3 status is accepted
+    for st in valid_statuses:
+        row = _forecast_row()
+        row["adaptation_status"] = st
+        validate_frame(schema, row)
+
+    # Verify legacy Revision-2 value rejected_latent_drift is rejected
+    bad_legacy = _forecast_row()
+    bad_legacy["adaptation_status"] = "rejected_latent_drift"
+    with pytest.raises(VALIDATION_ERRORS):
+        validate_frame(schema, bad_legacy)
+
+    # Verify arbitrary unknown status is rejected
+    bad_unknown = _forecast_row()
+    bad_unknown["adaptation_status"] = "unknown_status"
+    with pytest.raises(VALIDATION_ERRORS):
+        validate_frame(schema, bad_unknown)
+
+
+def test_forecast_log_rerun_accepted_with_is_rerun_true(
+    schemas: dict[str, pa.DataFrameSchema],
+) -> None:
+    """T0-08: A rerun with a new run_id is accepted and written with is_rerun = True."""
+    schema = schemas["forecast_log"]
+    rerun_row = _forecast_row()
+    rerun_row["run_id"] = "test_run_rerun_v2"
+    rerun_row["is_rerun"] = True
+    validated = validate_frame(schema, rerun_row)
+    assert bool(validated["is_rerun"].iloc[0]) is True
+    assert validated["run_id"].iloc[0] == "test_run_rerun_v2"
+
+
 def test_feature_store_regex_columns_and_strictness(schemas: dict[str, pa.DataFrameSchema]) -> None:
     frame = pd.DataFrame(
         {
@@ -237,6 +282,9 @@ MUTATIONS = {
     ),
     "invalid_adaptation_status": lambda d: d["model"].__setitem__(
         "adaptation_status", "invalid_status"
+    ),
+    "legacy_rejected_latent_drift": lambda d: d["model"].__setitem__(
+        "adaptation_status", "rejected_latent_drift"
     ),
 }
 
