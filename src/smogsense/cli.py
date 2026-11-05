@@ -923,6 +923,67 @@ def train_maml_ablation_cmd(
     safe_exit(0)
 
 
+@app_train.command("residual-bound")
+@app_eval.command("residual-bound")
+def train_residual_bound_cmd(
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models", "--models-dir", help="Path to models directory"
+    ),
+    n_simulations: int = typer.Option(
+        200, "--n-simulations", "-n", help="Number of deployment simulations M"
+    ),
+    output_json: str = typer.Option(
+        "data/processed/models/residual_bound.json",
+        "--output-json",
+        "-o",
+        help="Path to output JSON summary",
+    ),
+    seed: int = typer.Option(42, "--seed", help="Random seed for reproducibility"),
+    device: str = typer.Option("cpu", "--device", help="Torch compute device (cpu, cuda)"),
+) -> None:
+    """Calibrate deployment residual bound threshold rho_99 on Delhi Block V (Task P2-12)."""
+    from smogsense.models.residual_bound import simulate_deployments_on_block_v
+
+    print("=" * 70)
+    print("CALIBRATING RESIDUAL BOUND THRESHOLD (rho_99 on Block V)")
+    print("=" * 70)
+    print(f"Feature Store: {feature_store_dir}")
+    print(f"Models Dir:    {models_dir}")
+    print(f"Simulations:   {n_simulations}")
+    print(f"Random Seed:   {seed}")
+    print(f"Device:        {device}")
+    print(f"Output Path:   {output_json}")
+
+    summary = simulate_deployments_on_block_v(
+        feature_store_dir=feature_store_dir,
+        models_dir=models_dir,
+        n_simulations=n_simulations,
+        seed=seed,
+        device=device,
+        output_json=output_json,
+    )
+
+    p = summary["percentiles"]
+    print("\n" + "=" * 70)
+    print("RESIDUAL BOUND CALIBRATION SUMMARY (ADR-024 Condition C6)")
+    print("=" * 70)
+    print(f"{'Statistic':<25} | {'Value (log1p units)':<20}")
+    print("-" * 70)
+    print(f"{'Simulations Completed':<25} | {summary['n_simulations']}")
+    print(f"{'Median Residual (p50)':<25} | {p['p50']:.6f}")
+    print(f"{'90th Percentile (p90)':<25} | {p['p90']:.6f}")
+    print(f"{'95th Percentile (p95)':<25} | {p['p95']:.6f}")
+    print(f"{'99th Percentile (rho_99)':<25} | {summary['rho_99']:.6f}  <-- THRESHOLD")
+    print(f"{'Maximum Residual':<25} | {p['max']:.6f}")
+    print("=" * 70)
+    print(f"Calibrated threshold rho_99: {summary['rho_99']:.6f}")
+    print(f"Serialized distribution to: {output_json}")
+    safe_exit(0)
+
+
 @app_eval.command("probe")
 def eval_probe_cmd(
     feature_store_dir: str = typer.Option(
