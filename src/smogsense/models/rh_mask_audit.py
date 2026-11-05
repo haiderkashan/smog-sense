@@ -684,7 +684,7 @@ def evaluate_rh_mask_impact(
 
         # Compute pinball loss for upper quantiles and CRPS
         for hi in range(len(CANONICAL_HORIZONS)):
-            valid_idx = eval_m_np[:, hi]
+            valid_idx = eval_m_np[:, hi].astype(bool)
             if not np.any(valid_idx):
                 continue
 
@@ -700,8 +700,8 @@ def evaluate_rh_mask_impact(
             w_up_un: list[float] = []
             w_up_m: list[float] = []
             for qi, tau in zip(q_indices, UPPER_QUANTILES, strict=True):
-                pb_un = float(_pinball_loss_np(y_h, qu_h[:, qi], tau))
-                pb_m = float(_pinball_loss_np(y_h, qm_h[:, qi], tau))
+                pb_un = float(np.mean(_pinball_loss_np(y_h, qu_h[:, qi], tau)))
+                pb_m = float(np.mean(_pinball_loss_np(y_h, qm_h[:, qi], tau)))
                 unmasked_per_q[tau].append(pb_un)
                 masked_per_q[tau].append(pb_m)
                 w_up_un.append(pb_un)
@@ -717,11 +717,11 @@ def evaluate_rh_mask_impact(
                 qu_hrh = q_un_sorted[hrh_valid, hi, :]
                 qm_hrh = q_m_sorted[hrh_valid, hi, :]
                 hrh_up_un = [
-                    float(_pinball_loss_np(y_hrh, qu_hrh[:, qi], tau))
+                    float(np.mean(_pinball_loss_np(y_hrh, qu_hrh[:, qi], tau)))
                     for qi, tau in zip(q_indices, UPPER_QUANTILES, strict=True)
                 ]
                 hrh_up_m = [
-                    float(_pinball_loss_np(y_hrh, qm_hrh[:, qi], tau))
+                    float(np.mean(_pinball_loss_np(y_hrh, qm_hrh[:, qi], tau)))
                     for qi, tau in zip(q_indices, UPPER_QUANTILES, strict=True)
                 ]
                 unmasked_high_rh_pb.append(float(np.mean(hrh_up_un)))
@@ -906,7 +906,7 @@ def generate_rh_mask_report(
         "",
         "## 1. Executive Summary & Policy Decision",
         "",
-        f"> **Policy Finding**: {pol['recommendation']}",
+        f"> **Policy Finding**: {pol.get('recommendation', imp.recommendation)}",
         "",
         f"Under Condition C9 (`configs/model.yaml`), SmogSense keeps `rh_mask.enabled: false` by default. "
         f"This empirical audit evaluated **{dist.total_hours:,} low-cost sensor hours** across Lahore. "
