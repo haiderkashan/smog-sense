@@ -1184,6 +1184,94 @@ def eval_rh_mask_audit_cmd(
     safe_exit(0)
 
 
+@app_eval.command("h5-power")
+def eval_h5_power_cmd(
+    domain: str = typer.Option("delhi", "--domain", help="Target domain (default: delhi)"),
+    season: str = typer.Option(
+        "2025-2026", "--season", help="Delhi confirmatory test season (default: 2025-2026)"
+    ),
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    registry_path: str = typer.Option(
+        "data/registry/registry_delhi.parquet", "--registry-path", help="Path to domain registry"
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models", "--models-dir", help="Path to models directory"
+    ),
+    output_dir: str = typer.Option(
+        "reports", "--output-dir", "-o", help="Output directory for reports"
+    ),
+    n_windows: int = typer.Option(
+        25, "--n-windows", "-n", help="Number of benchmark sliding windows (default: 25)"
+    ),
+    support_days: int = typer.Option(
+        14, "--support-days", help="Number of support days per window (default: 14)"
+    ),
+    seed: int = typer.Option(42, "--seed", help="Random seed for reproducibility"),
+    device: str = typer.Option("cpu", "--device", help="Torch compute device (cpu, cuda)"),
+) -> None:
+    """Evaluate Hypothesis H5 statistical power and pilot study on Delhi Season T (Task P2-14)."""
+    from smogsense.models.h5_power import run_h5_power_pilot
+
+    print("=" * 80)
+    print(f"H5 STATISTICAL POWER & PILOT STUDY (Domain: {domain}, Season: {season})")
+    print("=" * 80)
+    print(f"Feature Store:    {feature_store_dir}")
+    print(f"Registry Path:    {registry_path}")
+    print(f"Models Dir:       {models_dir}")
+    print(f"Output Directory: {output_dir}")
+    print(f"Sliding Windows:  {n_windows}")
+    print(f"Support Days:     {support_days}")
+    print(f"Random Seed:      {seed}")
+    print(f"Device:           {device}")
+
+    report = run_h5_power_pilot(
+        domain=domain,
+        season=season,
+        feature_store_dir=feature_store_dir,
+        registry_path=registry_path,
+        models_dir=models_dir,
+        output_dir=output_dir,
+        n_windows=n_windows,
+        support_days=support_days,
+        seed=seed,
+        device=device,
+    )
+
+    audit = report.station_audit
+    h5_cln = report.h5_clean
+    h5_crp = report.h5_corrupted
+
+    print("\n" + "=" * 80)
+    print("1. STATION ELIGIBILITY AUDIT (Delhi Season T)")
+    print("=" * 80)
+    print(f"Total Registry Stations:  {audit.total_stations}")
+    print(f"Eligible Stations:        {audit.eligible_stations} / {audit.total_stations}")
+    print(f"Threshold Requirement:   >= {audit.min_threshold} stations")
+    print(f"Audit Verdict:            {'PASS' if audit.threshold_met else 'FAIL'}")
+
+    print("\n" + "=" * 80)
+    print("2. HYPOTHESIS H5 PILOT RESULTS (M7 Meta-SGD vs M6 Fine-Tuning)")
+    print("=" * 80)
+    print(
+        f"{'Condition':<30} | {'CRPS Ratio':<12} | {'sigma':<8} | {'rho_1':<8} | {'n_eff':<8} | {'Power':<8} | {'Verdict':<8}"
+    )
+    print("-" * 80)
+    print(
+        f"{'H5 (Clean Regulatory)':<30} | {h5_cln.crps_ratio_point:<12.4f} | {h5_cln.sigma_d:<8.4f} | {h5_cln.rho_1:<8.3f} | {h5_cln.n_eff:<8.1f} | {h5_cln.analytical_power * 100:>6.1f}% | {'PASS' if h5_cln.verdict_passed else 'FAIL':<8}"
+    )
+    print(
+        f"{'H5-C (Corrupted Inputs Prior)':<30} | {h5_crp.crps_ratio_point:<12.4f} | {h5_crp.sigma_d:<8.4f} | {h5_crp.rho_1:<8.3f} | {h5_crp.n_eff:<8.1f} | {h5_crp.analytical_power * 100:>6.1f}% | {'PASS' if h5_crp.verdict_passed else 'FAIL':<8}"
+    )
+    print("=" * 80)
+    print(f"\nH5 Status: {'POWERED / CONFIRMED' if h5_cln.verdict_passed else 'INDICATIVE'}")
+    print(
+        f"Reports written to: {output_dir}/h5_power_pilot.json and {output_dir}/h5_power_pilot.md"
+    )
+    safe_exit(0)
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
