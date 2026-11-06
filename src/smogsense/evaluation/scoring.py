@@ -4,38 +4,187 @@ Specification: docs/evaluation-strategy.md → 'CRPS and quantile scoring'
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 
-from smogsense.evaluation.crps import crps_from_quantiles
+from smogsense.evaluation.crps import crps_from_quantiles, threshold_weighted_crps, tw_crps
 from smogsense.publishing.bulletin import determine_aqi_category
 
 # Standard 19 quantiles: q05..q95 in steps of 0.05
 Q_NAMES = [f"q{round((0.05 * (i + 1)) * 100):02d}" for i in range(19)]
+CANONICAL_TAUS = np.arange(0.05, 0.951, 0.05)
 
 
 def pinball_loss(y: float, q: float, tau: float) -> float:
-    """Compute pinball (quantile) loss rho_tau(y - q) = max(tau * (y - q), (tau - 1) * (y - q))."""
+    """Compute pinball (quantile) loss rho_tau(y - q) = max(tau * (y - q), (tau - 1) * (y - q)).
+
+    Args:
+        y: True observed concentration in ug/m3.
+        q: Predicted quantile in ug/m3.
+        tau: Nominal quantile level in (0, 1).
+
+    Returns:
+        Scalar pinball loss in ug/m3.
+    """
     diff = y - q
     return float(max(tau * diff, (tau - 1.0) * diff))
 
 
-def interval_score(y: float, lower: float, upper: float, alpha: float = 0.20) -> float:
+def pinball_loss_vectorized(
+    y: float | np.ndarray,
+    q: float | np.ndarray,
+    tau: float | np.ndarray,
+) -> np.ndarray | float:
+    """Compute vectorized pinball loss rho_tau(y - q) for arrays of observations, quantiles, and taus.
+
+    Formula: rho_tau(y - q) = (y - q) * (tau - 1{y < q})
+
+    Args:
+        y: True observation(s).
+        q: Predicted quantile(s).
+        tau: Nominal level(s) in (0, 1).
+
+    Returns:
+        Array or scalar of pinball losses.
+    """
+    y_arr = np.asarray(y, dtype=float)
+    q_arr = np.asarray(q, dtype=float)
+    tau_arr = np.asarray(tau, dtype=float)
+
+    diff = y_arr - q_arr
+    loss = diff * (tau_arr - (diff < 0.0))
+    if np.isscalar(y) and np.isscalar(q) and np.isscalar(tau):
+        return float(loss)
+    return cast(np.ndarray, loss)
+
+
+def pinball_loss_19(
+    y: float | np.ndarray,
+    quantiles_19: np.ndarray,
+) -> float | np.ndarray:
+    """Compute mean pinball loss across the canonical 19 quantile levels tau in [0.05, 0.95].
+
+    Args:
+        y: Observation scalar or (N,) array.
+        quantiles_19: (19,) or (N, 19) array of predicted quantiles.
+
+    Returns:
+        Mean pinball loss scalar or (N,) array.
+    """
+    q_arr = np.atleast_2d(quantiles_19)
+    if q_arr.shape[1] != 19:
+        raise ValueError("quantiles_19 must have exactly 19 columns.")
+
+    y_arr = np.atleast_1d(y)
+    if len(y_arr) != q_arr.shape[0]:
+        raise ValueError(
+            f"Observation length ({len(y_arr)}) must match quantile rows ({q_arr.shape[0]})."
+        )
+
+    # Broadcast: diff shape (N, 19)
+    diff = y_arr[:, np.newaxis] - q_arr
+    taus = CANONICAL_TAUS[np.newaxis, :]
+    losses = diff * (taus - (diff < 0.0))
+    mean_losses = np.mean(losses, axis=1)
+
+    if np.isscalar(y) and quantiles_19.ndim == 1:
+        return float(mean_losses[0])
+    return mean_losses
+
+
+def interval_score(
+    y: float | np.ndarray,
+    lower: float | np.ndarray,
+    upper: float | np.ndarray,
+    alpha: float = 0.20,
+) -> float | np.ndarray:
     """Compute interval score IS_alpha(lower, upper, y) for (1 - alpha) prediction interval.
 
-    Formula: IS = (upper - lower) + (2 / alpha) * max(0, lower - y) + (2 / alpha) * max(0, y - upper).
+    Formula (Gneiting & Raftery, 2007):
+        IS = (upper - lower) + (2 / alpha) * max(0, lower - y) + (2 / alpha) * max(0, y - upper).
+
+    Args:
+        y: True observation scalar or array.
+        lower: Predicted lower interval bound (e.g. q10 for 80% interval).
+        upper: Predicted upper interval bound (e.g. q90 for 80% interval).
+        alpha: Nominal miscoverage rate (default 0.20 for 80% interval).
+
+    Returns:
+        Interval score scalar or array.
     """
-    width = upper - lower
-    penalty = (2.0 / alpha) * (max(0.0, lower - y) + max(0.0, y - upper))
-    return float(width + penalty)
+    y_arr = np.asarray(y, dtype=float)
+    l_arr = np.asarray(lower, dtype=float)
+    u_arr = np.asarray(upper, dtype=float)
+
+    width = u_arr - l_arr
+    under_penalty = np.maximum(0.0, l_arr - y_arr)
+    over_penalty = np.maximum(0.0, y_arr - u_arr)
+    score = width + (2.0 / alpha) * (under_penalty + over_penalty)
+
+    if np.isscalar(y) and np.isscalar(lower) and np.isscalar(upper):
+        return float(score)
+    return cast(np.ndarray, score)
+
+
+def point_crps(
+    y: float | np.ndarray,
+    y_hat: float | np.ndarray,
+) -> float | np.ndarray:
+    """Compute CRPS for deterministic point forecasts: |y - y_hat|.
+
+    For a point prediction y_hat, CRPS reduces analytically to absolute error.
+
+    Args:
+        y: True observation scalar or array.
+        y_hat: Predicted point forecast scalar or array.
+
+    Returns:
+        Point CRPS (MAE) scalar or array.
+    """
+    y_arr = np.asarray(y, dtype=float)
+    y_hat_arr = np.asarray(y_hat, dtype=float)
+    res = np.abs(y_arr - y_hat_arr)
+    if np.isscalar(y) and np.isscalar(y_hat):
+        return float(res)
+    return cast(np.ndarray, res)
+
+
+def crpss(
+    crps_model: float,
+    crps_ref: float,
+) -> float:
+    """Compute Continuous Ranked Probability Skill Score (CRPSS).
+
+    Formula: CRPSS = 1.0 - (CRPS_model / CRPS_ref).
+
+    Args:
+        crps_model: CRPS of the model under evaluation.
+        crps_ref: CRPS of the reference baseline (e.g. M1 or M2).
+
+    Returns:
+        CRPSS scalar. Returns 1.0 if both are 0.0; -inf if ref is 0.0 but model is not.
+    """
+    if crps_ref <= 0.0:
+        return 1.0 if crps_model <= 0.0 else float("-inf")
+    return float(1.0 - (crps_model / crps_ref))
 
 
 def compute_crps(quantiles: np.ndarray | list[float], y: float) -> float:
     """Compute Continuous Ranked Probability Score (CRPS) from 19 quantile levels."""
     q_arr = np.asarray(quantiles, dtype=float)
     return float(crps_from_quantiles(q_arr, y))
+
+
+def compute_tw_crps(
+    quantiles: np.ndarray | list[float],
+    y: float,
+    threshold: float = 125.5,
+) -> float:
+    """Compute threshold-weighted CRPS (twCRPS) from 19 quantile levels."""
+    q_arr = np.asarray(quantiles, dtype=float)
+    return float(threshold_weighted_crps(q_arr, y, threshold=threshold))
 
 
 def score_forecast_block(
@@ -86,6 +235,7 @@ def score_forecast_block(
 
     y_obs: float | None = None
     crps_val: float | None = None
+    tw_crps_125_val: float | None = None
     p10: float | None = None
     p50: float | None = None
     p90: float | None = None
@@ -107,9 +257,10 @@ def score_forecast_block(
             p90 = pinball_loss(y_obs, q90, 0.90)
             hit_q90 = bool(y_obs <= q90)
         if q10 is not None and q90 is not None:
-            is80 = interval_score(y_obs, q10, q90, alpha=0.20)
+            is80 = float(interval_score(y_obs, q10, q90, alpha=0.20))
         if len(q_vals) == 19:
             crps_val = compute_crps(q_vals, y_obs)
+            tw_crps_125_val = compute_tw_crps(q_vals, y_obs, threshold=125.5)
 
         obs_cat = determine_aqi_category(y_obs)
 
@@ -121,7 +272,7 @@ def score_forecast_block(
 
     run_id = str(forecast_row.get("run_id") or forecast_row.get("forecast_run_id", "unknown"))
 
-    return {
+    res: dict[str, Any] = {
         "issuance_utc": issuance_dt,
         "scored_at_utc": scored_at_utc,
         "stage": stage,
@@ -133,6 +284,7 @@ def score_forecast_block(
         "n_valid_hours": np.int32(n_valid_hours),
         "valid": is_valid,
         "crps": crps_val,
+        "tw_crps_125_5": tw_crps_125_val,
         "pinball_q10": p10,
         "pinball_q50": p50,
         "pinball_q90": p90,
@@ -146,3 +298,22 @@ def score_forecast_block(
         "truth_basis": truth_basis
         or ("openaq_api" if stage == "provisional" else "openaq_archive"),
     }
+    return res
+
+
+__all__ = [
+    "CANONICAL_TAUS",
+    "Q_NAMES",
+    "compute_crps",
+    "compute_tw_crps",
+    "crps_from_quantiles",
+    "crpss",
+    "interval_score",
+    "pinball_loss",
+    "pinball_loss_19",
+    "pinball_loss_vectorized",
+    "point_crps",
+    "score_forecast_block",
+    "threshold_weighted_crps",
+    "tw_crps",
+]
