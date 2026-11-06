@@ -92,6 +92,41 @@ class AdaptationAcceptanceResult:
         """Convert result to dictionary for serialization."""
         return asdict(self)
 
+    @property
+    def status(self) -> AdaptationStatus:
+        """Canonical adaptation status."""
+        return self.adaptation_status
+
+    @property
+    def win_fraction(self) -> float:
+        """Daily win fraction alias for days_better_fraction."""
+        return self.days_better_fraction
+
+    @property
+    def mean_abs_residual(self) -> float:
+        """Mean absolute residual alias for residual_r."""
+        return self.residual_r
+
+    @property
+    def residual_bound_threshold(self) -> float:
+        """Threshold rho_99 alias."""
+        return self.rho_99
+
+    @property
+    def m5_check_loss(self) -> float:
+        """M5 check window loss alias."""
+        return self.check_pinball_m5
+
+    @property
+    def adapted_check_loss(self) -> float:
+        """Adapted check window loss alias."""
+        return self.check_pinball_adapted
+
+    @property
+    def n_fit_samples(self) -> int:
+        """Number of fit window samples."""
+        return int(self.details.get("n_fit_samples", 0))
+
 
 def split_support_window(
     df: pd.DataFrame,
@@ -190,6 +225,7 @@ def evaluate_adaptation_acceptance(
     support_days: float = 14.0,
     in_log1p: bool = True,
     quantiles: Sequence[float] = CANONICAL_QUANTILES,
+    details: dict[str, Any] | None = None,
 ) -> AdaptationAcceptanceResult:
     """Evaluate deployment acceptance gate on check window (Condition C6).
 
@@ -391,6 +427,7 @@ def evaluate_adaptation_acceptance(
             "min_days_better_fraction": min_days_better_fraction,
             "daily_adp_wins": daily_adp_wins,
             "daily_m5_wins": daily_m5_wins,
+            **(details or {}),
         },
     )
 

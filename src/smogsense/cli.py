@@ -1346,6 +1346,130 @@ def eval_h5_power_cmd(
     safe_exit(0)
 
 
+@app_eval.command("adapt")
+def eval_adapt_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
+    location_id: int = typer.Option(8664, "--location-id", help="Location ID for support window"),
+    feature_store_dir: str = typer.Option(
+        "data/processed/feature_store", "--feature-store-dir", help="Path to feature store root"
+    ),
+    base_model_dir: str = typer.Option(
+        "data/processed/models/lgbm_m5/base_model",
+        "--base-model-dir",
+        help="Path to base model directory",
+    ),
+    calibrator_path: str = typer.Option(
+        "data/processed/models/m7_maml.pt",
+        "--calibrator-path",
+        help="Path to calibrator weights (.pt)",
+    ),
+    support_days: int = typer.Option(14, "--support-days", help="Support window duration in days"),
+    rho_99: float = typer.Option(0.362452, "--rho-99", help="Calibrated residual bound threshold"),
+    is_reference: bool = typer.Option(
+        False, "--is-reference", help="Whether sensor is reference monitor"
+    ),
+    seed: int = typer.Option(42, "--seed", help="Random seed"),
+    device: str = typer.Option("cpu", "--device", help="Compute device"),
+) -> None:
+    """Run deployment adaptation lifecycle and acceptance check (Task P3-02)."""
+    import pandas as pd
+
+    from smogsense.models.adaptation import DeploymentAdaptationEngine
+
+    print("=" * 80)
+    print(f"DEPLOYMENT ADAPTATION & ACCEPTANCE GATE (Domain: {domain}, Location: {location_id})")
+    print("=" * 80)
+    print(f"Base Model Dir:    {base_model_dir}")
+    print(f"Calibrator Path:   {calibrator_path}")
+    print(f"Feature Store:     {feature_store_dir}")
+    print(f"Support Days:      {support_days}")
+    print(f"rho_99 Threshold:  {rho_99:.6f}")
+    print(f"Is Reference:      {is_reference}")
+    print(f"Device:            {device}")
+
+    base_path = Path(base_model_dir)
+    cal_path = Path(calibrator_path)
+    fs_path = Path(feature_store_dir)
+
+    if not base_path.exists():
+        print(f"Error: Base model directory not found: {base_model_dir}")
+        safe_exit(1)
+    if not cal_path.exists():
+        print(f"Error: Calibrator checkpoint not found: {calibrator_path}")
+        safe_exit(1)
+
+    print("\nLoading models and instantiating DeploymentAdaptationEngine...")
+    engine = DeploymentAdaptationEngine.from_paths(
+        base_model_dir=base_path,
+        calibrator_path=cal_path,
+        rho_99=rho_99,
+        device=device,
+    )
+
+    domain_fs = fs_path / domain
+    if not domain_fs.exists():
+        print(f"Error: Feature store for domain '{domain}' not found at {domain_fs}")
+        safe_exit(1)
+
+    parquet_files = sorted(domain_fs.rglob("*.parquet"))
+    if not parquet_files:
+        print(f"Error: No parquet partitions found in {domain_fs}")
+        safe_exit(1)
+
+    dfs: list[pd.DataFrame] = []
+    for pf in parquet_files[-3:]:
+        df_p = pd.read_parquet(pf)
+        if "location_id" in df_p.columns:
+            df_stn = df_p[df_p["location_id"] == location_id]
+            if not df_stn.empty:
+                dfs.append(df_stn)
+
+    if not dfs:
+        print(f"Warning: No support data found for location_id {location_id} in {domain_fs}")
+        df_support = pd.DataFrame()
+    else:
+        df_all = pd.concat(dfs, ignore_index=True)
+        df_all["issuance_utc"] = pd.to_datetime(df_all["issuance_utc"], utc=True)
+        df_all = df_all.sort_values("issuance_utc").reset_index(drop=True)
+        t_max = df_all["issuance_utc"].max()
+        t_min = t_max - pd.Timedelta(days=support_days)
+        df_support = df_all[df_all["issuance_utc"] >= t_min].copy()
+
+    print(f"Running adaptation on {len(df_support)} support observations...")
+    result = engine.adapt(support_df=df_support, is_reference_sensor=is_reference, seed=seed)
+
+    print("\n" + "=" * 80)
+    print("ADAPTATION ACCEPTANCE RESULT")
+    print("=" * 80)
+    print(f"Status:               {result.status.value}")
+    print(f"Is Adapted:           {engine.is_adapted}")
+    print(
+        f"Relative Improvement: {result.relative_improvement * 100:.2f}% "
+        f"(min required: {result.min_improvement * 100:.1f}%)"
+    )
+    print(
+        f"Daily Win Fraction:   {result.win_fraction * 100:.2f}% "
+        f"(min required: {result.min_days_better_fraction * 100:.1f}%)"
+    )
+    print(
+        f"Mean Abs Residual:    {result.mean_abs_residual:.6f} "
+        f"(rho_99 bound: {result.residual_bound_threshold:.6f})"
+    )
+    print(f"Fit Samples:          {result.n_fit_samples}")
+    print(f"Check Samples:        {result.n_check_samples}")
+    print(f"Check Days Evaluated: {result.n_check_days}")
+    print(f"M5 Check Loss:        {result.m5_check_loss:.6f}")
+    print(f"Adapted Check Loss:   {result.adapted_check_loss:.6f}")
+    print("=" * 80)
+
+    if engine.is_adapted:
+        print("Verdict: ACCEPTED — residual calibrator successfully deployed.")
+    else:
+        print(f"Verdict: FALLBACK TO M5 ({result.status.value}) — exact M5 physics base preserved.")
+
+    safe_exit(0)
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),

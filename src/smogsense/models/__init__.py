@@ -17,6 +17,11 @@ from smogsense.models.ablations import (
     evaluate_ablation_condition,
     run_maml_ablations,
 )
+from smogsense.models.adaptation import (
+    DEFAULT_RHO_99,
+    DeploymentAdaptationEngine,
+    get_process_rss_mb,
+)
 from smogsense.models.corruption_audit import (
     CorruptionPriorAuditResult,
     PriorComparison,
@@ -116,6 +121,7 @@ __all__ = [
     "CANONICAL_HORIZONS",
     "CANONICAL_QUANTILES",
     "DEFAULT_MIN_SUPPORT_FRACTION",
+    "DEFAULT_RHO_99",
     "DEFAULT_RH_THRESHOLD",
     "H5_TARGET_DELTA",
     "LADDER_RUNGS",
@@ -128,6 +134,7 @@ __all__ = [
     "AdaptationAcceptanceResult",
     "AdaptationStatus",
     "CorruptionPriorAuditResult",
+    "DeploymentAdaptationEngine",
     "ExtremeSmogCoincidenceSummary",
     "H5ConditionSummary",
     "H5PowerReport",
@@ -176,6 +183,7 @@ __all__ = [
     "generate_h5_power_report",
     "generate_power_sensitivity_grid",
     "generate_rh_mask_report",
+    "get_process_rss_mb",
     "inner_loop_adapt",
     "is_aod_feature",
     "is_fire_feature",
