@@ -15,12 +15,20 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
+from typer.testing import CliRunner
 
+from smogsense.cli import app
 from smogsense.models.lgbm_quantile import (
+    DEFAULT_HORIZONS,
+    DEFAULT_QUANTILES,
     M5_EXCLUDED_COLUMNS,
     LGBMQuantileEnsemble,
+    apply_tabular_feature_group_dropout,
     filter_features,
     fit_cross_fit_oof,
+    is_aod_feature,
+    is_fire_feature,
     pinball_loss,
     rearrange_quantiles,
 )
@@ -195,3 +203,321 @@ def test_fit_cross_fit_oof() -> None:
     # Final base must be fitted and produce valid predictions
     final_preds = final_base.predict(df, horizon=24)
     assert final_preds.shape == (len(df), 3)
+
+
+def test_rearrangement_submodularity_and_monotonicity_property() -> None:
+    """Property test for monotone rearrangement (Chernozhukov et al., 2010; T1-06).
+
+    Verifies:
+    1. Submodularity: Sorting never increases total pinball loss across all quantile levels.
+    2. Monotonicity: Sorted quantiles are strictly non-decreasing along the quantile axis.
+    3. Physical bounding: All values are bounded within [0.0, 2000.0] ug/m3.
+    4. Exact analytical loss reduction for crossing inversions where y lies in the crossing interval.
+    """
+    rng = np.random.default_rng(2026)
+    taus = DEFAULT_QUANTILES  # 19 quantile levels
+    n_levels = len(taus)
+
+    # 1. Randomized submodularity property test over 50 varied crossing profiles
+    for _ in range(50):
+        # Generate non-monotonic (crossing) predictions
+        base_val = rng.uniform(20.0, 400.0)
+        # Random scrambled offsets
+        raw_offsets = rng.normal(loc=0.0, scale=30.0, size=n_levels)
+        raw_q = base_val + np.cumsum(raw_offsets)  # Can easily cross and violate monotonicity
+
+        # Add occasional negative values or extreme outliers to test clipping
+        if rng.random() < 0.2:
+            raw_q[0] = -25.0
+        if rng.random() < 0.2:
+            raw_q[-1] = 2500.0
+
+        # True observation
+        y_obs = rng.uniform(0.0, 500.0)
+
+        # Loss before rearrangement
+        loss_before = sum(pinball_loss(y_obs, raw_q[i], taus[i]) for i in range(n_levels))
+
+        # Apply monotone rearrangement with physical bounding [0, 2000]
+        rearranged_q = rearrange_quantiles(raw_q, clip_min=0.0, clip_max=2000.0)
+
+        # Loss after rearrangement (must be <= loss_before for in-bound targets)
+        loss_after = sum(pinball_loss(y_obs, rearranged_q[i], taus[i]) for i in range(n_levels))
+
+        # Check submodularity: Sorting never increases pinball loss
+        assert loss_after <= loss_before + 1e-9
+
+        # Check monotonicity
+        assert np.all(np.diff(rearranged_q) >= 0.0)
+
+        # Check physical bounds
+        assert np.all(rearranged_q >= 0.0)
+        assert np.all(rearranged_q <= 2000.0)
+
+    # 2. Exact analytical test of the submodular gain on crossing inversion:
+    # Let tau_1 = 0.20, tau_2 = 0.80.
+    # Suppose q_1 = 150.0 > q_2 = 50.0 (crossed).
+    # For any y in [50, 150] (e.g. y = 100):
+    # Loss before:
+    # rho_0.20(100 - 150) = (1 - 0.20) * 50 = 40.0
+    # rho_0.80(100 - 50)  = 0.80 * 50 = 40.0
+    # Total before = 80.0
+    # Rearranged: q_1* = 50.0, q_2* = 150.0
+    # Loss after:
+    # rho_0.20(100 - 50)  = 0.20 * 50 = 10.0
+    # rho_0.80(100 - 150) = (1 - 0.80) * 50 = 10.0
+    # Total after = 20.0
+    # Exact reduction = (tau_2 - tau_1) * (q_1 - q_2) = (0.80 - 0.20) * (150 - 50) = 0.60 * 100 = 60.0
+    tau_pair = (0.20, 0.80)
+    q_crossed = np.array([150.0, 50.0])
+    y_test = 100.0
+
+    pb_before = pinball_loss(y_test, q_crossed[0], tau_pair[0]) + pinball_loss(
+        y_test, q_crossed[1], tau_pair[1]
+    )
+    q_fixed = rearrange_quantiles(q_crossed)
+    pb_after = pinball_loss(y_test, q_fixed[0], tau_pair[0]) + pinball_loss(
+        y_test, q_fixed[1], tau_pair[1]
+    )
+
+    np.testing.assert_allclose(pb_before, 80.0)
+    np.testing.assert_allclose(pb_after, 20.0)
+    np.testing.assert_allclose(pb_before - pb_after, 60.0)
+
+
+def test_validation_early_stopping_on_plateau() -> None:
+    """Early stopping on validation set must stop boosting rounds before max iterations."""
+    rng = np.random.default_rng(42)
+    n_train = 200
+    n_val = 100
+
+    # Training data with random noise targets
+    x_train_vals = rng.normal(size=(n_train, 5))
+    train_df = pd.DataFrame(
+        {
+            "domain": ["delhi"] * n_train,
+            "location_id": [101] * n_train,
+            "issuance_utc": pd.date_range("2023-10-01", periods=n_train, freq="6h", tz="UTC"),
+            "f_met_vc_mean_h24": x_train_vals[:, 0],
+            "f_met_rh_mean_h24": x_train_vals[:, 1],
+            "f_cams_pm25_h24": x_train_vals[:, 2],
+            "f_fire_exposure_e24": x_train_vals[:, 3],
+            "f_aod_mean_h24": x_train_vals[:, 4],
+            "y_h24": rng.normal(size=n_train),
+            "valid_h24": [True] * n_train,
+        }
+    )
+
+    # Validation data with independent noise targets (will plateau / degrade early)
+    x_val_vals = rng.normal(size=(n_val, 5))
+    val_df = pd.DataFrame(
+        {
+            "domain": ["delhi"] * n_val,
+            "location_id": [101] * n_val,
+            "issuance_utc": pd.date_range("2023-12-01", periods=n_val, freq="6h", tz="UTC"),
+            "f_met_vc_mean_h24": x_val_vals[:, 0],
+            "f_met_rh_mean_h24": x_val_vals[:, 1],
+            "f_cams_pm25_h24": x_val_vals[:, 2],
+            "f_fire_exposure_e24": x_val_vals[:, 3],
+            "f_aod_mean_h24": x_val_vals[:, 4],
+            "y_h24": rng.normal(size=n_val),
+            "valid_h24": [True] * n_val,
+        }
+    )
+
+    ensemble = LGBMQuantileEnsemble(
+        model_type="M5",
+        quantiles=(0.10, 0.50, 0.90),
+        horizons=(24,),
+        lgbm_params={"num_leaves": 7, "min_data_in_leaf": 5, "learning_rate": 0.1},
+        fire_dropout_p=0.0,
+        aod_dropout_p=0.0,
+    )
+
+    max_rounds = 100
+    patience = 5
+    ensemble.fit(
+        train_df,
+        val_df=val_df,
+        num_boost_round=max_rounds,
+        early_stopping_rounds=patience,
+    )
+
+    # Every booster must have stopped well before max_rounds
+    for q in (0.10, 0.50, 0.90):
+        best_it = ensemble.best_iterations[24][q]
+        assert best_it < max_rounds, (
+            f"Quantile {q} failed to early stop: best_iteration={best_it} >= {max_rounds}"
+        )
+
+
+def test_tabular_feature_group_dropout_unit() -> None:
+    """Tabular feature group dropout must mask fire and AOD columns with target probability."""
+    rng = np.random.default_rng(1234)
+    n_rows = 1000
+
+    df = pd.DataFrame(
+        {
+            "f_met_vc_mean_h24": rng.uniform(100, 2000, size=n_rows),
+            "f_fire_exposure_e24": rng.uniform(0, 50, size=n_rows),
+            "m_fire_exposure_e24": [False] * n_rows,
+            "f_aod_mean_h24": rng.uniform(0.1, 1.5, size=n_rows),
+            "m_aod_mean_h24": [False] * n_rows,
+            "f_stat_elevation_m": rng.uniform(100, 300, size=n_rows),
+        }
+    )
+
+    features = list(df.columns)
+    assert is_fire_feature("f_fire_exposure_e24")
+    assert is_fire_feature("m_fire_exposure_e24")
+    assert not is_fire_feature("f_met_vc_mean_h24")
+    assert is_aod_feature("f_aod_mean_h24")
+    assert not is_aod_feature("f_stat_elevation_m")
+
+    # With p=0.0: strictly unchanged
+    df_no_drop = apply_tabular_feature_group_dropout(
+        df, features, fire_dropout_p=0.0, aod_dropout_p=0.0
+    )
+    pd.testing.assert_frame_equal(df, df_no_drop)
+
+    # With p_fire=0.2, p_aod=0.3
+    df_dropped = apply_tabular_feature_group_dropout(
+        df, features, fire_dropout_p=0.20, aod_dropout_p=0.30, rng=rng
+    )
+
+    # Met and stat features must NEVER be dropped
+    assert df_dropped["f_met_vc_mean_h24"].isna().sum() == 0
+    assert df_dropped["f_stat_elevation_m"].isna().sum() == 0
+
+    # Fire features should be dropped in approx 20% of rows (binomial 99.9% CI: [15%, 26%])
+    fire_nan_rate = df_dropped["f_fire_exposure_e24"].isna().mean()
+    assert 0.15 <= fire_nan_rate <= 0.26
+
+    # Mask column must match dropped rows
+    assert np.all(df_dropped.loc[df_dropped["f_fire_exposure_e24"].isna(), "m_fire_exposure_e24"])
+
+    # AOD features should be dropped in approx 30% of rows (binomial 99.9% CI: [24%, 36%])
+    aod_nan_rate = df_dropped["f_aod_mean_h24"].isna().mean()
+    assert 0.24 <= aod_nan_rate <= 0.36
+
+
+def test_feature_masking_operational_degradation_stability() -> None:
+    """Ensemble trained with feature dropout must predict stably even if satellite feeds fail."""
+    df_train = _create_synthetic_training_data(n_samples=150)
+    df_test = _create_synthetic_training_data(n_samples=50)
+
+    ensemble = LGBMQuantileEnsemble(
+        model_type="M5",
+        quantiles=DEFAULT_QUANTILES,
+        horizons=DEFAULT_HORIZONS,
+        lgbm_params={"num_leaves": 15, "min_data_in_leaf": 5},
+        fire_dropout_p=0.1,
+        aod_dropout_p=0.1,
+    )
+    ensemble.fit(df_train, num_boost_round=20)
+
+    # 1. Clean test predictions
+    clean_preds = ensemble.predict(df_test, horizon=24, rearrange=True)
+    assert clean_preds.shape == (len(df_test), 19)
+    assert np.all(np.isfinite(clean_preds))
+    assert np.all(np.diff(clean_preds, axis=-1) >= 0.0)
+
+    # 2. FIRMS fire feed unavailable (all fire features NaN)
+    df_no_fire = df_test.copy()
+    fire_cols = [c for c in ensemble.feature_names if is_fire_feature(c)]
+    df_no_fire[fire_cols] = np.nan
+    no_fire_preds = ensemble.predict(df_no_fire, horizon=24, rearrange=True)
+    assert no_fire_preds.shape == (len(df_test), 19)
+    assert np.all(np.isfinite(no_fire_preds))
+    assert np.all(np.diff(no_fire_preds, axis=-1) >= 0.0)
+    assert np.all(no_fire_preds >= 0.0)
+    assert np.all(no_fire_preds <= 2000.0)
+
+    # 3. CAMS AOD feed unavailable (all AOD features NaN)
+    df_no_aod = df_test.copy()
+    aod_cols = [c for c in ensemble.feature_names if is_aod_feature(c)]
+    df_no_aod[aod_cols] = np.nan
+    no_aod_preds = ensemble.predict(df_no_aod, horizon=24, rearrange=True)
+    assert no_aod_preds.shape == (len(df_test), 19)
+    assert np.all(np.isfinite(no_aod_preds))
+    assert np.all(np.diff(no_aod_preds, axis=-1) >= 0.0)
+
+    # 4. Both FIRMS and CAMS AOD feeds unavailable (combined degradation)
+    df_degraded = df_test.copy()
+    df_degraded[fire_cols + aod_cols] = np.nan
+    degraded_preds = ensemble.predict(df_degraded, horizon=24, rearrange=True)
+    assert degraded_preds.shape == (len(df_test), 19)
+    assert np.all(np.isfinite(degraded_preds))
+    assert np.all(np.diff(degraded_preds, axis=-1) >= 0.0)
+    assert np.all(degraded_preds >= 0.0)
+
+
+def test_deterministic_reproducibility_and_bundle_tamper_detection(tmp_path: Path) -> None:
+    """Ensemble must reproduce exact byte-for-byte SHA256 and detect file tampering on disk."""
+    df = _create_synthetic_training_data(n_samples=100)
+
+    ens1 = LGBMQuantileEnsemble(
+        model_type="M5",
+        quantiles=(0.10, 0.50, 0.90),
+        horizons=(24,),
+        lgbm_params={"num_leaves": 7, "min_data_in_leaf": 5, "random_state": 42},
+    )
+    ens1.fit(df, num_boost_round=10)
+    sha1 = ens1.compute_base_sha256()
+
+    ens2 = LGBMQuantileEnsemble(
+        model_type="M5",
+        quantiles=(0.10, 0.50, 0.90),
+        horizons=(24,),
+        lgbm_params={"num_leaves": 7, "min_data_in_leaf": 5, "random_state": 42},
+    )
+    ens2.fit(df, num_boost_round=10)
+    sha2 = ens2.compute_base_sha256()
+
+    # Exact deterministic match
+    assert sha1 == sha2
+    np.testing.assert_array_equal(
+        ens1.predict(df, horizon=24, rearrange=True),
+        ens2.predict(df, horizon=24, rearrange=True),
+    )
+
+    # Different random seed produces different model SHA256
+    ens3 = LGBMQuantileEnsemble(
+        model_type="M5",
+        quantiles=(0.10, 0.50, 0.90),
+        horizons=(24,),
+        lgbm_params={"num_leaves": 7, "min_data_in_leaf": 5, "random_state": 999},
+    )
+    ens3.fit(df, num_boost_round=10)
+    sha3 = ens3.compute_base_sha256()
+    assert sha1 != sha3
+
+    # Tamper detection test (docs/test-specifications.md §T1-15)
+    save_dir = ens1.save(tmp_path / "tamper_test_bundle")
+    booster_file = save_dir / "booster_h24_q50.txt"
+    assert booster_file.exists()
+
+    # Intentionally corrupt the booster file on disk
+    with booster_file.open("a") as f:
+        f.write("# TAMPERED CONTENT\n")
+
+    # Loading with verify_sha256=True must raise ValueError
+    with pytest.raises(ValueError, match="Model bundle integrity verification failed"):
+        LGBMQuantileEnsemble.load(save_dir, verify_sha256=True)
+
+    # Loading with verify_sha256=False permits loading
+    loaded_unverified = LGBMQuantileEnsemble.load(save_dir, verify_sha256=False)
+    assert loaded_unverified.model_type == "M5"
+
+
+def test_cli_train_lgbm_options() -> None:
+    """CLI train lgbm command must expose all required flags for standard and OOF cross-fit."""
+    runner = CliRunner()
+    result = runner.invoke(app, ["train", "lgbm", "--help"])
+    assert result.exit_code == 0
+    assert "--domain" in result.stdout
+    assert "--split" in result.stdout
+    assert "--oof" in result.stdout
+    assert "--out-dir" in result.stdout
+    assert "--num-boost-round" in result.stdout
+    assert "--feature-store-dir" in result.stdout
