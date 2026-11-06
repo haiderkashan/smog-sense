@@ -58,19 +58,111 @@ M4_EXCLUDED_COLUMNS: set[str] = {
 }
 
 
-def rearrange_quantiles(q_preds: np.ndarray) -> np.ndarray:
+def rearrange_quantiles(
+    q_preds: np.ndarray,
+    clip_min: float = 0.0,
+    clip_max: float = 2000.0,
+) -> np.ndarray:
     """Apply monotone rearrangement to quantile predictions along the last axis.
 
     Sorting restores monotonicity without increasing total pinball loss
     (Chernozhukov et al., 2010; docs/ml-architecture.md §5).
 
+    Output quantiles are strictly monotonic and bounded within [clip_min, clip_max] µg/m³
+    (docs/test-specifications.md §T1-06).
+
     Args:
         q_preds: Array of shape (N, K) or (K,) containing quantile estimates.
+        clip_min: Minimum physical lower bound (default: 0.0 µg/m³).
+        clip_max: Maximum physical upper bound (default: 2000.0 µg/m³).
 
     Returns:
-        Monotonically sorted quantile predictions of the same shape.
+        Monotonically sorted and bounded quantile predictions of the same shape.
     """
-    return np.asarray(np.sort(q_preds, axis=-1))
+    sorted_preds = np.sort(q_preds, axis=-1)
+    return np.asarray(np.clip(sorted_preds, clip_min, clip_max))
+
+
+def is_fire_feature(col: str) -> bool:
+    """Check if column belongs to the FIRMS fire feature group."""
+    c = col.lower()
+    return "fire" in c
+
+
+def is_aod_feature(col: str) -> bool:
+    """Check if column belongs to the CAMS aerosol optical depth (AOD550) feature group."""
+    c = col.lower()
+    return "aod" in c
+
+
+def apply_tabular_feature_group_dropout(
+    x_df: pd.DataFrame,
+    feature_names: Sequence[str],
+    fire_dropout_p: float = 0.1,
+    aod_dropout_p: float = 0.1,
+    rng: np.random.Generator | None = None,
+) -> pd.DataFrame:
+    """Apply stochastic feature group dropout during training (docs/ml-architecture.md §6 & §7).
+
+    With probability fire_dropout_p, all fire features in a row are set to NaN.
+    With probability aod_dropout_p, all AOD features in a row are set to NaN.
+    Missing mask columns (m_fire_*, m_aod_*) are updated to True when features are masked.
+    LightGBM's native missing value handling learns optimal default split directions,
+    ensuring graceful operational degradation if satellite data streams are delayed
+    or unavailable.
+
+    Args:
+        x_df: Feature DataFrame containing feature_names.
+        feature_names: List of feature column names.
+        fire_dropout_p: Dropout probability for the fire feature group (default: 0.1).
+        aod_dropout_p: Dropout probability for the AOD feature group (default: 0.1).
+        rng: Optional NumPy random Generator.
+
+    Returns:
+        DataFrame with masked features where dropout occurred.
+    """
+    if fire_dropout_p <= 0.0 and aod_dropout_p <= 0.0:
+        return x_df
+
+    fire_cols = [c for c in feature_names if is_fire_feature(c) and c in x_df.columns]
+    aod_cols = [c for c in feature_names if is_aod_feature(c) and c in x_df.columns]
+
+    if not fire_cols and not aod_cols:
+        return x_df
+
+    if rng is None:
+        rng = np.random.default_rng(42)
+
+    x_out = x_df.copy()
+    n_rows = len(x_out)
+
+    if fire_cols and fire_dropout_p > 0.0:
+        fire_mask = rng.uniform(0.0, 1.0, size=n_rows) < fire_dropout_p
+        if np.any(fire_mask):
+            for fc in fire_cols:
+                if fc.startswith("m_") or pd.api.types.is_bool_dtype(x_out[fc]):
+                    x_out.loc[fire_mask, fc] = True
+                else:
+                    x_out.loc[fire_mask, fc] = np.nan
+            for fc in fire_cols:
+                mc = f"m_{fc[2:]}" if fc.startswith("f_") else f"m_{fc}"
+                if mc in x_out.columns and mc not in fire_cols:
+                    x_out.loc[fire_mask, mc] = True
+
+    if aod_cols and aod_dropout_p > 0.0:
+        aod_mask = rng.uniform(0.0, 1.0, size=n_rows) < aod_dropout_p
+        if np.any(aod_mask):
+            for ac in aod_cols:
+                if ac.startswith("m_") or pd.api.types.is_bool_dtype(x_out[ac]):
+                    x_out.loc[aod_mask, ac] = True
+                else:
+                    x_out.loc[aod_mask, ac] = np.nan
+            for ac in aod_cols:
+                mc = f"m_{ac[2:]}" if ac.startswith("f_") else f"m_{ac}"
+                if mc in x_out.columns and mc not in aod_cols:
+                    x_out.loc[aod_mask, mc] = True
+
+    return x_out
 
 
 def pinball_loss(
@@ -141,6 +233,8 @@ class LGBMQuantileEnsemble:
 
     Trains K boosters per horizon H (total K x H boosters) with objective='quantile',
     applying monotone rearrangement to enforce non-crossing predictive distributions.
+    Supports feature group dropout on FIRMS fire and CAMS AOD groups to guarantee
+    graceful degradation under missing satellite inputs (docs/ml-architecture.md §6 & §7).
     """
 
     def __init__(
@@ -150,11 +244,15 @@ class LGBMQuantileEnsemble:
         horizons: Sequence[int] = DEFAULT_HORIZONS,
         lgbm_params: dict[str, Any] | None = None,
         oof_partition_hash: str | None = None,
+        fire_dropout_p: float = 0.1,
+        aod_dropout_p: float = 0.1,
     ) -> None:
         self.model_type = model_type.upper()
         self.quantiles = tuple(quantiles)
         self.horizons = tuple(horizons)
         self.oof_partition_hash = oof_partition_hash
+        self.fire_dropout_p = float(fire_dropout_p)
+        self.aod_dropout_p = float(aod_dropout_p)
 
         default_params: dict[str, Any] = {
             "objective": "quantile",
@@ -179,6 +277,7 @@ class LGBMQuantileEnsemble:
 
         # Booster storage: boosters[horizon][quantile] = Booster
         self.boosters: dict[int, dict[float, lgb.Booster]] = {h: {} for h in self.horizons}
+        self.best_iterations: dict[int, dict[float, int]] = {h: {} for h in self.horizons}
         self.feature_names: list[str] = []
 
     def fit(
@@ -187,14 +286,16 @@ class LGBMQuantileEnsemble:
         feature_cols: list[str] | None = None,
         val_df: pd.DataFrame | None = None,
         num_boost_round: int = 150,
+        early_stopping_rounds: int = 30,
     ) -> LGBMQuantileEnsemble:
-        """Fit all K x H quantile boosters on valid observations.
+        """Fit all K x H quantile boosters on valid observations with optional group dropout and early stopping.
 
         Args:
             train_df: Training feature table.
             feature_cols: Explicit feature columns, or auto-filtered if None.
             val_df: Optional validation set for early stopping.
             num_boost_round: Maximum boosting iterations.
+            early_stopping_rounds: Early stopping patience rounds on val_df (default: 30).
 
         Returns:
             Fitted LGBMQuantileEnsemble instance.
@@ -211,7 +312,11 @@ class LGBMQuantileEnsemble:
             n_quantiles=len(self.quantiles),
             n_features=len(self.feature_names),
             n_rows=len(train_df),
+            fire_dropout_p=self.fire_dropout_p,
+            aod_dropout_p=self.aod_dropout_p,
         )
+
+        rng_seed = int(self.params.get("random_state", 42))
 
         for h in self.horizons:
             y_col = f"y_h{h}"
@@ -229,7 +334,17 @@ class LGBMQuantileEnsemble:
             if len(x_train) == 0:
                 raise ValueError(f"No valid training samples found for horizon h={h}.")
 
-            dtrain = lgb.Dataset(x_train, label=y_train, free_raw_data=False)
+            # Apply stochastic feature group dropout during training (Condition C1 / docs/ml-architecture.md §6)
+            rng = np.random.default_rng(rng_seed + h)
+            x_train_in = apply_tabular_feature_group_dropout(
+                x_train,
+                feature_names=self.feature_names,
+                fire_dropout_p=self.fire_dropout_p,
+                aod_dropout_p=self.aod_dropout_p,
+                rng=rng,
+            )
+
+            dtrain = lgb.Dataset(x_train_in, label=y_train, free_raw_data=False)
 
             dval: lgb.Dataset | None = None
             if val_df is not None:
@@ -252,18 +367,25 @@ class LGBMQuantileEnsemble:
 
                 callbacks: list[Any] = []
                 valid_sets = [dtrain]
+                valid_names = ["train"]
                 if dval is not None:
                     valid_sets.append(dval)
-                    callbacks.append(lgb.early_stopping(stopping_rounds=30, verbose=False))
+                    valid_names.append("valid")
+                    callbacks.append(
+                        lgb.early_stopping(stopping_rounds=early_stopping_rounds, verbose=False)
+                    )
 
                 bst = lgb.train(
                     p,
                     dtrain,
                     num_boost_round=num_boost_round,
                     valid_sets=valid_sets,
+                    valid_names=valid_names,
                     callbacks=callbacks,
                 )
                 self.boosters[h][q] = bst
+                best_iter = getattr(bst, "best_iteration", 0)
+                self.best_iterations[h][q] = best_iter if best_iter > 0 else num_boost_round
 
         return self
 
@@ -339,6 +461,12 @@ class LGBMQuantileEnsemble:
             "feature_names": self.feature_names,
             "base_sha256": self.compute_base_sha256(),
             "oof_partition_hash": self.oof_partition_hash,
+            "fire_dropout_p": self.fire_dropout_p,
+            "aod_dropout_p": self.aod_dropout_p,
+            "best_iterations": {
+                str(h): {f"{q:.2f}": it for q, it in q_map.items()}
+                for h, q_map in self.best_iterations.items()
+            },
             "params": self.params,
         }
         with (dir_path / "metadata.json").open("w") as f:
@@ -356,8 +484,17 @@ class LGBMQuantileEnsemble:
         return dir_path
 
     @classmethod
-    def load(cls, dir_path: Path | str) -> LGBMQuantileEnsemble:
-        """Load trained ensemble from directory."""
+    def load(cls, dir_path: Path | str, verify_sha256: bool = True) -> LGBMQuantileEnsemble:
+        """Load trained ensemble from directory.
+
+        Args:
+            dir_path: Path to directory containing metadata.json and booster files.
+            verify_sha256: Whether to verify cryptographic base_sha256 against booster files
+                (default: True; ADR-024 Condition C3 & docs/test-specifications.md §T1-15).
+
+        Returns:
+            Loaded LGBMQuantileEnsemble instance.
+        """
         p = Path(dir_path)
         with (p / "metadata.json").open("r") as f:
             meta = json.load(f)
@@ -368,6 +505,8 @@ class LGBMQuantileEnsemble:
             horizons=meta["horizons"],
             lgbm_params=meta.get("params"),
             oof_partition_hash=meta.get("oof_partition_hash"),
+            fire_dropout_p=meta.get("fire_dropout_p", 0.1),
+            aod_dropout_p=meta.get("aod_dropout_p", 0.1),
         )
         ensemble.feature_names = meta["feature_names"]
 
@@ -377,6 +516,21 @@ class LGBMQuantileEnsemble:
                 bst_file = p / f"booster_h{h}_q{q_tag:02d}.txt"
                 bst = lgb.Booster(model_file=str(bst_file))
                 ensemble.boosters[h][q] = bst
+
+        if "best_iterations" in meta:
+            for h_str, q_map in meta["best_iterations"].items():
+                h_int = int(h_str)
+                if h_int in ensemble.best_iterations:
+                    for q_str, it in q_map.items():
+                        ensemble.best_iterations[h_int][float(q_str)] = int(it)
+
+        if verify_sha256 and "base_sha256" in meta:
+            computed_sha = ensemble.compute_base_sha256()
+            if computed_sha != meta["base_sha256"]:
+                raise ValueError(
+                    f"Model bundle integrity verification failed: manifest SHA256 "
+                    f"'{meta['base_sha256']}' does not match computed '{computed_sha}'"
+                )
 
         return ensemble
 
@@ -389,6 +543,9 @@ def fit_cross_fit_oof(
     quantiles: Sequence[float] = DEFAULT_QUANTILES,
     lgbm_params: dict[str, Any] | None = None,
     num_boost_round: int = 120,
+    fire_dropout_p: float = 0.1,
+    aod_dropout_p: float = 0.1,
+    early_stopping_rounds: int = 30,
 ) -> tuple[pd.DataFrame, LGBMQuantileEnsemble]:
     """Train season-blocked cross-fitting folds on Block E and return un-leaked OOF base predictions.
 
@@ -406,6 +563,9 @@ def fit_cross_fit_oof(
         quantiles: Quantile probability levels.
         lgbm_params: Optional LightGBM parameters.
         num_boost_round: Boosting rounds.
+        fire_dropout_p: Training fire feature group dropout probability.
+        aod_dropout_p: Training AOD feature group dropout probability.
+        early_stopping_rounds: Validation early stopping patience rounds.
 
     Returns:
         tuple (oof_predictions_df, final_base_ensemble).
@@ -439,12 +599,15 @@ def fit_cross_fit_oof(
             quantiles=quantiles,
             horizons=horizons,
             lgbm_params=lgbm_params,
+            fire_dropout_p=fire_dropout_p,
+            aod_dropout_p=aod_dropout_p,
         )
         fold_ensemble.fit(
             train_folds,
             feature_cols=feature_cols,
             val_df=val_df,
             num_boost_round=num_boost_round,
+            early_stopping_rounds=early_stopping_rounds,
         )
 
         fold_oof = test_fold[["domain", "location_id", "issuance_utc", "fold_id"]].copy()
@@ -476,12 +639,15 @@ def fit_cross_fit_oof(
         horizons=horizons,
         lgbm_params=lgbm_params,
         oof_partition_hash=oof_hash,
+        fire_dropout_p=fire_dropout_p,
+        aod_dropout_p=aod_dropout_p,
     )
     final_base.fit(
         df_block_e,
         feature_cols=feature_cols,
         val_df=val_df,
         num_boost_round=num_boost_round,
+        early_stopping_rounds=early_stopping_rounds,
     )
 
     return oof_combined, final_base

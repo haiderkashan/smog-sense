@@ -66,7 +66,10 @@ from smogsense.models.ladder import (
 )
 from smogsense.models.lgbm_quantile import (
     LGBMQuantileEnsemble,
+    apply_tabular_feature_group_dropout,
     fit_cross_fit_oof,
+    is_aod_feature,
+    is_fire_feature,
 )
 from smogsense.models.losses import MaskedResidualPinballLoss, pinball_loss
 from smogsense.models.maml import (
@@ -149,6 +152,7 @@ __all__ = [
     "analyze_rh_distribution_and_extremes",
     "apply_rh_support_mask",
     "apply_sensor_corruption",
+    "apply_tabular_feature_group_dropout",
     "apply_task_label_policy",
     "audit_empirical_corruption_prior",
     "audit_season_t_stations",
@@ -173,6 +177,8 @@ __all__ = [
     "generate_power_sensitivity_grid",
     "generate_rh_mask_report",
     "inner_loop_adapt",
+    "is_aod_feature",
+    "is_fire_feature",
     "load_lahore_audit_data",
     "maml_outer_step",
     "pinball_loss",
