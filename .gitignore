@@ -89,6 +89,7 @@ data/external/**
 models/*
 !models/README.md
 !models/model_card_template.md
+!models/MODEL_CARD.md
 !models/.gitkeep
 *.pt
 *.pth

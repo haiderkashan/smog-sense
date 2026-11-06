@@ -44,6 +44,7 @@ app_run = typer.Typer(no_args_is_help=True)
 app_reconcile = typer.Typer(no_args_is_help=True)
 app_audit = typer.Typer(no_args_is_help=True)
 app_preprocess = typer.Typer(no_args_is_help=True)
+app_registry = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -60,6 +61,7 @@ app.add_typer(app_run, name="run")
 app.add_typer(app_reconcile, name="reconcile")
 app.add_typer(app_audit, name="audit")
 app.add_typer(app_preprocess, name="preprocess")
+app.add_typer(app_registry, name="registry")
 
 
 @app.command()
@@ -1524,6 +1526,133 @@ def preprocess_low_cost_correction_cmd(
         config_path=config_path,
         model_config_path=model_config_path,
     )
+    safe_exit(0)
+
+
+@app_registry.command("create-bundle")
+def registry_create_bundle_cmd(
+    model_name: str = typer.Option(
+        ...,
+        "--model-name",
+        "-m",
+        help="Model name (e.g. m5_physics_base, m7_meta_calibrator)",
+    ),
+    source_dir: str = typer.Option(
+        ...,
+        "--source-dir",
+        "-s",
+        help="Path to directory containing trained model files",
+    ),
+    output_dir: str = typer.Option(
+        "data/processed/models/bundles",
+        "--output-dir",
+        "-o",
+        help="Output directory for bundle archive",
+    ),
+    version: str = typer.Option(
+        "v1.0.0",
+        "--version",
+        "-v",
+        help="Semantic version tag for bundle",
+    ),
+    model_type: str | None = typer.Option(
+        None,
+        "--model-type",
+        help="Model type ('base' or 'residual_calibrator')",
+    ),
+    base_sha256: str | None = typer.Option(
+        None,
+        "--base-sha256",
+        help="Physics base model SHA-256 (required for calibrators)",
+    ),
+    archive: bool = typer.Option(
+        True,
+        "--archive/--no-archive",
+        help="Package as .tar.gz archive",
+    ),
+) -> None:
+    """Package a trained model directory into a signed release bundle with manifest.json."""
+    from smogsense.models.registry import ModelRegistry
+
+    print("=" * 80)
+    print(f"CREATING MODEL BUNDLE: {model_name} ({version})")
+    print("=" * 80)
+    print(f"Source Directory: {source_dir}")
+    print(f"Output Directory: {output_dir}")
+    print(f"Archive:          {archive}")
+    if base_sha256:
+        print(f"Base SHA256:      {base_sha256}")
+
+    registry = ModelRegistry()
+    bundle_path = registry.create_bundle(
+        model_name=model_name,
+        source_dir=source_dir,
+        output_dir=output_dir,
+        version=version,
+        model_type=model_type,
+        base_sha256=base_sha256,
+        archive=archive,
+    )
+    print("\n" + "=" * 80)
+    print(f"SUCCESS: Created model bundle at {bundle_path}")
+    print("=" * 80)
+    safe_exit(0)
+
+
+@app_registry.command("verify")
+def registry_verify_cmd(
+    bundle_path: str = typer.Option(
+        ...,
+        "--bundle-path",
+        "-b",
+        help="Path to bundle archive (.tar.gz) or extracted directory",
+    ),
+    base_sha256: str | None = typer.Option(
+        None,
+        "--base-sha256",
+        help="Active physics base SHA-256 for binding check",
+    ),
+    verify_binding: bool = typer.Option(
+        True,
+        "--verify-binding/--no-verify-binding",
+        help="Verify base_sha256 binding for calibrators",
+    ),
+    verify_compatibility: bool = typer.Option(
+        True,
+        "--verify-compatibility/--no-verify-compatibility",
+        help="Verify feature_set_version",
+    ),
+) -> None:
+    """Audit an existing model bundle for SHA-256 file integrity and cryptographic binding."""
+    from smogsense.models.registry import ModelRegistry
+
+    print("=" * 80)
+    print(f"AUDITING MODEL BUNDLE: {bundle_path}")
+    print("=" * 80)
+
+    registry = ModelRegistry()
+    manifest = registry.verify_bundle(
+        bundle_path_or_dir=bundle_path,
+        active_base_sha256=base_sha256,
+        verify_binding=verify_binding,
+        verify_compatibility=verify_compatibility,
+    )
+
+    print("\n" + "=" * 80)
+    print("BUNDLE VERIFICATION AUDIT: PASSED (T1-15)")
+    print("=" * 80)
+    print(f"Model Name:          {manifest.model_name}")
+    print(f"Model Type:          {manifest.model_type}")
+    print(f"Version:             {manifest.version}")
+    print(f"Git SHA:             {manifest.git_sha}")
+    print(f"Feature Set Version: {manifest.feature_set_version}")
+    print(f"Config Hash:         {manifest.config_hash[:16]}...")
+    print(f"Verified Files:      {len(manifest.files)} files matching checksums")
+    if manifest.base_sha256:
+        print(f"Bound Base SHA-256:  {manifest.base_sha256}")
+    if manifest.parameter_count:
+        print(f"Parameter Count:     {manifest.parameter_count:,}")
+    print("=" * 80)
     safe_exit(0)
 
 
