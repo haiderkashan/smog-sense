@@ -8,7 +8,7 @@ Specification: docs/evaluation-strategy.md → 'Complementary metrics (calibrati
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -103,7 +103,8 @@ def compute_exceedance_probabilities(
 
     for i in range(n_samples):
         qf = QuantileFunction(q_mat[i])
-        probs[i] = float(cast(float, qf.prob_exceed(threshold)))
+        val = qf.prob_exceed(float(threshold))
+        probs[i] = float(np.asarray(val).item())
 
     probs = np.clip(probs, 0.0, 1.0)
     if quantiles_19.ndim == 1:

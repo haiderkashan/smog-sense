@@ -215,18 +215,26 @@ def pit_uniformity_test(
     counts, _ = compute_pit_histogram(pit_values, n_bins=n_bins)
     n_total = int(np.sum(counts))
     if n_total == 0:
-        return {"chi2_stat": 0.0, "p_value": 1.0, "df": n_bins - 1, "is_uniform": True}
+        return {
+            "chi2_stat": 0.0,
+            "p_value": 1.0,
+            "df": n_bins - 1,
+            "is_uniform": True,
+            "is_pit_uniform": True,
+        }
 
     expected = n_total / float(n_bins)
     chi2_stat = float(np.sum(((counts - expected) ** 2) / expected))
     df = n_bins - 1
     p_value = float(stats.chi2.sf(chi2_stat, df=df))
 
+    is_uniform = bool(p_value >= 0.05)
     return {
         "chi2_stat": chi2_stat,
         "p_value": p_value,
         "df": df,
-        "is_uniform": bool(p_value >= 0.05),
+        "is_uniform": is_uniform,
+        "is_pit_uniform": is_uniform,
     }
 
 
