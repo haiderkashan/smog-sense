@@ -1,6 +1,118 @@
-"""smogsense.evaluation — Verification metrics and experiment protocols.
+"""smogsense.evaluation — Verification metrics, hypothesis testing, and experiment protocols.
 
-Pure scoring functions plus protocol runners; no network access.
+Pure scoring functions plus statistical testing and temporal split guards; no network access.
 
 Specification: docs/evaluation-strategy.md
 """
+
+from smogsense.evaluation.calibration_diagnostics import (
+    CalibrationReport,
+    compute_calibration_report,
+    compute_pit_histogram,
+    compute_pit_values,
+    compute_quantile_reliability,
+    coverage_50,
+    coverage_80,
+    coverage_below_median,
+    interval_coverage,
+    interval_sharpness,
+    pit_uniformity_test,
+)
+from smogsense.evaluation.crps import (
+    crps_from_quantiles,
+    threshold_weighted_crps,
+    tw_crps,
+)
+from smogsense.evaluation.events import (
+    AQI_CATEGORY_RANKS,
+    CANONICAL_THRESHOLDS,
+    THRESHOLD_HAZARDOUS,
+    THRESHOLD_HAZARDOUS_EMERGENCY,
+    THRESHOLD_SEVERE_SMOG,
+    THRESHOLD_UNHEALTHY,
+    THRESHOLD_VERY_UNHEALTHY,
+    ContingencyTable,
+    brier_score,
+    brier_skill_score,
+    category_accuracy,
+    compute_contingency_table,
+    compute_exceedance_probabilities,
+)
+from smogsense.evaluation.scoring import (
+    CANONICAL_TAUS,
+    Q_NAMES,
+    compute_crps,
+    compute_tw_crps,
+    crpss,
+    interval_score,
+    pinball_loss,
+    pinball_loss_19,
+    pinball_loss_vectorized,
+    point_crps,
+    score_forecast_block,
+)
+from smogsense.evaluation.significance import (
+    BootstrapResult,
+    DieboldMarianoResult,
+    diebold_mariano_test,
+    holm_bonferroni_correction,
+    stationary_block_bootstrap,
+)
+from smogsense.evaluation.splits import (
+    create_purged_embargoed_splits,
+    enforce_embargo,
+    purge_split_boundaries,
+    validate_no_split_overlap,
+    validate_twin_aware_stations,
+)
+
+__all__ = [
+    "AQI_CATEGORY_RANKS",
+    "CANONICAL_TAUS",
+    "CANONICAL_THRESHOLDS",
+    "Q_NAMES",
+    "THRESHOLD_HAZARDOUS",
+    "THRESHOLD_HAZARDOUS_EMERGENCY",
+    "THRESHOLD_SEVERE_SMOG",
+    "THRESHOLD_UNHEALTHY",
+    "THRESHOLD_VERY_UNHEALTHY",
+    "BootstrapResult",
+    "CalibrationReport",
+    "ContingencyTable",
+    "DieboldMarianoResult",
+    "brier_score",
+    "brier_skill_score",
+    "category_accuracy",
+    "compute_calibration_report",
+    "compute_contingency_table",
+    "compute_crps",
+    "compute_exceedance_probabilities",
+    "compute_pit_histogram",
+    "compute_pit_values",
+    "compute_quantile_reliability",
+    "compute_tw_crps",
+    "coverage_50",
+    "coverage_80",
+    "coverage_below_median",
+    "create_purged_embargoed_splits",
+    "crps_from_quantiles",
+    "crpss",
+    "diebold_mariano_test",
+    "enforce_embargo",
+    "holm_bonferroni_correction",
+    "interval_coverage",
+    "interval_score",
+    "interval_sharpness",
+    "pinball_loss",
+    "pinball_loss_19",
+    "pinball_loss_vectorized",
+    "pit_uniformity_test",
+    "point_crps",
+    "purge_split_boundaries",
+    "score_forecast_block",
+    "stationary_block_bootstrap",
+    "threshold_weighted_crps",
+    "tw_crps",
+    "validate_no_split_overlap",
+    "validate_twin_aware_stations",
+]

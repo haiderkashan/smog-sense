@@ -1472,6 +1472,255 @@ def eval_adapt_cmd(
     safe_exit(0)
 
 
+@app_eval.command("metrics")
+def eval_metrics_cmd(
+    predictions_path: str = typer.Option(
+        ..., "--predictions", "-p", help="Path to predictions file (parquet or csv)"
+    ),
+    truth_path: str | None = typer.Option(
+        None,
+        "--truth",
+        "-t",
+        help="Path to observations file (optional if predictions contain truth)",
+    ),
+    truth_col: str = typer.Option(
+        "pm25", "--truth-col", help="Column name for observed PM2.5 concentrations"
+    ),
+    output_json: str | None = typer.Option(
+        None, "--out-json", "-o", help="Optional output JSON path"
+    ),
+) -> None:
+    """Compute probabilistic evaluation metrics and calibration diagnostics."""
+    import json
+    from pathlib import Path
+    from typing import Any
+
+    import numpy as np
+    import pandas as pd
+
+    from smogsense.evaluation import (
+        Q_NAMES,
+        category_accuracy,
+        compute_calibration_report,
+        compute_contingency_table,
+        compute_crps,
+        compute_tw_crps,
+        interval_score,
+        pinball_loss_19,
+        point_crps,
+    )
+
+    pred_p = Path(predictions_path)
+    df_pred = (
+        pd.read_parquet(pred_p) if pred_p.suffix in {".parquet", ".pq"} else pd.read_csv(pred_p)
+    )
+
+    if truth_path:
+        truth_p = Path(truth_path)
+        df_truth = (
+            pd.read_parquet(truth_p)
+            if truth_p.suffix in {".parquet", ".pq"}
+            else pd.read_csv(truth_p)
+        )
+        if "issuance_utc" in df_pred.columns and "issuance_utc" in df_truth.columns:
+            join_cols = [
+                c
+                for c in ["issuance_utc", "location_id", "horizon_h"]
+                if c in df_pred.columns and c in df_truth.columns
+            ]
+            df = df_pred.merge(df_truth, on=join_cols, suffixes=("", "_obs"))
+        else:
+            df = df_pred.copy()
+            if truth_col in df_truth.columns:
+                df[truth_col] = df_truth[truth_col].to_numpy()[: len(df)]
+    else:
+        df = df_pred.copy()
+
+    if truth_col not in df.columns:
+        print(f"Error: truth column '{truth_col}' not found in data.")
+        safe_exit(1)
+
+    df_valid = df.dropna(subset=[truth_col])
+    y_true = df_valid[truth_col].to_numpy(dtype=float)
+    n_samples = len(y_true)
+
+    metrics_out: dict[str, Any] = {"n_samples": n_samples}
+
+    has_19q = all(q in df_valid.columns for q in Q_NAMES)
+    if has_19q:
+        q_mat = df_valid[Q_NAMES].to_numpy(dtype=float)
+        crps_vals = [compute_crps(q_mat[i], y_true[i]) for i in range(n_samples)]
+        mean_crps = float(np.mean(crps_vals))
+        mean_pb19 = float(np.mean(pinball_loss_19(y_true, q_mat)))
+        tw_125 = float(
+            np.mean([compute_tw_crps(q_mat[i], y_true[i], 125.5) for i in range(n_samples)])
+        )
+        tw_150 = float(
+            np.mean([compute_tw_crps(q_mat[i], y_true[i], 150.0) for i in range(n_samples)])
+        )
+
+        q10 = q_mat[:, 1]
+        q90 = q_mat[:, 17]
+        is80 = float(np.mean(interval_score(y_true, q10, q90, alpha=0.20)))
+
+        calib_report = compute_calibration_report(y_true, q_mat)
+        q50 = q_mat[:, 9]
+        cat_acc = category_accuracy(y_true, q50)
+        ct_125 = compute_contingency_table(y_true, q_mat[:, 17], threshold=125.5)
+
+        metrics_out.update(
+            {
+                "mean_crps": mean_crps,
+                "mean_pinball_19": mean_pb19,
+                "mean_tw_crps_125_5": tw_125,
+                "mean_tw_crps_150_0": tw_150,
+                "interval_score_80": is80,
+                "coverage_80": calib_report.coverage_80,
+                "sharpness_80": calib_report.sharpness_80,
+                "coverage_below_median": calib_report.median_coverage,
+                "pit_chi2": calib_report.pit_chi2,
+                "pit_p_value": calib_report.pit_p_value,
+                "is_pit_uniform": calib_report.is_pit_uniform,
+                "category_exact_match": cat_acc["exact_match"],
+                "category_within_one": cat_acc["within_one_category"],
+                "csi_125_5": ct_125.csi,
+                "pss_125_5": ct_125.pss,
+            }
+        )
+    elif "y_hat" in df_valid.columns or "pm25_pred" in df_valid.columns:
+        pred_col = "y_hat" if "y_hat" in df_valid.columns else "pm25_pred"
+        y_hat = df_valid[pred_col].to_numpy(dtype=float)
+        mae = float(np.mean(point_crps(y_true, y_hat)))
+        metrics_out["point_crps_mae"] = mae
+    else:
+        print("Error: DataFrame contains neither standard 19 quantiles nor point predictions.")
+        safe_exit(1)
+
+    print("\n" + "=" * 70)
+    print("PROBABILISTIC EVALUATION METRICS REPORT")
+    print("=" * 70)
+    for k, v in metrics_out.items():
+        if isinstance(v, float):
+            print(f"{k:28s}: {v:.4f}")
+        else:
+            print(f"{k:28s}: {v}")
+    print("=" * 70)
+
+    if output_json:
+        out_p = Path(output_json)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(json.dumps(metrics_out, indent=2))
+        print(f"Metrics written to {out_p}")
+
+    safe_exit(0)
+
+
+@app_eval.command("significance")
+def eval_significance_cmd(
+    loss_a_path: str = typer.Option(
+        ..., "--loss-a", "-a", help="Path to CSV or parquet holding daily loss series for Model A"
+    ),
+    loss_b_path: str = typer.Option(
+        ...,
+        "--loss-b",
+        "-b",
+        help="Path to CSV or parquet holding daily loss series for Reference Model B",
+    ),
+    loss_col: str = typer.Option("crps", "--loss-col", help="Column name containing loss values"),
+    horizon_h: int = typer.Option(
+        24, "--horizon-h", help="Forecast horizon in hours (24, 48, or 72)"
+    ),
+    bootstrap_reps: int = typer.Option(
+        2000, "--bootstrap-reps", help="Number of stationary bootstrap replicates"
+    ),
+    output_json: str | None = typer.Option(
+        None, "--out-json", "-o", help="Optional output JSON path"
+    ),
+) -> None:
+    """Evaluate statistical significance between two forecast models via Diebold-Mariano test and block bootstrap."""
+    import json
+    from pathlib import Path
+    from typing import Any
+
+    import numpy as np
+    import pandas as pd
+
+    from smogsense.evaluation import (
+        diebold_mariano_test,
+        stationary_block_bootstrap,
+    )
+
+    path_a = Path(loss_a_path)
+    df_a = pd.read_parquet(path_a) if path_a.suffix in {".parquet", ".pq"} else pd.read_csv(path_a)
+
+    path_b = Path(loss_b_path)
+    df_b = pd.read_parquet(path_b) if path_b.suffix in {".parquet", ".pq"} else pd.read_csv(path_b)
+
+    if loss_col not in df_a.columns or loss_col not in df_b.columns:
+        print(f"Error: loss column '{loss_col}' must be present in both files.")
+        safe_exit(1)
+
+    if "issuance_utc" in df_a.columns and "issuance_utc" in df_b.columns:
+        merged = df_a.merge(df_b, on="issuance_utc", suffixes=("_a", "_b"))
+        loss_a = merged[f"{loss_col}_a"].to_numpy(dtype=float)
+        loss_b = merged[f"{loss_col}_b"].to_numpy(dtype=float)
+    else:
+        n_min = min(len(df_a), len(df_b))
+        loss_a = df_a[loss_col].to_numpy(dtype=float)[:n_min]
+        loss_b = df_b[loss_col].to_numpy(dtype=float)[:n_min]
+
+    dm_res = diebold_mariano_test(loss_a, loss_b, horizon_h=horizon_h)
+
+    diffs = loss_a - loss_b
+    boot_res = stationary_block_bootstrap(
+        diffs,
+        statistic_fn=lambda arr: float(np.mean(arr)),
+        mean_block_days=7.0,
+        replicates=bootstrap_reps,
+    )
+
+    result_dict: dict[str, Any] = {
+        "diebold_mariano": dm_res.to_dict(),
+        "bootstrap": boot_res.to_dict(),
+    }
+
+    print("\n" + "=" * 70)
+    print("STATISTICAL SIGNIFICANCE EVALUATION (DIEBOLD-MARIANO + BOOTSTRAP)")
+    print("=" * 70)
+    print(f"Model A Samples:      {len(loss_a)}")
+    print(f"Mean Loss Diff (A-B): {dm_res.mean_loss_diff:.6f}")
+    print(f"DM Statistic (raw):   {dm_res.dm_stat:.4f}")
+    print(f"DM* Statistic (HLN):  {dm_res.dm_star:.4f}")
+    print(f"HLN Factor:           {dm_res.hln_factor:.4f}")
+    print(f"HAC SE:               {dm_res.hac_se:.6f}")
+    print(f"Bandwidth (lags):     {dm_res.bandwidth}")
+    print(f"Lag-1 Autocorr:       {dm_res.lag1_autocorr:.4f}")
+    print(f"Effective N (n_eff):  {dm_res.n_eff:.1f}")
+    print(f"p-value (two-sided):  {dm_res.p_value:.6e}")
+    print("-" * 70)
+    print("STATIONARY BLOCK BOOTSTRAP (MEAN BLOCK 7 DAYS)")
+    print(f"Replicates:           {boot_res.replicates_count}")
+    print(f"Point Estimate:       {boot_res.point_estimate:.6f}")
+    print(f"Bootstrap Mean:       {boot_res.bootstrap_mean:.6f}")
+    print(f"Bootstrap SE:         {boot_res.std_error:.6f}")
+    print(f"95% Confidence Int:   [{boot_res.ci_lower:.6f}, {boot_res.ci_upper:.6f}]")
+    print("=" * 70)
+
+    if dm_res.p_value < 0.05:
+        verdict = "SIGNIFICANT difference (p < 0.05)"
+    else:
+        verdict = "NOT statistically significant (p >= 0.05)"
+    print(f"Verdict: {verdict}")
+
+    if output_json:
+        out_p = Path(output_json)
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text(json.dumps(result_dict, indent=2))
+        print(f"Results written to {out_p}")
+
+    safe_exit(0)
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
