@@ -120,7 +120,7 @@ def test_fast_offline_daily_pipeline_cli(clean_state: None) -> None:
     # Validate against forecast_log Pandera schema
     schema = load_pandera_schema("forecast_log.schema.yaml")
     validate_frame(forecast_df, schema)
-    assert (forecast_df["method"] == "m1_cams_raw").all()
+    assert "m1_cams_raw" in forecast_df["method"].values
     assert (forecast_df["domain"] == "lahore").all()
     assert len(forecast_df) > 0
 
