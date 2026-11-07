@@ -2086,6 +2086,148 @@ def eval_promotion_cmd(
     safe_exit(0)
 
 
+@app_eval.command("freeze-register")
+def eval_freeze_register_cmd(
+    create: bool = typer.Option(
+        True,
+        "--create/--no-create",
+        help="Whether to create and save the Gate G4 freeze register",
+    ),
+    verify: bool = typer.Option(
+        False,
+        "--verify/--no-verify",
+        help="Whether to verify the existing freeze register against current state",
+    ),
+    git_tag: str = typer.Option(
+        "v0.3.0-gate-g4",
+        "--git-tag",
+        help="Git release tag for the freeze register",
+    ),
+    output_dir: str = typer.Option(
+        ".state",
+        "--output-dir",
+        "-o",
+        help="Output directory for freeze_register.json",
+    ),
+    report_dir: str = typer.Option(
+        "reports",
+        "--report-dir",
+        "-r",
+        help="Output directory for freeze_register.md",
+    ),
+) -> None:
+    """Execute Gate G4 freeze register creation and drift verification (Task P3-10)."""
+    from smogsense.evaluation.freeze import (
+        create_freeze_register,
+        verify_freeze_register,
+    )
+
+    out_p = Path(output_dir) / "freeze_register.json"
+    rep_p = Path(report_dir) / "freeze_register.md"
+
+    print("=" * 75)
+    print("GATE G4 FREEZE REGISTER & INVARIANT LOCKDOWN (Task P3-10)")
+    print("=" * 75)
+    print(f"Mode:            {'VERIFY' if verify else 'CREATE'}")
+    print(f"Git Tag:         {git_tag}")
+    print(f"Register Path:   {out_p}")
+    print(f"Report Path:     {rep_p}")
+    print("=" * 75)
+
+    if verify:
+        print(f"\nAuditing active state against freeze register at {out_p}...")
+        try:
+            is_valid, drift_messages = verify_freeze_register(
+                register_path=out_p,
+                strict=False,
+            )
+            if is_valid:
+                print("\n[OK] Gate G4 Freeze Register verification PASSED.")
+                print("No configuration drift, bundle tampering, or station panel drift detected.")
+                print("=" * 75 + "\n")
+                safe_exit(0)
+            else:
+                print(
+                    f"\n[FAIL] Gate G4 Freeze Register verification FAILED with {len(drift_messages)} error(s):"
+                )
+                for msg in drift_messages:
+                    print(f"  - {msg}")
+                print("=" * 75 + "\n")
+                safe_exit(30)
+        except Exception as exc:
+            print(f"\n[ERROR] Verification aborted with error: {exc}")
+            safe_exit(30)
+
+    if create:
+        print("\nCreating Gate G4 freeze register and locking invariants...")
+        try:
+            reg = create_freeze_register(
+                output_path=out_p,
+                report_path=rep_p,
+                git_tag=git_tag,
+                write_files=True,
+            )
+            print("\nFREEZE REGISTER SUMMARY")
+            print("-" * 75)
+            print(f"Git Tag:             {reg.git_tag}")
+            print(f"Git SHA:             {reg.git_commit_sha[:16]}...")
+            print(f"Config Hash:         {reg.config_hash[:16]}...")
+            print(f"Headline Model:      {reg.headline_model}")
+            print(f"Bundle SHA-256:      {reg.bundle_sha256[:16]}...")
+            print(f"Base SHA-256:        {reg.base_sha256[:16]}...")
+            print(f"City Panel Stations: {len(reg.city_panel)}")
+            print(f"Hypotheses Count:    {len(reg.hypotheses)}")
+            print(f"Residual Bound rho:  {reg.invariants.get('rho_99')}")
+            print("-" * 75)
+            print(f"Saved JSON register: {out_p}")
+            print(f"Saved Markdown card: {rep_p}")
+            print("=" * 75 + "\n")
+            safe_exit(0)
+        except Exception as exc:
+            print(f"\n[ERROR] Failed to create freeze register: {exc}")
+            safe_exit(50)
+
+
+@app_eval.command("freeze")
+def eval_freeze_cmd(
+    create: bool = typer.Option(
+        True,
+        "--create/--no-create",
+        help="Whether to create and save the Gate G4 freeze register",
+    ),
+    verify: bool = typer.Option(
+        False,
+        "--verify/--no-verify",
+        help="Whether to verify the existing freeze register against current state",
+    ),
+    git_tag: str = typer.Option(
+        "v0.3.0-gate-g4",
+        "--git-tag",
+        help="Git release tag for the freeze register",
+    ),
+    output_dir: str = typer.Option(
+        ".state",
+        "--output-dir",
+        "-o",
+        help="Output directory for freeze_register.json",
+    ),
+    report_dir: str = typer.Option(
+        "reports",
+        "--report-dir",
+        "-r",
+        help="Output directory for freeze_register.md",
+    ),
+) -> None:
+    """Alias for freeze-register."""
+    eval_freeze_register_cmd(
+        create=create,
+        verify=verify,
+        git_tag=git_tag,
+        output_dir=output_dir,
+        report_dir=report_dir,
+    )
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
