@@ -22,6 +22,11 @@ from smogsense.models.adaptation import (
     DeploymentAdaptationEngine,
     get_process_rss_mb,
 )
+from smogsense.models.binding import (
+    audit_calibrator_binding,
+    resolve_base_digest,
+    verify_base_calibrator_binding,
+)
 from smogsense.models.corruption_audit import (
     CorruptionPriorAuditResult,
     PriorComparison,
@@ -179,6 +184,7 @@ __all__ = [
     "apply_sensor_corruption",
     "apply_tabular_feature_group_dropout",
     "apply_task_label_policy",
+    "audit_calibrator_binding",
     "audit_empirical_corruption_prior",
     "audit_season_t_stations",
     "calculate_normal_power",
@@ -211,6 +217,7 @@ __all__ = [
     "maml_outer_step",
     "pinball_loss",
     "rearrange_quantiles",
+    "resolve_base_digest",
     "run_atmospheric_diagnostics",
     "run_corruption_prior_audit",
     "run_h5_power_pilot",
@@ -221,5 +228,6 @@ __all__ = [
     "split_support_window",
     "train_m6_calibrator",
     "train_maml",
+    "verify_base_calibrator_binding",
     "verify_twin_aware_folds",
 ]
