@@ -45,6 +45,7 @@ app_reconcile = typer.Typer(no_args_is_help=True)
 app_audit = typer.Typer(no_args_is_help=True)
 app_preprocess = typer.Typer(no_args_is_help=True)
 app_registry = typer.Typer(no_args_is_help=True)
+app_replay = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -58,6 +59,7 @@ app.add_typer(app_site, name="site")
 app.add_typer(app_publish, name="publish")
 app.add_typer(app_state, name="state")
 app.add_typer(app_run, name="run")
+app.add_typer(app_replay, name="replay")
 app.add_typer(app_reconcile, name="reconcile")
 app.add_typer(app_audit, name="audit")
 app.add_typer(app_preprocess, name="preprocess")
@@ -397,6 +399,76 @@ def run_forecast(
         challenger_bundle=challenger_bundle,
         challenger_method=challenger_method,
         enable_challenger=enable_challenger,
+    )
+
+
+@app_replay.command("shadow")
+def replay_shadow(
+    start_date: str = typer.Option(
+        "2026-10-19", "--start-date", help="Replay start date YYYY-MM-DD"
+    ),
+    end_date: str = typer.Option("2026-12-06", "--end-date", help="Replay end date YYYY-MM-DD"),
+    domain: str = typer.Option("lahore", "--domain", help="Target domain"),
+    method: str = typer.Option("m7_hybrid_maml", "--method", help="Challenger method id"),
+    bundle_tag: str | None = typer.Option(
+        None, "--bundle-tag", help="Model bundle path or release tag"
+    ),
+    state_dir: str = typer.Option(".state", "--state-dir", help="State root directory"),
+    output_dir: str = typer.Option("reports", "--output-dir", help="Reports output directory"),
+    score: bool = typer.Option(True, "--score/--no-score", help="Score replayed forecasts"),
+) -> None:
+    """Execute shadow replay over logged point-in-time input snapshots."""
+    from smogsense.pipeline.replay import run_shadow_replay
+
+    report = run_shadow_replay(
+        start_date=start_date,
+        end_date=end_date,
+        domain=domain,
+        challenger_method=method,
+        challenger_bundle=bundle_tag,
+        state_dir=Path(state_dir),
+        output_dir=Path(output_dir),
+        score=score,
+    )
+    print(f"Shadow Replay Completed for {domain} ({start_date} to {end_date})")
+    print(
+        f"Total replayed days: {report['total_days']} | Forecast records: {report['total_forecast_rows']}"
+    )
+    if report.get("metrics"):
+        m = report["metrics"]
+        print(f"Overall CRPS: {m.get('mean_crps_overall', 0.0):.2f} ug/m3")
+        print(f"80% Coverage: {m.get('coverage_80_overall', 0.0) * 100.0:.1f}%")
+        print(
+            f"CRPSS vs M1: {m.get('crpss_vs_m1', 0.0):.3f} | vs M2: {m.get('crpss_vs_m2', 0.0):.3f}"
+        )
+    safe_exit(0)
+
+
+@app_run.command("replay")
+def run_replay(
+    start_date: str = typer.Option(
+        "2026-10-19", "--start-date", help="Replay start date YYYY-MM-DD"
+    ),
+    end_date: str = typer.Option("2026-12-06", "--end-date", help="Replay end date YYYY-MM-DD"),
+    domain: str = typer.Option("lahore", "--domain", help="Target domain"),
+    method: str = typer.Option("m7_hybrid_maml", "--method", help="Challenger method id"),
+    bundle_tag: str | None = typer.Option(
+        None, "--bundle-tag", help="Model bundle path or release tag"
+    ),
+    state_dir: str = typer.Option(".state", "--state-dir", help="State root directory"),
+    output_dir: str = typer.Option("reports", "--output-dir", help="Reports output directory"),
+    score: bool = typer.Option(True, "--score/--no-score", help="Score replayed forecasts"),
+) -> None:
+    """Execute shadow replay in run group."""
+    replay_shadow(
+        start_date=start_date,
+        end_date=end_date,
+        domain=domain,
+        method=method,
+        bundle_tag=bundle_tag,
+        state_dir=state_dir,
+        output_dir=output_dir,
+        score=score,
     )
 
 
