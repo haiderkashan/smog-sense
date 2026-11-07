@@ -46,6 +46,7 @@ app_audit = typer.Typer(no_args_is_help=True)
 app_preprocess = typer.Typer(no_args_is_help=True)
 app_registry = typer.Typer(no_args_is_help=True)
 app_replay = typer.Typer(no_args_is_help=True)
+app_models = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -64,6 +65,7 @@ app.add_typer(app_reconcile, name="reconcile")
 app.add_typer(app_audit, name="audit")
 app.add_typer(app_preprocess, name="preprocess")
 app.add_typer(app_registry, name="registry")
+app.add_typer(app_models, name="models")
 
 
 @app.command()
@@ -2410,6 +2412,108 @@ def registry_verify_cmd(
         print(f"Parameter Count:     {manifest.parameter_count:,}")
     print("=" * 80)
     safe_exit(0)
+
+
+@app_models.command("verify-binding")
+def models_verify_binding_cmd(
+    calibrator_bundle: str = typer.Option(
+        ...,
+        "--calibrator-bundle",
+        "-c",
+        help="Path or tag for neural calibrator bundle (M6 or M7)",
+    ),
+    base_bundle: str = typer.Option(
+        ...,
+        "--base-bundle",
+        "-b",
+        help="Path or tag for shared LightGBM physics base (M5)",
+    ),
+    cache_dir: str = typer.Option(
+        "data/processed/models",
+        "--cache-dir",
+        help="Path to model bundle cache directory",
+    ),
+) -> None:
+    """Verify cryptographic base/calibrator binding (Condition C3 / T1-15)."""
+    from smogsense.models.binding import (
+        audit_calibrator_binding,
+    )
+    from smogsense.models.registry import BaseModelBindingError, BundleTamperedError
+
+    print("=" * 75)
+    print("BASE / CALIBRATOR CRYPTOGRAPHIC BINDING VERIFICATION (Task P3-11)")
+    print("=" * 75)
+    print(f"Calibrator Bundle: {calibrator_bundle}")
+    print(f"Base Bundle:       {base_bundle}")
+    print(f"Cache Directory:   {cache_dir}")
+    print("=" * 75)
+
+    try:
+        card = audit_calibrator_binding(
+            calibrator_bundle_path_or_tag=calibrator_bundle,
+            base_bundle_path_or_tag=base_bundle,
+            cache_dir=cache_dir,
+        )
+        print("\nBINDING VERIFICATION SUMMARY")
+        print("-" * 75)
+        print(f"Status:                 {card['status'].upper()}")
+        print(f"Calibrator Model:       {card['calibrator_model']} ({card['calibrator_version']})")
+        print(f"Declared Base SHA-256:  {card['calibrator_base_sha256']}")
+        print(f"Active Base SHA-256:    {card['active_base_sha256']}")
+        print(f"OOF Partition Hash:     {card.get('oof_partition_hash')}")
+        print(f"Feature Set Version:    {card.get('feature_set_version')}")
+        print(f"Parameter Count:        {card.get('parameter_count')}")
+        print(f"Meta-SGD Step Sizes:    {card.get('step_sizes_count')}")
+        print("-" * 75)
+
+        if card["is_bound"]:
+            print("[OK] Cryptographic binding verified (Condition C3 / T1-15 passed).")
+            print("=" * 75 + "\n")
+            safe_exit(0)
+        else:
+            print("[FAIL] Base model binding mismatch (Condition C3 violation).")
+            print("=" * 75 + "\n")
+            safe_exit(30)
+    except BaseModelBindingError as b_err:
+        print(f"\n[FAIL] BaseModelBindingError: {b_err}")
+        print("=" * 75 + "\n")
+        safe_exit(30)
+    except BundleTamperedError as t_err:
+        print(f"\n[FAIL] BundleTamperedError: {t_err}")
+        print("=" * 75 + "\n")
+        safe_exit(30)
+    except Exception as exc:
+        print(f"\n[ERROR] Verification aborted with error: {exc}")
+        print("=" * 75 + "\n")
+        safe_exit(50)
+
+
+@app_registry.command("verify-binding")
+def registry_verify_binding_alias_cmd(
+    calibrator_bundle: str = typer.Option(
+        ...,
+        "--calibrator-bundle",
+        "-c",
+        help="Path or tag for neural calibrator bundle (M6 or M7)",
+    ),
+    base_bundle: str = typer.Option(
+        ...,
+        "--base-bundle",
+        "-b",
+        help="Path or tag for shared LightGBM physics base (M5)",
+    ),
+    cache_dir: str = typer.Option(
+        "data/processed/models",
+        "--cache-dir",
+        help="Path to model bundle cache directory",
+    ),
+) -> None:
+    """Alias for smogsense models verify-binding under registry command group."""
+    models_verify_binding_cmd(
+        calibrator_bundle=calibrator_bundle,
+        base_bundle=base_bundle,
+        cache_dir=cache_dir,
+    )
 
 
 def main() -> None:
