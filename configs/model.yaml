@@ -173,4 +173,3 @@ challenger:
   base_bundle_tag: none
   fallback_to_base_on_error: true
   min_support_days: 5
-promoted_bundle: none
