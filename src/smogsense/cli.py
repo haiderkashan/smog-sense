@@ -1443,15 +1443,15 @@ def eval_adapt_cmd(
     print("\n" + "=" * 80)
     print("ADAPTATION ACCEPTANCE RESULT")
     print("=" * 80)
-    print(f"Status:               {result.status.value}")
+    print(f"Status:               {result.status}")
     print(f"Is Adapted:           {engine.is_adapted}")
     print(
         f"Relative Improvement: {result.relative_improvement * 100:.2f}% "
-        f"(min required: {result.min_improvement * 100:.1f}%)"
+        f"(min required: {engine.min_improvement * 100:.1f}%)"
     )
     print(
         f"Daily Win Fraction:   {result.win_fraction * 100:.2f}% "
-        f"(min required: {result.min_days_better_fraction * 100:.1f}%)"
+        f"(min required: {engine.min_days_better_fraction * 100:.1f}%)"
     )
     print(
         f"Mean Abs Residual:    {result.mean_abs_residual:.6f} "
@@ -1467,7 +1467,7 @@ def eval_adapt_cmd(
     if engine.is_adapted:
         print("Verdict: ACCEPTED — residual calibrator successfully deployed.")
     else:
-        print(f"Verdict: FALLBACK TO M5 ({result.status.value}) — exact M5 physics base preserved.")
+        print(f"Verdict: FALLBACK TO M5 ({result.status}) — exact M5 physics base preserved.")
 
     safe_exit(0)
 
@@ -1717,6 +1717,139 @@ def eval_significance_cmd(
         out_p.parent.mkdir(parents=True, exist_ok=True)
         out_p.write_text(json.dumps(result_dict, indent=2))
         print(f"Results written to {out_p}")
+
+    safe_exit(0)
+
+
+@app_eval.command("sparsity")
+def eval_sparsity_cmd(
+    domain: str = typer.Option("lahore", "--domain", help="Evaluation domain (lahore, delhi)"),
+    feature_store_dir: str | None = typer.Option(
+        None, "--feature-store-dir", help="Path to precomputed feature store"
+    ),
+    models_dir: str | None = typer.Option(
+        None, "--models-dir", help="Path to models directory holding M5 base and calibrators"
+    ),
+    n_grid_str: str | None = typer.Option(
+        None, "--n-grid", help="Comma-separated N values, e.g. '0,1,2,3,5,8'"
+    ),
+    n_val: int | None = typer.Option(
+        None, "--n-val", help="Single N value for matrix sharding execution"
+    ),
+    draws: int = typer.Option(30, "--draws", "-r", help="Number of random draws per N"),
+    mode: str = typer.Option(
+        "neighbour_history",
+        "--mode",
+        help="Evaluation mode: 'neighbour_history' (leave-stations-out) or 'own_history'",
+    ),
+    support_days: int = typer.Option(
+        14, "--support-days", help="Number of days in support window W"
+    ),
+    output_dir: str = typer.Option(
+        "reports", "--output-dir", "-o", help="Directory for JSON and MD output reports"
+    ),
+    device: str = typer.Option("cpu", "--device", help="Computation device ('cpu' or 'cuda')"),
+    merge_shards: str | None = typer.Option(
+        None,
+        "--merge-shards",
+        help="Glob or comma-separated list of shard JSON files to merge into unified report",
+    ),
+) -> None:
+    """Execute sensor-sparsity curve evaluation or merge distributed matrix shards (Task P3-06)."""
+    from pathlib import Path
+
+    from smogsense.evaluation.sparsity_curve import (
+        DEFAULT_N_GRID,
+        merge_sparsity_shards,
+        run_sparsity_experiment,
+        save_sparsity_report,
+    )
+
+    out_dir_path = Path(output_dir)
+    out_dir_path.mkdir(parents=True, exist_ok=True)
+
+    if merge_shards:
+        shard_paths: list[Path] = []
+        for part in merge_shards.split(","):
+            part = part.strip()
+            p = Path(part)
+            if "*" in part or "?" in part:
+                parent = p.parent if str(p.parent) != "" else Path.cwd()
+                matched = list(parent.glob(p.name))
+                shard_paths.extend(matched)
+            elif p.exists():
+                shard_paths.append(p)
+
+        if not shard_paths:
+            print(f"Error: No shard files found matching '{merge_shards}'")
+            safe_exit(1)
+
+        merged = merge_sparsity_shards(shard_paths)
+        json_p, md_p = save_sparsity_report(merged, out_dir_path)
+        print(f"Successfully merged {len(shard_paths)} shards into {json_p} and {md_p}")
+        safe_exit(0)
+
+    # Resolve active N grid
+    if n_val is not None:
+        active_n_grid: tuple[int, ...] = (n_val,)
+    elif n_grid_str:
+        active_n_grid = tuple(int(x.strip()) for x in n_grid_str.split(","))
+    else:
+        active_n_grid = DEFAULT_N_GRID
+
+    print("\n" + "=" * 70)
+    print("SENSOR-SPARSITY CURVE EVALUATION (TASK P3-06)")
+    print("=" * 70)
+    print(f"Domain:       {domain}")
+    print(f"Mode:         {mode}")
+    print(f"N Grid:       {list(active_n_grid)}")
+    print(f"Draws (R):    {draws}")
+    print(f"Support Days: {support_days}")
+    print(f"Device:       {device}")
+    print("=" * 70)
+
+    base_model = None
+    calibrator_m6 = None
+    calibrator_m7 = None
+    step_sizes_m7 = None
+
+    if models_dir and Path(models_dir).exists():
+        m_dir = Path(models_dir)
+        m5_path = m_dir / "m5_physics_base.joblib"
+        if m5_path.exists():
+            from smogsense.models.lgbm_quantile import LGBMQuantileEnsemble
+
+            base_model = LGBMQuantileEnsemble.load(m5_path)
+
+    result = run_sparsity_experiment(
+        base_model=base_model,
+        calibrator_m6=calibrator_m6,
+        calibrator_m7=calibrator_m7,
+        step_sizes_m7=step_sizes_m7,
+        n_grid=active_n_grid,
+        draws=draws,
+        mode=mode,
+        domain=domain,
+        device=device,
+    )
+
+    json_path, md_path = save_sparsity_report(result, out_dir_path)
+
+    print("\nSENSOR-SPARSITY EXPERIMENT COMPLETED")
+    print("-" * 70)
+    print(f"{'Method':<25s} | {'N*':<5s} | {'Power Law Fit (c_inf, c_0, nu, R2)':<35s}")
+    print("-" * 70)
+    for method in result.methods:
+        n_star = str(result.n_star.get(method, "N/A"))
+        fit = result.fits.get(method)
+        if fit:
+            fit_str = f"c_inf={fit.c_infinity:.2f}, nu={fit.nu:.2f}, R2={fit.r_squared:.3f}"
+        else:
+            fit_str = "No fit"
+        print(f"{method:<25s} | {n_star:<5s} | {fit_str:<35s}")
+    print("-" * 70)
+    print(f"Reports written to:\n  - {json_path}\n  - {md_path}")
+    print("=" * 70 + "\n")
 
     safe_exit(0)
 
