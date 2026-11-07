@@ -1994,6 +1994,98 @@ def eval_sparsity_cmd(
     safe_exit(0)
 
 
+@app_eval.command("promotion")
+def eval_promotion_cmd(
+    ladder_report: str = typer.Option(
+        "reports/ladder.json",
+        "--ladder-report",
+        help="Path to model ladder evaluation JSON report",
+    ),
+    sparsity_report: str = typer.Option(
+        "reports/sparsity_curve.json",
+        "--sparsity-report",
+        help="Path to sensor-sparsity experiment JSON report",
+    ),
+    replay_report: str = typer.Option(
+        "reports/replay_shadow.json",
+        "--replay-report",
+        help="Path to shadow replay evaluation JSON report",
+    ),
+    output_dir: str = typer.Option(
+        "reports",
+        "--output-dir",
+        "-o",
+        help="Output directory for promotion decision report",
+    ),
+    apply: bool = typer.Option(
+        False,
+        "--apply/--no-apply",
+        help="Whether to automatically apply promotion to configs/model.yaml if approved",
+    ),
+    bundle_tag: str = typer.Option(
+        "models-v0.2.0",
+        "--bundle-tag",
+        help="Model bundle tag for promotion",
+    ),
+) -> None:
+    """Execute Gate G5 model promotion evaluation, PR generation, and config review (Task P3-09)."""
+    from smogsense.evaluation.promotion import (
+        apply_promotion_to_config,
+        generate_promotion_decision,
+    )
+
+    print("=" * 75)
+    print("GATE G5 MODEL PROMOTION REVIEW & HEADLINE MODEL SELECTION (Task P3-09)")
+    print("=" * 75)
+    print(f"Ladder Report:   {ladder_report}")
+    print(f"Sparsity Report: {sparsity_report}")
+    print(f"Replay Report:   {replay_report}")
+    print(f"Output Dir:      {output_dir}")
+    print(f"Apply Promotion: {apply}")
+    print("=" * 75)
+
+    decision = generate_promotion_decision(
+        ladder_path=ladder_report,
+        sparsity_path=sparsity_report,
+        replay_path=replay_report,
+        output_dir=output_dir,
+        bundle_tag=bundle_tag,
+    )
+
+    print("\nPROMOTION DECISION SUMMARY")
+    print("-" * 75)
+    print(f"Selected Headline Model:  {decision.headline_model}")
+    print(f"Recommended Action:       {decision.recommended_action}")
+    print(f"Promoted Bundle Value:    {decision.promoted_bundle_value}")
+    print(f"All Guardrails Passed:    {decision.all_guardrails_passed}")
+    print(f"PR Title:                 {decision.pr_title}")
+    print("-" * 75)
+    print(f"Justification:\n  {decision.justification}")
+    print("-" * 75)
+
+    if apply:
+        if decision.all_guardrails_passed and decision.recommended_action != "maintain_baseline":
+            success = apply_promotion_to_config(
+                promoted_bundle_value=decision.promoted_bundle_value
+            )
+            if success:
+                print(
+                    f"[OK] Applied promotion to configs/model.yaml: {decision.promoted_bundle_value}"
+                )
+            else:
+                print("[ERROR] Failed to update configs/model.yaml")
+        else:
+            print(
+                "[INFO] Promotion not applied: recommended action maintains baseline or guardrails failed."
+            )
+
+    print(f"\nArtifacts generated in: {output_dir}/")
+    print("  - promotion_decision.json")
+    print("  - promotion_decision.md")
+    print("=" * 75 + "\n")
+    safe_exit(0)
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
