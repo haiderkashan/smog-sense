@@ -328,11 +328,20 @@ def reconcile_archive_api_cmd(
     )
 
 
-@app_run.command()
+@app_run.command("daily")
 def daily(
     issuance: str = typer.Option("latest", "--issuance", help="Issuance time"),
     force: bool = typer.Option(False, "--force", help="Force run even if already published"),
     mode: str | None = typer.Option(None, "--mode", help="Execution mode (live, fixtures)"),
+    challenger_bundle: str | None = typer.Option(
+        None, "--challenger-bundle", help="Model bundle tag or path for challenger"
+    ),
+    challenger_method: str | None = typer.Option(
+        None, "--challenger-method", help="Challenger model method id (e.g. m7_hybrid_maml)"
+    ),
+    enable_challenger: bool | None = typer.Option(
+        None, "--enable-challenger/--no-challenger", help="Enable or disable challenger execution"
+    ),
 ) -> None:
     """Run the full daily cycle."""
     import os
@@ -354,8 +363,67 @@ def daily(
     else:
         issuance_utc = datetime.fromisoformat(issuance).replace(tzinfo=UTC)
 
-    exit_code = run_daily_pipeline(issuance_utc, force=force, mode=mode)
+    exit_code = run_daily_pipeline(
+        issuance_utc,
+        force=force,
+        mode=mode,
+        challenger_bundle=challenger_bundle,
+        challenger_method=challenger_method,
+        enable_challenger=enable_challenger,
+    )
     safe_exit(exit_code)
+
+
+@app_run.command("forecast")
+def run_forecast(
+    issuance: str = typer.Option("latest", "--issuance", help="Issuance time"),
+    force: bool = typer.Option(False, "--force", help="Force run even if already published"),
+    mode: str | None = typer.Option(None, "--mode", help="Execution mode (live, fixtures)"),
+    challenger_bundle: str | None = typer.Option(
+        None, "--challenger-bundle", help="Model bundle tag or path for challenger"
+    ),
+    challenger_method: str | None = typer.Option(
+        None, "--challenger-method", help="Challenger model method id (e.g. m7_hybrid_maml)"
+    ),
+    enable_challenger: bool | None = typer.Option(
+        None, "--enable-challenger/--no-challenger", help="Enable or disable challenger execution"
+    ),
+) -> None:
+    """Execute forecast pipeline in run group."""
+    daily(
+        issuance=issuance,
+        force=force,
+        mode=mode,
+        challenger_bundle=challenger_bundle,
+        challenger_method=challenger_method,
+        enable_challenger=enable_challenger,
+    )
+
+
+@app_forecast.command("daily")
+def forecast_daily(
+    issuance: str = typer.Option("latest", "--issuance", help="Issuance time"),
+    force: bool = typer.Option(False, "--force", help="Force run even if already published"),
+    mode: str | None = typer.Option(None, "--mode", help="Execution mode (live, fixtures)"),
+    challenger_bundle: str | None = typer.Option(
+        None, "--challenger-bundle", help="Model bundle tag or path for challenger"
+    ),
+    challenger_method: str | None = typer.Option(
+        None, "--challenger-method", help="Challenger model method id (e.g. m7_hybrid_maml)"
+    ),
+    enable_challenger: bool | None = typer.Option(
+        None, "--enable-challenger/--no-challenger", help="Enable or disable challenger execution"
+    ),
+) -> None:
+    """Execute daily forecast pipeline in forecast group."""
+    daily(
+        issuance=issuance,
+        force=force,
+        mode=mode,
+        challenger_bundle=challenger_bundle,
+        challenger_method=challenger_method,
+        enable_challenger=enable_challenger,
+    )
 
 
 @app_state.command()
