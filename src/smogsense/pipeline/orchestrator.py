@@ -34,6 +34,7 @@ from smogsense.models.adaptation import (
     DeploymentAdaptationEngine,
 )
 from smogsense.models.baselines import M0Persistence, M1Cams
+from smogsense.models.binding import resolve_base_digest, verify_base_calibrator_binding
 from smogsense.models.distribution import QuantileFunction
 from smogsense.models.heads import (
     CANONICAL_HORIZONS,
@@ -45,7 +46,11 @@ from smogsense.models.lgbm_quantile import (
     rearrange_quantiles,
 )
 from smogsense.models.maml import MetaSGDStepSizes
-from smogsense.models.registry import ModelRegistry
+from smogsense.models.registry import (
+    BaseModelBindingError,
+    BundleTamperedError,
+    ModelRegistry,
+)
 from smogsense.preprocessing.alignment import asof_cams_run
 from smogsense.preprocessing.gridded import extract_stations
 from smogsense.preprocessing.qc import apply_qc
@@ -341,9 +346,45 @@ def run_challenger_forecast(
 
         if bundle_tag and str(bundle_tag).lower() != "none":
             try:
-                bundle_dir, manifest = registry.load_bundle(bundle_tag)
+                # 1. Resolve active base digest if base_bundle_tag is specified
+                expected_base_sha: str | None = None
+                if base_bundle_tag and str(base_bundle_tag).lower() != "none":
+                    try:
+                        base_dir, base_manifest = registry.load_bundle(base_bundle_tag, verify=True)
+                        expected_base_sha = resolve_base_digest(base_manifest)
+                        b_file = base_dir / "model.joblib"
+                        if not b_file.exists():
+                            b_file = base_dir / "m5_physics_base.joblib"
+                        if b_file.exists():
+                            base_model = LGBMQuantileEnsemble.load(b_file)
+                    except Exception as b_exc:
+                        logger.warning("challenger_base_bundle_load_failed error=%s", b_exc)
+
+                # Check fallback models directory if expected_base_sha not resolved
+                if expected_base_sha is None:
+                    with contextlib.suppress(Exception):
+                        expected_base_sha = resolve_base_digest(Path(cache_dir))
+
+                # 2. Load and verify calibrator bundle
+                bundle_dir, manifest = registry.load_bundle(
+                    bundle_tag,
+                    active_base_sha256=expected_base_sha,
+                    verify=True,
+                )
                 model_version = manifest.version
                 base_sha256 = manifest.base_sha256
+
+                # 3. Explicit cryptographic base binding check
+                if manifest.model_type == "residual_calibrator":
+                    if expected_base_sha is None:
+                        with contextlib.suppress(Exception):
+                            expected_base_sha = resolve_base_digest("data/processed/models")
+                    if expected_base_sha is None:
+                        raise BaseModelBindingError(
+                            f"Cannot verify calibrator bundle '{manifest.model_name}': "
+                            f"active physics base model SHA-256 digest cannot be resolved."
+                        )
+                    verify_base_calibrator_binding(manifest, expected_base_sha, strict=True)
 
                 if manifest.model_type == "base":
                     model_file = bundle_dir / "model.joblib"
@@ -367,20 +408,39 @@ def run_challenger_forecast(
                         step_sizes = MetaSGDStepSizes()
                         s_dict = torch.load(step_file, map_location=device, weights_only=True)
                         step_sizes.load_state_dict(s_dict)
-
-                    if base_bundle_tag and str(base_bundle_tag).lower() != "none":
-                        base_dir, _ = registry.load_bundle(base_bundle_tag)
-                        b_file = base_dir / "model.joblib"
-                        if not b_file.exists():
-                            b_file = base_dir / "m5_physics_base.joblib"
-                        if b_file.exists():
-                            base_model = LGBMQuantileEnsemble.load(b_file)
+            except (BaseModelBindingError, BundleTamperedError) as binding_err:
+                logger.warning(
+                    "challenger_bundle_binding_failed bundle=%s error=%s",
+                    bundle_tag,
+                    binding_err,
+                )
+                return {
+                    "enabled": False,
+                    "method": method,
+                    "model_version": "degraded_level_2",
+                    "adaptation_status": "rejected_base_binding",
+                    "n_available_stations": n_available_stations,
+                    "base_sha256": None,
+                    "calibrated": False,
+                    "error": "base_binding_mismatch_fallback_level_2",
+                    "city_forecasts": None,
+                    "stations_data": [],
+                }
             except Exception as exc:
                 logger.warning(
                     "challenger_bundle_resolution_failed bundle=%s error=%s", bundle_tag, exc
                 )
                 if not fallback_to_base:
                     raise
+                return {
+                    "enabled": False,
+                    "method": method,
+                    "model_version": "fallback_base",
+                    "adaptation_status": "error",
+                    "error": str(exc),
+                    "city_forecasts": None,
+                    "stations_data": [],
+                }
 
         # Check local paths for base model if not loaded from bundle
         if base_model is None:
@@ -1257,11 +1317,26 @@ async def run_daily_pipeline_async(
             log_df = baseline_log_df
 
         promoted_bundle = str(settings.model.get("promoted_bundle", "none")).strip().lower()
+
+        # Binding mismatch or bundle corruption forces Level 2 fallback
+        binding_failed = (
+            challenger_res is not None
+            and challenger_res.get("error") == "base_binding_mismatch_fallback_level_2"
+        )
+        if binding_failed and promoted_bundle != "none":
+            logger.warning(
+                "promoted_bundle_binding_failed_degraded_to_level_2 bundle=%s",
+                promoted_bundle,
+            )
+            degrad_level = max(degrad_level, 2)
+
         is_promoted = (
             promoted_bundle != "none"
+            and not binding_failed
             and challenger_res is not None
             and bool(challenger_res.get("city_forecasts"))
-            and challenger_res.get("adaptation_status") != "error"
+            and challenger_res.get("adaptation_status") not in ("error", "rejected_base_binding")
+            and challenger_res.get("error") is None
         )
 
         if is_promoted and challenger_res is not None:
