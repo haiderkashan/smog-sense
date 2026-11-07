@@ -166,3 +166,11 @@ base:
     max_folds: 3
     embargo_h: 72
     purging: true
+challenger:
+  enabled: true
+  method: m7_hybrid_maml
+  bundle_tag: none
+  base_bundle_tag: none
+  fallback_to_base_on_error: true
+  min_support_days: 5
+promoted_bundle: none
