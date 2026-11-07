@@ -226,6 +226,8 @@ def score_forecast_targets(
 
     scores_df = pd.DataFrame(records)
     schema = _load_score_log_schema()
+    schema_cols = [c for c in schema.columns if c in scores_df.columns]
+    scores_df = scores_df[schema_cols]
     return validate_frame(scores_df, schema)
 
 
