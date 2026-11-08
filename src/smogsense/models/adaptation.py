@@ -242,6 +242,7 @@ class DeploymentAdaptationEngine:
                 adapted_pred=np.zeros((len(support_sorted), 3, 19)),
                 dates=support_sorted["issuance_utc"],
                 rho_99=self.rho_99,
+                min_support_days=self.min_support_days,
                 n_available=n_avail,
                 support_days=total_days,
             )
@@ -373,6 +374,7 @@ class DeploymentAdaptationEngine:
                 unadapted_pred=chk_unadapted_q.cpu().numpy(),
                 min_improvement=self.min_improvement,
                 min_days_better_fraction=self.min_days_better_fraction,
+                min_support_days=self.min_support_days,
                 n_available=n_avail,
                 support_days=total_days,
                 in_log1p=True,

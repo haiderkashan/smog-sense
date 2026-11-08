@@ -221,6 +221,7 @@ def evaluate_adaptation_acceptance(
     unadapted_pred: np.ndarray | torch.Tensor | None = None,
     min_improvement: float = 0.02,
     min_days_better_fraction: float = 0.60,
+    min_support_days: float = 7.0,
     n_available: int = 1,
     support_days: float = 14.0,
     in_log1p: bool = True,
@@ -265,7 +266,7 @@ def evaluate_adaptation_acceptance(
 
     # 2. Edge Case: Insufficient Support
     n_samples = len(dates)
-    if support_days < 7.0 or n_samples == 0:
+    if support_days < min_support_days or n_samples == 0:
         return AdaptationAcceptanceResult(
             accepted=False,
             adaptation_status="skipped_insufficient_support",
@@ -277,7 +278,9 @@ def evaluate_adaptation_acceptance(
             check_pinball_adapted=0.0,
             n_check_samples=n_samples,
             n_check_days=0,
-            details={"reason": f"Insufficient support: {support_days} days, {n_samples} samples"},
+            details={
+                "reason": f"Insufficient support: {support_days:.1f} days < {min_support_days:.1f} days, {n_samples} samples"
+            },
         )
 
     # Convert inputs to float64 numpy arrays
