@@ -1,13 +1,14 @@
-{# AQI category chip.
-
-Context contract (every variable is validated before rendering):
-  category: {id, bg, fg}
-  label: str (already translated)
-
-Regions:
-  - <span> with data-category, background/foreground from tokens; text label ALWAYS present (colour is never the only cue)
-
-Rules:
-  - Add a non-colour cue (shape or pattern) for the three red-ish categories
-
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+{# AQI category chip partial with geometric non-color cues #}
+<span class="aqi-chip aqi-chip--{{ category_id }}" data-category="{{ category_id }}">
+  <span class="aqi-chip__shape aqi-chip__shape--{{ category_id }}" aria-hidden="true">
+    {% if category_id == 'good' %}●
+    {% elif category_id == 'moderate' %}■
+    {% elif category_id == 'usg' %}▲
+    {% elif category_id == 'unhealthy' %}◆
+    {% elif category_id == 'very_unhealthy' %}⬡
+    {% elif category_id == 'hazardous' %}🛑
+    {% else %}●
+    {% endif %}
+  </span>
+  <span class="aqi-chip__text">{{ label }}</span>
+</span>

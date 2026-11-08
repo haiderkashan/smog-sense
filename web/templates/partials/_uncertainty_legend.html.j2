@@ -1,9 +1,20 @@
-{# Legend that teaches how to read the fan chart.
+{# Natural frequency uncertainty explainer partial #}
+<section class="uncertainty-legend" aria-labelledby="uncertainty-heading">
+  <h2 id="uncertainty-heading" class="section-heading">{{ t('uncertainty.range_label') }}</h2>
+  <p class="uncertainty-explainer-text">{{ t('uncertainty.explain_short') }}</p>
 
-Context contract (every variable is validated before rendering):
-  t
-
-Regions:
-  - median line, dark band (half of days), light band (8 days in 10)
-
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+  <div class="legend-grid">
+    <div class="legend-card">
+      <span class="legend-card__tag">{{ t('uncertainty.median_label') }}</span>
+      <p class="legend-card__desc">The central forecast (50th percentile) where actual levels are as likely to fall above as below.</p>
+    </div>
+    <div class="legend-card">
+      <span class="legend-card__tag">{{ t('uncertainty.range_label') }}</span>
+      <p class="legend-card__desc">The 80% central interval: on approximately 8 days out of 10, observations fall within this span.</p>
+    </div>
+    <div class="legend-card">
+      <span class="legend-card__tag">{{ t('uncertainty.upper_label') }}</span>
+      <p class="legend-card__desc">The 90th percentile: severe smog peaks occur above this level on approximately 1 day out of 10.</p>
+    </div>
+  </div>
+</section>

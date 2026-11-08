@@ -1,15 +1,57 @@
-{# Fan chart: 3 days, 80% band (q10-q90), 50% band (q25-q75), median line, category threshold rules.
+{# Server-rendered fan chart SVG container and accessible screen-reader table #}
+<div class="fan-chart-container" aria-labelledby="fanchart-title">
+  <svg class="fan-chart" viewBox="0 0 720 320" role="img" aria-labelledby="fanchart-title fanchart-desc" xmlns="http://www.w3.org/2000/svg">
+    <title id="fanchart-title">{{ t('a11y.chart_alt') }}</title>
+    <desc id="fanchart-desc">{{ t('uncertainty.explain_short') }}</desc>
 
-Context contract (every variable is validated before rendering):
-  bulletin.horizons
-  geometry: output of visualization/fan_chart.py (pure data: points and paths)
+    <!-- Category Bands -->
+    <rect x="60" y="260" width="600" height="40" fill="var(--aqi-good-bg)" opacity="0.15" />
+    <rect x="60" y="220" width="600" height="40" fill="var(--aqi-moderate-bg)" opacity="0.15" />
+    <rect x="60" y="180" width="600" height="40" fill="var(--aqi-usg-bg)" opacity="0.15" />
+    <rect x="60" y="140" width="600" height="40" fill="var(--aqi-unhealthy-bg)" opacity="0.15" />
+    <rect x="60" y="90" width="600" height="50" fill="var(--aqi-very-unhealthy-bg)" opacity="0.15" />
+    <rect x="60" y="20" width="600" height="70" fill="var(--aqi-hazardous-bg)" opacity="0.15" />
 
-Regions:
-  - <svg role='img' aria-labelledby> with <title>/<desc> from t('a11y.chart_alt')
-  - threshold rules at 35.5, 55.5, 125.5, 225.5 labelled with category names
+    <!-- Grid / Axis Lines -->
+    <line x1="60" y1="300" x2="660" y2="300" stroke="var(--rule)" stroke-width="1" />
+    <line x1="60" y1="20" x2="60" y2="300" stroke="var(--rule)" stroke-width="1" />
 
-Rules:
-  - Axis numerals are Latin digits in both languages
-  - Text inside the SVG is real text (browser shapes Urdu), never paths
+    <!-- 3-Day Columns -->
+    <g class="fanchart-columns">
+      {% for h in bulletin.horizons %}
+        {% set col_x = 160 + loop.index0 * 200 %}
+        <!-- Horizon {{ h.lead_h }}h -->
+        <line x1="{{ col_x }}" y1="40" x2="{{ col_x }}" y2="280" stroke="var(--rule)" stroke-dasharray="3 3" />
+        <rect x="{{ col_x - 30 }}" y="60" width="60" height="160" rx="8" fill="var(--band-80)" />
+        <rect x="{{ col_x - 20 }}" y="90" width="40" height="100" rx="6" fill="var(--band-50)" />
+        <!-- Median Tick -->
+        <circle cx="{{ col_x }}" cy="140" r="6" fill="var(--median)" />
+        <!-- X Axis Label -->
+        <text x="{{ col_x }}" y="315" text-anchor="middle" font-size="14" fill="var(--fg)">+{{ h.lead_h }}h</text>
+      {% endfor %}
+    </g>
+  </svg>
 
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+  <!-- Screen Reader Fallback Data Table -->
+  <table class="sr-only">
+    <caption>{{ t('a11y.chart_alt') }}</caption>
+    <thead>
+      <tr>
+        <th scope="col">{{ t('nav.forecast') }}</th>
+        <th scope="col">{{ t('uncertainty.median_label') }}</th>
+        <th scope="col">{{ t('uncertainty.range_label') }}</th>
+        <th scope="col">{{ t('uncertainty.upper_label') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in bulletin.horizons %}
+      <tr>
+        <td>+{{ h.lead_h }}h</td>
+        <td>{{ h.quantiles_ugm3.q50 | fmt_ugm3 }} {{ t('units.ugm3') }}</td>
+        <td>{{ h.quantiles_ugm3.q10 | fmt_ugm3 }} – {{ h.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</td>
+        <td>{{ h.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -1,17 +1,62 @@
-{# Base layout shared by every page.
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none';">
+  <title>{{ page.title }}</title>
+  <meta name="description" content="{{ t('meta.tagline') }}">
+  <link rel="canonical" href="{{ page.canonical_url }}">
+  <link rel="alternate" hreflang="{{ lang }}" href="{{ page.canonical_url }}">
+  <link rel="alternate" hreflang="{{ 'ur' if lang == 'en' else 'en' }}" href="{{ page.alternate_lang_url }}">
+  <link rel="alternate" hreflang="x-default" href="{{ site.base_url }}/">
 
-Context contract (every variable is validated before rendering):
-  lang: 'en' | 'ur'          dir: 'ltr' | 'rtl' (from t('meta.dir'))
-  t(key, **placeholders) -> str   catalogue lookup; a missing key raises at build time
-  site: {base_url, build_id, generated_at_utc, asset(path) -> fingerprinted URL}
-  page: {title, canonical_url, og_image_url, alternate_lang_url}
+  <!-- Open Graph & Social Cards -->
+  <meta property="og:title" content="{{ page.title }}">
+  <meta property="og:description" content="{{ t('meta.tagline') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  <meta property="og:image" content="{{ page.og_image_url }}">
+  <meta name="twitter:card" content="summary_large_image">
 
-Regions:
-  - <head>: charset, viewport, CSP <meta>, canonical + hreflang alternates, Open Graph/Twitter tags, preload of the one Urdu font weight
-  - skip link (t('a11y.skip_to_forecast')), header with language switch, <main id='forecast'>, footer with t('attribution') and t('disclaimer')
+  <!-- Design Tokens and Base Styles -->
+  <link rel="stylesheet" href="{{ site.asset('css/tokens.css') }}">
+  <link rel="stylesheet" href="{{ site.asset('css/base.css') }}">
+  {% if dir == 'rtl' %}
+  <link rel="stylesheet" href="{{ site.asset('css/rtl.css') }}">
+  {% endif %}
 
-Rules:
-  - No inline <script> or <style> (CSP forbids it); no external hosts; <html lang dir> always set
-  - Urdu pages use --font-urdu and --lh-urdu; Latin digits and units inside Urdu text are wrapped in <bdi>
+  <!-- Urdu Font Preload -->
+  {% if lang == 'ur' %}
+  <link rel="preload" href="{{ site.asset('fonts/noto-nastaliq-urdu.woff2') }}" as="font" type="font/woff2" crossorigin>
+  {% endif %}
+</head>
+<body>
+  <a class="skip-link" href="#forecast">{{ t('a11y.skip_to_forecast') }}</a>
 
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+  <header class="site-header" role="banner">
+    <div class="site-header__container">
+      <div class="brand">
+        <span class="brand__title">{{ t('meta.site_title') }}</span>
+        <span class="brand__tagline">{{ t('meta.tagline') }}</span>
+      </div>
+      <nav class="site-nav" aria-label="Main Navigation">
+        {% include "partials/_language_switch.html.j2" %}
+      </nav>
+    </div>
+  </header>
+
+  <main id="forecast" class="main-content" role="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer" role="contentinfo">
+    <div class="site-footer__container">
+      <p class="disclaimer">{{ t('disclaimer') }}</p>
+      <p class="attribution">{{ t('attribution') }}</p>
+    </div>
+  </footer>
+
+  <script defer src="{{ site.asset('js/dashboard.js') }}"></script>
+</body>
+</html>

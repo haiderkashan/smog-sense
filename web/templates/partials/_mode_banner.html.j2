@@ -1,13 +1,17 @@
-{# Degraded-mode banner.
-
-Context contract (every variable is validated before rendering):
-  bulletin.mode
-  t
-
-Regions:
-  - role='status' banner with t('mode_banner.<mode>')
-
-Rules:
-  - Not rendered when mode == 'full'
-
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+{# Mode banner partial - displayed when bulletin.mode != 'full' #}
+{% if bulletin.mode != 'full' %}
+<aside class="mode-banner" role="status" aria-live="polite">
+  <div class="mode-banner__icon" aria-hidden="true">⚠️</div>
+  <div class="mode-banner__text">
+    {% if bulletin.mode == 'stale_cams' %}
+      {{ t('mode_banner.stale_cams') }}
+    {% elif bulletin.mode == 'observations_only' %}
+      {{ t('mode_banner.observations_only') }}
+    {% elif bulletin.mode == 'baseline_only' %}
+      {{ t('mode_banner.baseline_only') }}
+    {% else %}
+      {{ bulletin.mode_reason or "Simplified forecast mode active." }}
+    {% endif %}
+  </div>
+</aside>
+{% endif %}

@@ -1,10 +1,6 @@
-{# Language switch link (full page reload; no JS).
-
-Context contract (every variable is validated before rendering):
-  page.alternate_lang_url
-  t
-
-Regions:
-  - <a hreflang lang> labelled in the other language's own script
-
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+{# Language switch partial with reciprocal hreflang and script label #}
+{% set target_lang = 'ur' if lang == 'en' else 'en' %}
+{% set target_dir = 'rtl' if target_lang == 'ur' else 'ltr' %}
+<a class="lang-switch" href="{{ page.alternate_lang_url }}" hreflang="{{ target_lang }}" lang="{{ target_lang }}" dir="{{ target_dir }}" aria-label="Switch language to {{ t('nav.switch_language') }}">
+  {{ t('nav.switch_language') }}
+</a>

@@ -1,10 +1,20 @@
-{# Headline + actions + notes for the median category.
+{# Protective health advisory block partial #}
+<section class="advisory-block" aria-labelledby="advisory-heading">
+  <h2 id="advisory-heading" class="section-heading">{{ t('advice.' ~ bulletin.advisory.category ~ '.headline') }}</h2>
 
-Context contract (every variable is validated before rendering):
-  bulletin.advisory
-  t
+  <ul class="advisory-actions">
+    {% for action in t('advice.' ~ bulletin.advisory.category ~ '.actions') %}
+      <li class="advisory-action-item">{{ action }}</li>
+    {% endfor %}
+  </ul>
 
-Regions:
-  - <h2> headline, <ul> actions, <aside> notes
-
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+  {% if bulletin.advisory.notes %}
+  <div class="advisory-notes">
+    {% for note_key in bulletin.advisory.notes %}
+      <div class="advisory-note advisory-note--{{ note_key }}">
+        <p>{{ t('notes.' ~ note_key) }}</p>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>

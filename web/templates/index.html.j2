@@ -1,24 +1,109 @@
-{# Forecast page (one per language).
+{% extends "base.html.j2" %}
 
-Context contract (every variable is validated before rendering):
-  lang: 'en' | 'ur'          dir: 'ltr' | 'rtl' (from t('meta.dir'))
-  t(key, **placeholders) -> str   catalogue lookup; a missing key raises at build time
-  site: {base_url, build_id, generated_at_utc, asset(path) -> fingerprinted URL}
-  page: {title, canonical_url, og_image_url, alternate_lang_url}
-  bulletin: dict validated against data/schemas/bulletin.schema.json
-  categories: list of {id, bg, fg, name} from configs/bulletin.yaml
+{% block content %}
+<div class="forecast-container">
 
-Regions:
-  - mode banner (only when bulletin.mode != 'full')
-  - hero: median category chip + median number + upper-tail sentence
-  - fan chart (server-rendered SVG, no JS needed)
-  - three horizon cards (24/48/72 h)
-  - advisory block (headline, actions, notes)
-  - uncertainty explainer (t('uncertainty.explain_short'))
-  - provenance footnote (sources + as-of times)
+  {# 1. Mode Banner (visible only when operating in degraded mode) #}
+  {% include "partials/_mode_banner.html.j2" %}
 
-Rules:
-  - Never show q90 as 'worst case'; label it with t('uncertainty.upper_label')
-  - Exceedance probabilities are shown as percentages; the 80% interval is always described as '8 days in 10'
+  {# 2. Expiry Notice Banner & Static Timestamps #}
+  {% include "partials/_expiry_notice.html.j2" %}
 
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+  <div class="forecast-metadata">
+    <p class="forecast-metadata__valid-until">
+      <strong>{{ t('status.valid_until', time=bulletin.valid_until_utc | local_time) }}</strong>
+    </p>
+    <p class="forecast-metadata__timing">
+      <span>{{ t('status.issued', time=bulletin.generated_at_utc | local_time) }}</span>
+      <span class="timing-divider">·</span>
+      <span>{{ t('status.data_cutoff', time=bulletin.data_cutoff_utc | local_time) }}</span>
+    </p>
+  </div>
+
+  {# 3. Hero Section (Next 24h Headline Outlook) #}
+  {% set h1 = bulletin.horizons[0] %}
+  <section class="hero-section" aria-labelledby="hero-title">
+    <div class="hero-section__header">
+      <h1 id="hero-title" class="hero-title">{{ t('horizon.day1') }}</h1>
+      <div class="hero-chip-container">
+        {% with category_id=h1.category.median_q50, label=h1.category.median_q50 | category_name %}
+          {% include "partials/_aqi_chip.html.j2" %}
+        {% endwith %}
+      </div>
+    </div>
+
+    <div class="hero-body">
+      <div class="hero-metric">
+        <span class="hero-metric__number">{{ h1.quantiles_ugm3.q50 | fmt_ugm3 }}</span>
+        <span class="hero-metric__unit">{{ t('units.ugm3') }}</span>
+        <span class="hero-metric__label">{{ t('uncertainty.median_label') }}</span>
+      </div>
+
+      <div class="hero-ranges">
+        <p class="hero-range">
+          <strong>{{ t('uncertainty.range_label') }}:</strong>
+          <span class="val">{{ h1.quantiles_ugm3.q10 | fmt_ugm3 }} – {{ h1.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</span>
+        </p>
+        <p class="hero-badcase">
+          <strong>{{ t('uncertainty.upper_label') }}:</strong>
+          <span class="val">{{ h1.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  {# 4. Fan Chart Visualization #}
+  <section class="chart-section" aria-labelledby="chart-heading">
+    <h2 id="chart-heading" class="sr-only">{{ t('a11y.chart_alt') }}</h2>
+    {% include "partials/_fan_chart.svg.j2" %}
+  </section>
+
+  {# 5. 3-Day Forecast Cards #}
+  <section class="horizons-section" aria-labelledby="horizons-heading">
+    <h2 id="horizons-heading" class="section-heading">{{ t('nav.forecast') }} (72h)</h2>
+    <div class="horizons-grid">
+      {% for h in bulletin.horizons %}
+        {% include "partials/_horizon_card.html.j2" %}
+      {% endfor %}
+    </div>
+  </section>
+
+  {# 6. Protective Health Advisory #}
+  {% include "partials/_advisory_block.html.j2" %}
+
+  {# 7. Uncertainty Explainer #}
+  {% include "partials/_uncertainty_legend.html.j2" %}
+
+  {# 8. Truth-Basis Statement #}
+  {% include "partials/_truth_basis.html.j2" %}
+
+  {# 9. Social Sharing Section #}
+  {% set share_date = bulletin.issuance_utc | local_time('%d %b %Y') %}
+  {% set share_cat = h1.category.median_q50 | category_name %}
+  {% set share_med = h1.quantiles_ugm3.q50 | fmt_ugm3 %}
+  {% set share_url = page.canonical_url %}
+  {% set share_text = t('card.whatsapp_text', date=share_date, category=share_cat, median=share_med, url=share_url) %}
+  {% set share_day = bulletin.issuance_utc | local_time('%Y%m%d') %}
+
+  <section class="social-share" aria-labelledby="share-heading">
+    <h2 id="share-heading" class="sr-only">{{ t('card.share_cta') }}</h2>
+    <div class="share-actions">
+      <button type="button" class="btn btn--share" id="btn-share"
+              data-title="{{ page.title }}"
+              data-text="{{ share_text }}"
+              data-url="{{ share_url }}">
+        📤 {{ t('card.share_cta') }}
+      </button>
+
+      <a class="btn btn--whatsapp"
+         href="https://wa.me/?text={{ share_text | urlencode }}?d={{ share_day }}"
+         target="_blank"
+         rel="noopener noreferrer"
+         aria-label="Share via WhatsApp">
+        💬 WhatsApp
+      </a>
+    </div>
+  </section>
+
+</div>
+{% endblock %}

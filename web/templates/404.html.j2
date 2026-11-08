@@ -1,12 +1,9 @@
-{# Not-found page.
+{% extends "base.html.j2" %}
 
-Context contract (every variable is validated before rendering):
-  lang: 'en' | 'ur'          dir: 'ltr' | 'rtl' (from t('meta.dir'))
-  t(key, **placeholders) -> str   catalogue lookup; a missing key raises at build time
-  site: {base_url, build_id, generated_at_utc, asset(path) -> fingerprinted URL}
-  page: {title, canonical_url, og_image_url, alternate_lang_url}
-
-Regions:
-  - link back to the forecast in both languages
-
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+{% block content %}
+<div class="not-found-container">
+  <h1>404</h1>
+  <p class="not-found-message">The requested page could not be found.</p>
+  <p><a class="btn btn--primary" href="{{ site.base_url }}/">{{ t('nav.forecast') }}</a></p>
+</div>
+{% endblock %}

@@ -1,10 +1,58 @@
-{# One horizon card: label, median chip, range, upper-tail line, exceedance sentence.
+{# Horizon card partial - 24h, 48h, or 72h forecast block #}
+<article class="horizon-card horizon-card--{{ h.category.median_q50 }}">
+  <header class="horizon-card__header">
+    <span class="horizon-card__lead-label">
+      {% if h.lead_h == 24 %}{{ t('horizon.day1') }}
+      {% elif h.lead_h == 48 %}{{ t('horizon.day2') }}
+      {% elif h.lead_h == 72 %}{{ t('horizon.day3') }}
+      {% else %}+{{ h.lead_h }}h
+      {% endif %}
+    </span>
+    <time class="horizon-card__window">
+      {{ t('horizon.window', start=h.window_start_utc | local_time('%a %I:%M %p'), end=h.window_end_utc | local_time('%a %I:%M %p')) }}
+    </time>
+  </header>
 
-Context contract (every variable is validated before rendering):
-  horizon: bulletin.horizons[i]
-  t
+  <div class="horizon-card__body">
+    <div class="horizon-card__chip-wrap">
+      {% with category_id=h.category.median_q50, label=h.category.median_q50 | category_name %}
+        {% include "partials/_aqi_chip.html.j2" %}
+      {% endwith %}
+    </div>
 
-Regions:
-  - compact card used three times
+    <div class="horizon-card__metrics">
+      <div class="metric-row metric-row--median">
+        <span class="metric-label">{{ t('uncertainty.median_label') }}:</span>
+        <span class="metric-val"><strong>{{ h.quantiles_ugm3.q50 | fmt_ugm3 }}</strong> <span class="metric-unit">{{ t('units.ugm3') }}</span></span>
+      </div>
+      <div class="metric-row metric-row--range">
+        <span class="metric-label">{{ t('uncertainty.range_label') }}:</span>
+        <span class="metric-val">{{ h.quantiles_ugm3.q10 | fmt_ugm3 }} – {{ h.quantiles_ugm3.q90 | fmt_ugm3 }} <span class="metric-unit">{{ t('units.ugm3') }}</span></span>
+      </div>
+      <div class="metric-row metric-row--badcase">
+        <span class="metric-label">{{ t('uncertainty.upper_label') }}:</span>
+        <span class="metric-val">{{ h.quantiles_ugm3.q90 | fmt_ugm3 }} <span class="metric-unit">{{ t('units.ugm3') }}</span></span>
+      </div>
+    </div>
 
-Specification: docs/dissemination-and-ui.md → 'Jinja2 template contract'. Implemented in Phase 4. #}
+    {% if h.probabilities and h.probabilities.exceed %}
+    <div class="horizon-card__exceedances">
+      <ul class="exceed-list">
+        {% for exc in h.probabilities.exceed %}
+          {% set p = exc.probability %}
+          <li class="exceed-item">
+            {% if p < 0.05 %}
+              {{ t('uncertainty.chance_exceed_low', threshold=exc.threshold_ugm3 | fmt_ugm3) }}
+            {% elif p > 0.95 %}
+              {{ t('uncertainty.chance_exceed_high', threshold=exc.threshold_ugm3 | fmt_ugm3) }}
+            {% else %}
+              {% set p_rounded = ((p * 20) | round * 5) | int %}
+              {{ t('uncertainty.chance_exceed', threshold=exc.threshold_ugm3 | fmt_ugm3, pct=p_rounded) }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</article>

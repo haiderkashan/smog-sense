@@ -1,0 +1,7 @@
+{# Expiry notice banner partial - reveals when forecast validity expires #}
+<div id="expiry-banner" class="expiry-banner" role="alert" aria-live="assertive" data-valid-until="{{ bulletin.valid_until_utc }}" style="display: {% if bulletin.get('expired', false) %}block{% else %}none{% endif %};">
+  <div class="expiry-banner__inner">
+    <span class="expiry-banner__icon" aria-hidden="true">⏰</span>
+    <span class="expiry-banner__message">{{ t('status.expired_banner') }}</span>
+  </div>
+</div>
