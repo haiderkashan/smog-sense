@@ -2332,6 +2332,193 @@ def eval_pilot_alias_cmd(
     )
 
 
+@app_eval.command("pre-register")
+def eval_pre_register_cmd(
+    create: bool = typer.Option(
+        True,
+        "--create/--no-create",
+        help="Whether to create and save the Gate G4 pre-registration specification",
+    ),
+    verify: bool = typer.Option(
+        False,
+        "--verify/--no-verify",
+        help="Whether to verify active state against the pre-registration specification",
+    ),
+    git_tag: str = typer.Option(
+        "v0.3.0-gate-g4",
+        "--git-tag",
+        help="Git release tag for the pre-registration",
+    ),
+    output_doc: str = typer.Option(
+        "docs/pre-registration.md",
+        "--output-doc",
+        "-d",
+        help="Output path for pre-registration markdown document",
+    ),
+    output_state: str = typer.Option(
+        ".state/pre_registration.json",
+        "--output-state",
+        "-s",
+        help="Output path for pre-registration JSON state",
+    ),
+    configs_dir: str = typer.Option(
+        "configs",
+        "--configs-dir",
+        "-c",
+        help="Directory containing configuration files",
+    ),
+    freeze_register_path: str = typer.Option(
+        ".state/freeze_register.json",
+        "--freeze-register",
+        "-f",
+        help="Path to Gate G4 freeze register JSON",
+    ),
+) -> None:
+    """Execute Gate G4 confirmatory pre-registration creation and drift verification (Task P3-13)."""
+    from smogsense.evaluation.registration import (
+        PreRegistrationVerificationError,
+        create_pre_registration_document,
+        verify_pre_registration,
+    )
+
+    doc_p = Path(output_doc)
+    state_p = Path(output_state)
+
+    print("=" * 75)
+    print("GATE G4 CONFIRMATORY PRE-REGISTRATION (Task P3-13)")
+    print("=" * 75)
+    print(f"Mode:              {'VERIFY' if verify else 'CREATE'}")
+    print(f"Git Tag:           {git_tag}")
+    print(f"State Output:      {state_p}")
+    print(f"Document Output:   {doc_p}")
+    print(f"Freeze Register:   {freeze_register_path}")
+
+    if verify:
+        print(f"\nAuditing active state against pre-registration at {state_p}...")
+        try:
+            is_valid, drift_messages = verify_pre_registration(
+                pre_registration_path=state_p,
+                freeze_register_path=Path(freeze_register_path),
+                configs_dir=Path(configs_dir),
+                strict=False,
+            )
+            if is_valid:
+                print("\n[OK] Gate G4 Pre-Registration verification PASSED.")
+                print(
+                    "No configuration drift, threshold mutation, or cryptographic mismatch detected."
+                )
+                print("=" * 75 + "\n")
+                safe_exit(0)
+            else:
+                print(
+                    f"\n[FAIL] Gate G4 Pre-Registration verification FAILED with {len(drift_messages)} error(s):"
+                )
+                for msg in drift_messages:
+                    print(f"  - {msg}")
+                print("=" * 75 + "\n")
+                safe_exit(30)
+        except PreRegistrationVerificationError as exc:
+            print(f"\n[FAIL] Pre-registration verification failed: {exc}")
+            safe_exit(exc.exit_code)
+        except Exception as exc:
+            print(f"\n[ERROR] Verification aborted: {exc}")
+            safe_exit(50)
+
+    if create:
+        print("\nFormalizing Gate G4 pre-registration document and locking hypothesis tiers...")
+        try:
+            doc = create_pre_registration_document(
+                configs_dir=Path(configs_dir),
+                freeze_register_path=Path(freeze_register_path),
+                output_state_path=state_p,
+                output_doc_path=doc_p,
+                git_tag=git_tag,
+                write_files=True,
+            )
+            print("\nPRE-REGISTRATION SPECIFICATION SUMMARY")
+            print("-" * 75)
+            print(f"Title:               {doc.title}")
+            print(f"Registration Date:   {doc.registration_date}")
+            print(f"Git Tag:             {doc.git_release_tag}")
+            print(f"Git SHA:             {doc.git_commit_sha[:16]}...")
+            print(f"Config Hash:         {doc.config_hash[:16]}...")
+            print(f"Freeze Digest:       {doc.freeze_register_digest[:16]}...")
+            print(f"Headline Model:      {doc.headline_model}")
+            print(f"Hypotheses Count:    {len(doc.hypotheses)}")
+            for h in doc.hypotheses:
+                print(
+                    f"  - [{h.hypothesis_id}] ({h.tier.value}): {h.metric} {h.comparison_operator} {h.threshold_value}"
+                )
+            print(
+                f"Power Note H5:       power={doc.statistical_power_note.statistical_power}%, "
+                f"sigma={doc.statistical_power_note.observed_log_ratio_sd}, "
+                f"n_eff={doc.statistical_power_note.effective_sample_size}"
+            )
+            print(f"Calendar Window:     {doc.evaluation_calendar.confirmatory_shadow_window}")
+            print("-" * 75)
+            print(f"[OK] State saved to {state_p}")
+            print(f"[OK] Markdown documentation saved to {doc_p}")
+            print("=" * 75 + "\n")
+            safe_exit(0)
+        except Exception as exc:
+            print(f"\n[ERROR] Failed to create pre-registration: {exc}")
+            safe_exit(50)
+
+
+@app_eval.command("register")
+def eval_register_alias_cmd(
+    create: bool = typer.Option(
+        True,
+        "--create/--no-create",
+        help="Whether to create and save the Gate G4 pre-registration specification",
+    ),
+    verify: bool = typer.Option(
+        False,
+        "--verify/--no-verify",
+        help="Whether to verify active state against the pre-registration specification",
+    ),
+    git_tag: str = typer.Option(
+        "v0.3.0-gate-g4",
+        "--git-tag",
+        help="Git release tag for the pre-registration",
+    ),
+    output_doc: str = typer.Option(
+        "docs/pre-registration.md",
+        "--output-doc",
+        "-d",
+        help="Output path for pre-registration markdown document",
+    ),
+    output_state: str = typer.Option(
+        ".state/pre_registration.json",
+        "--output-state",
+        "-s",
+        help="Output path for pre-registration JSON state",
+    ),
+    configs_dir: str = typer.Option(
+        "configs",
+        "--configs-dir",
+        "-c",
+        help="Directory containing configuration files",
+    ),
+    freeze_register_path: str = typer.Option(
+        ".state/freeze_register.json",
+        "--freeze-register",
+        "-f",
+        help="Path to Gate G4 freeze register JSON",
+    ),
+) -> None:
+    """Alias for pre-register."""
+    eval_pre_register_cmd(
+        create=create,
+        verify=verify,
+        git_tag=git_tag,
+        output_doc=output_doc,
+        output_state=output_state,
+        configs_dir=configs_dir,
+        freeze_register_path=freeze_register_path,
+    )
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
