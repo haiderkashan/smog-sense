@@ -2230,6 +2230,108 @@ def eval_freeze_cmd(
     )
 
 
+@app_eval.command("threshold-pilot")
+def eval_threshold_pilot_cmd(
+    domain: str = typer.Option(
+        "delhi",
+        "--domain",
+        "-d",
+        help="Evaluation domain ('delhi', 'lahore', or 'delhi+lahore')",
+    ),
+    n_tasks: int = typer.Option(
+        50,
+        "--n-tasks",
+        "-n",
+        help="Number of simulated deployment tasks to evaluate",
+    ),
+    output_dir: str = typer.Option(
+        "reports",
+        "--output-dir",
+        "-o",
+        help="Output directory for threshold_pilot.json and threshold_pilot.md",
+    ),
+    seed: int = typer.Option(
+        42,
+        "--seed",
+        "-s",
+        help="Deterministic random seed",
+    ),
+) -> None:
+    """Run Phase 3 Task P3-12 Threshold Pilot & Adaptation Status Distribution Audit."""
+    from smogsense.evaluation.threshold_pilot import run_threshold_pilot
+
+    print("=" * 80)
+    print("THRESHOLD PILOT & ADAPTATION STATUS DISTRIBUTION AUDIT (Task P3-12)")
+    print("=" * 80)
+    print(f"Domain:      {domain}")
+    print(f"Tasks:       {n_tasks}")
+    print(f"Output Dir:  {output_dir}")
+    print(f"Random Seed: {seed}")
+    print("=" * 80)
+
+    try:
+        report = run_threshold_pilot(
+            domain=domain,
+            n_tasks=n_tasks,
+            output_dir=output_dir,
+            seed=seed,
+        )
+        print("\nTHRESHOLD PILOT SUMMARY & INVARIANT CONFIRMATION")
+        print("-" * 80)
+        print(f"Total Tasks Simulated:       {report.total_simulated_tasks}")
+        print(f"Recommended min_improvement: {report.recommended_min_improvement:.2f} (2.0%)")
+        print(f"Recommended min_days_better: {report.recommended_min_days_better:.2f} (60.0%)")
+        print(f"Recommended min_support_days: {report.recommended_min_support_days} days")
+        print(f"Calibrated rho_99 Threshold: {report.calibrated_rho_99:.6f}")
+        print("\nEmpirical Adaptation Status Distribution:")
+        for status, pct in report.empirical_status_distribution.items():
+            print(f"  - {status:28s}: {pct:5.1f}%")
+        print("-" * 80)
+        print(f"[OK] Reports persisted to {output_dir}/threshold_pilot.json and .md")
+        print("=" * 80 + "\n")
+        safe_exit(0)
+    except Exception as exc:
+        print(f"\n[ERROR] Threshold pilot failed: {exc}")
+        print("=" * 80 + "\n")
+        safe_exit(50)
+
+
+@app_eval.command("pilot")
+def eval_pilot_alias_cmd(
+    domain: str = typer.Option(
+        "delhi",
+        "--domain",
+        "-d",
+        help="Evaluation domain ('delhi', 'lahore', or 'delhi+lahore')",
+    ),
+    n_tasks: int = typer.Option(
+        50,
+        "--n-tasks",
+        "-n",
+        help="Number of simulated deployment tasks to evaluate",
+    ),
+    output_dir: str = typer.Option(
+        "reports",
+        "--output-dir",
+        "-o",
+        help="Output directory for threshold_pilot.json and threshold_pilot.md",
+    ),
+    seed: int = typer.Option(
+        42,
+        "--seed",
+        "-s",
+        help="Deterministic random seed",
+    ),
+) -> None:
+    """Alias for threshold-pilot."""
+    eval_threshold_pilot_cmd(
+        domain=domain,
+        n_tasks=n_tasks,
+        output_dir=output_dir,
+        seed=seed,
+    )
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
