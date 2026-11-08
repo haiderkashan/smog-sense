@@ -1,9 +1,81 @@
-/* Right-to-left (Urdu Nastaliq) overrides. Implemented in Phase 4.
-   Contract:
-   - html[dir=rtl] { font-family: var(--font-urdu); line-height: var(--lh-urdu); }
-   - use CSS logical properties (margin-inline-*, padding-inline-*, inset-inline-*) in base.css so that
-     this file only needs typography changes, not mirrored layout rules
-   - numerals and units remain LTR islands: <bdi> or unicode-bidi: isolate
-   - never letter-space Urdu; never use italics or uppercase transforms; headings keep normal weight
-     with size increases instead of bold where Nastaliq strokes clog
-   Specification: docs/dissemination-and-ui.md -> 'Bilingual and RTL rules (Urdu Nastaliq)'. */
+/* ==========================================================================
+   SmogSense RTL Stylesheet (Urdu Nastaliq Specifics)
+   Bilingual & RTL Rules: docs/dissemination-and-ui.md §5
+   Budget: <= 10 KB uncompressed
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Typography & Script Shaping
+   -------------------------------------------------------------------------- */
+html[dir="rtl"] {
+  font-family: var(--font-urdu);
+  line-height: var(--lh-urdu);
+  font-size: var(--fs-1);
+  letter-spacing: normal !important;
+}
+
+html[dir="rtl"] body {
+  font-family: var(--font-urdu);
+  line-height: var(--lh-urdu);
+}
+
+/* Headings in Nastaliq avoid synthetic bold and use size scaling */
+html[dir="rtl"] h1,
+html[dir="rtl"] h2,
+html[dir="rtl"] h3,
+html[dir="rtl"] .brand__title,
+html[dir="rtl"] .hero-title,
+html[dir="rtl"] .section-heading {
+  font-weight: 400;
+  letter-spacing: normal !important;
+  font-style: normal !important;
+}
+
+/* Strictly disallow italics, oblique styling, and uppercase in Urdu */
+html[dir="rtl"] * {
+  font-style: normal !important;
+  text-transform: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. Bidirectional Text & LTR Islands
+   -------------------------------------------------------------------------- */
+/* Numerals, units, timestamps, and mathematical ranges are LTR islands */
+bdi,
+[dir="ltr"],
+.hero-metric__number,
+.hero-metric__unit,
+.metric-val,
+.metric-unit,
+.timing-divider,
+.horizon-card__window,
+.forecast-metadata__timing {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+/* --------------------------------------------------------------------------
+   3. Preserved Left-to-Right Chart Geometry
+   -------------------------------------------------------------------------- */
+/* Time-axis geometry remains left-to-right in both languages */
+.fan-chart-container,
+.fan-chart,
+.fanchart-columns {
+  direction: ltr !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. Fine Spacing Adjustments for Nastaliq Ascenders / Descenders
+   -------------------------------------------------------------------------- */
+html[dir="rtl"] .aqi-chip {
+  padding-block: var(--space-2);
+}
+
+html[dir="rtl"] .hero-metric {
+  gap: var(--space-3);
+}
+
+html[dir="rtl"] .advisory-action-item {
+  padding-block: var(--space-1);
+}
