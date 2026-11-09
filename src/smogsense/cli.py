@@ -49,6 +49,7 @@ app_registry = typer.Typer(no_args_is_help=True)
 app_replay = typer.Typer(no_args_is_help=True)
 app_models = typer.Typer(no_args_is_help=True)
 app_cards = typer.Typer(no_args_is_help=True)
+app_review_gates = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -69,6 +70,8 @@ app.add_typer(app_preprocess, name="preprocess")
 app.add_typer(app_registry, name="registry")
 app.add_typer(app_models, name="models")
 app.add_typer(app_cards, name="cards")
+app.add_typer(app_review_gates, name="review-gates")
+app.add_typer(app_review_gates, name="review")
 
 
 @app.command()
@@ -3027,6 +3030,54 @@ def registry_verify_binding_alias_cmd(
         base_bundle=base_bundle,
         cache_dir=cache_dir,
     )
+
+
+@app_review_gates.command("audit")
+def review_gates_audit_cmd(
+    reviews_dir: str = typer.Option(
+        "docs/reviews",
+        "--reviews-dir",
+        help="Path to directory containing human review gate dossiers",
+    ),
+    format: str = typer.Option(
+        "table",
+        "--format",
+        "-f",
+        help="Output format ('table' or 'json')",
+    ),
+) -> None:
+    """Audit pre-launch human review gates (G-SCI, G-LANG, G-HLTH, G-UX) and comprehension protocol."""
+    import json
+
+    from smogsense.publishing.review_gates import audit_review_gates, format_review_summary_table
+
+    report = audit_review_gates(reviews_dir=reviews_dir)
+
+    if format.lower() == "json":
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        print(format_review_summary_table(report))
+
+    if not report.all_passed:
+        safe_exit(30)
+
+
+@app_review_gates.command("check")
+def review_gates_check_cmd(
+    reviews_dir: str = typer.Option(
+        "docs/reviews",
+        "--reviews-dir",
+        help="Path to directory containing human review gate dossiers",
+    ),
+    format: str = typer.Option(
+        "table",
+        "--format",
+        "-f",
+        help="Output format ('table' or 'json')",
+    ),
+) -> None:
+    """Alias for smogsense review-gates audit."""
+    review_gates_audit_cmd(reviews_dir=reviews_dir, format=format)
 
 
 def main() -> None:
