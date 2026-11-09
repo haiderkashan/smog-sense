@@ -846,3 +846,181 @@ def generate_freeze_report_markdown(register: FreezeRegister) -> str:
     )
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+# =============================================================================
+# Combined Confirmatory Lockdown Audit (Task P5-01)
+# =============================================================================
+@dataclass
+class ConfirmatoryAuditResult:
+    """Consolidated audit result across Gate G4 freeze register and pre-registration specification."""
+
+    is_valid: bool
+    freeze_valid: bool
+    freeze_messages: list[str]
+    prereg_valid: bool
+    prereg_messages: list[str]
+    config_hash: str
+    git_sha: str
+    headline_model: str
+    bundle_sha256: str
+    base_sha256: str
+    freeze_register_path: str
+    pre_registration_path: str
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize audit result to dictionary."""
+        return {
+            "is_valid": self.is_valid,
+            "freeze_register": {
+                "valid": self.freeze_valid,
+                "messages": self.freeze_messages,
+                "path": self.freeze_register_path,
+            },
+            "pre_registration": {
+                "valid": self.prereg_valid,
+                "messages": self.prereg_messages,
+                "path": self.pre_registration_path,
+            },
+            "config_hash": self.config_hash,
+            "git_sha": self.git_sha,
+            "headline_model": self.headline_model,
+            "bundle_sha256": self.bundle_sha256,
+            "base_sha256": self.base_sha256,
+        }
+
+
+def audit_confirmatory_lockdown(
+    freeze_register_path: Path | str = ".state/freeze_register.json",
+    pre_registration_path: Path | str = ".state/pre_registration.json",
+    configs_dir: Path | str = "configs",
+    registry_path: Path | str = "data/registry/registry_lahore.parquet",
+    models_dir: Path | str = "data/processed/models",
+    strict: bool = True,
+) -> ConfirmatoryAuditResult:
+    """Run combined audit of Gate G4 freeze register and pre-registration specification in sequence.
+
+    Checks:
+    1. verify_freeze_register: config hash parity, model digests (M5 base, M7 bundle),
+       station panel eligibility, hypothesis thresholds, and architectural invariants.
+    2. verify_pre_registration: pre-registration state concordance, freeze register digest binding,
+       hypothesis tiers (H1-H6), calendar windows, and power note specifications.
+
+    Raises:
+        FreezeVerificationError: If strict=True and freeze register audit detects drift or tampering.
+        PreRegistrationVerificationError: If strict=True and pre-registration audit detects drift or tampering.
+
+    Returns:
+        ConfirmatoryAuditResult: Consolidated audit result across both pillars.
+    """
+    from smogsense.evaluation.registration import (
+        PreRegistrationVerificationError,
+        verify_pre_registration,
+    )
+
+    f_path = Path(freeze_register_path)
+    p_path = Path(pre_registration_path)
+
+    # 1. Freeze register verification
+    freeze_valid, freeze_msgs = verify_freeze_register(
+        register_path=f_path,
+        strict=False,
+        configs_dir=configs_dir,
+        registry_path=registry_path,
+        models_dir=models_dir,
+    )
+
+    # 2. Pre-registration verification
+    prereg_valid, prereg_msgs = verify_pre_registration(
+        pre_registration_path=p_path,
+        freeze_register_path=f_path,
+        configs_dir=configs_dir,
+        strict=False,
+    )
+
+    overall_valid = freeze_valid and prereg_valid
+
+    # Extract metadata for diagnostics
+    config_hash = ""
+    git_sha = ""
+    headline_model = ""
+    bundle_sha256 = ""
+    base_sha256 = ""
+
+    if f_path.is_file():
+        with contextlib.suppress(Exception):
+            reg = FreezeRegister.load(f_path)
+            config_hash = reg.config_hash
+            git_sha = reg.git_commit_sha
+            headline_model = reg.headline_model
+            bundle_sha256 = reg.bundle_sha256
+            base_sha256 = reg.base_sha256
+
+    if not config_hash:
+        with contextlib.suppress(Exception):
+            settings = Settings.load(configs_dir)
+            config_hash = settings.hash()
+
+    result = ConfirmatoryAuditResult(
+        is_valid=overall_valid,
+        freeze_valid=freeze_valid,
+        freeze_messages=freeze_msgs,
+        prereg_valid=prereg_valid,
+        prereg_messages=prereg_msgs,
+        config_hash=config_hash,
+        git_sha=git_sha,
+        headline_model=headline_model,
+        bundle_sha256=bundle_sha256,
+        base_sha256=base_sha256,
+        freeze_register_path=str(f_path),
+        pre_registration_path=str(p_path),
+    )
+
+    if strict:
+        if not freeze_valid:
+            msg = f"Gate G4 Freeze Register verification failed: {'; '.join(freeze_msgs)}"
+            raise FreezeVerificationError(msg, exit_code=30)
+        if not prereg_valid:
+            msg = f"Gate G4 Pre-Registration verification failed: {'; '.join(prereg_msgs)}"
+            raise PreRegistrationVerificationError(msg, exit_code=30)
+
+    return result
+
+
+def format_confirmatory_audit_table(result: ConfirmatoryAuditResult) -> str:
+    """Format a clean tabular summary of the confirmatory lockdown audit."""
+    width = 88
+    lines = [
+        "=" * width,
+        "SmogSense Gate G4 Freeze & Pre-Registration Verification Audit".center(width),
+        "=" * width,
+        f" {'Check Pillar':<24} {'Status':<10} {'Audit Details':<50}",
+        "-" * width,
+    ]
+
+    # Pillar 1: Freeze Register
+    f_status = "PASS" if result.freeze_valid else "FAIL"
+    f_details = (
+        "0 drift messages (Config, models, panel locked)"
+        if result.freeze_valid
+        else f"{len(result.freeze_messages)} drift: {'; '.join(result.freeze_messages)[:45]}"
+    )
+    lines.append(f" {'Freeze Register':<24} {f_status:<10} {f_details:<50}")
+
+    # Pillar 2: Pre-Registration
+    p_status = "PASS" if result.prereg_valid else "FAIL"
+    p_details = (
+        "0 drift messages (H1-H6 tiers, calendar locked)"
+        if result.prereg_valid
+        else f"{len(result.prereg_messages)} drift: {'; '.join(result.prereg_messages)[:45]}"
+    )
+    lines.append(f" {'Pre-Registration Spec':<24} {p_status:<10} {p_details:<50}")
+
+    lines.append("-" * width)
+    if result.is_valid:
+        verdict = "OVERALL AUDIT: PASSED (CONFIRMATORY LOCKDOWN VALIDATED)"
+    else:
+        verdict = "OVERALL AUDIT: FAILED (CONFIRMATORY DRIFT DETECTED)"
+    lines.append(verdict.center(width))
+    lines.append("=" * width)
+    return "\n".join(lines)

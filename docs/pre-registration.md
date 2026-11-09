@@ -6,11 +6,11 @@
 |---|---|
 | Document Title | SmogSense Gate G4 Confirmatory Pre-Registration: Probabilistic 72-Hour PM2.5 Transfer Forecasting |
 | Registration Date | 2026-12-04 (Gate G4 Freeze) |
-| Created At (UTC) | `2026-11-08T15:50:07.616692+00:00` |
+| Created At (UTC) | `2026-11-09T12:11:30.643839+00:00` |
 | Git Release Tag | `v0.3.0-gate-g4` |
-| Git Commit SHA | `5fcd694878da6145c1a7e9f188fb1032ec54d88d` |
+| Git Commit SHA | `0709f9daffdbf65c42272b137132c67811c90af8` |
 | Deterministic Config Hash | `4a907bee381036b4a4f472cf9be7985574c0e118327876f0f521ff60ab200dcd` |
-| Freeze Register Digest | `eea4c3054e1587fd22244afb8a218cf8b87ac50ec318c71d49973b70c31e71c2` |
+| Freeze Register Digest | `36563dc7f2911b76cfd95336daee46311d273a698e5a49a7f5714a56991975e7` |
 | Candidate Calibrator (M7) SHA-256 | `cda76200533985b86fb2c8c09ae7349d6ab3ab69e19f695cef2e751dc23bab7b` |
 | Shared Physics Base (M5) SHA-256 | `be0f18fbf0d02d51cf03e30b247daa678461b4b6146fe57cf52a8986da1a60c5` |
 | Headline Candidate Model | `m7_hybrid_maml` |

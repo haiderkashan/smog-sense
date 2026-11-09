@@ -145,6 +145,11 @@ jobs:
             docker build --target runtime -t "${SMOGSENSE_IMAGE}" .
           fi
 
+      - name: Gate G4 Confirmatory Lockdown & Pre-Registration Audit
+        if: steps.precheck.outputs.skip != 'true'
+        run: |
+          docker compose --profile ops run --rm pipeline smogsense eval audit
+
       - name: Run the daily cycle (ingest, features, forecast, bulletin, site, validate)
         if: steps.precheck.outputs.skip != 'true'
         id: cycle

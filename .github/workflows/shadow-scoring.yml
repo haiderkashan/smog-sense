@@ -87,6 +87,10 @@ jobs:
             scripts/publish_ghpages.sh site
           fi
 
+      - name: Gate G4 Confirmatory Lockdown & Pre-Registration Audit
+        run: |
+          docker compose --profile ops run --rm pipeline smogsense eval audit
+
       - name: Provisional scoring (OpenAQ API)
         run: docker compose --profile ops run --rm score
 

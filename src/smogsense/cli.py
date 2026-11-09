@@ -2748,6 +2748,150 @@ def eval_register_alias_cmd(
     )
 
 
+@app_eval.command("audit")
+def eval_audit_cmd(
+    freeze_register_path: str = typer.Option(
+        ".state/freeze_register.json",
+        "--freeze-register",
+        "-f",
+        help="Path to Gate G4 freeze register JSON",
+    ),
+    pre_registration_path: str = typer.Option(
+        ".state/pre_registration.json",
+        "--pre-registration",
+        "-p",
+        help="Path to Gate G4 pre-registration JSON state",
+    ),
+    configs_dir: str = typer.Option(
+        "configs",
+        "--configs-dir",
+        "-c",
+        help="Directory containing configuration files",
+    ),
+    registry_path: str = typer.Option(
+        "data/registry/registry_lahore.parquet",
+        "--registry-path",
+        help="Path to station registry Parquet file",
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models",
+        "--models-dir",
+        help="Directory containing model checkpoints",
+    ),
+    strict: bool = typer.Option(
+        True,
+        "--strict/--no-strict",
+        help="Whether to raise error and exit with code 30 on drift or tampering",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output audit result as JSON",
+    ),
+) -> None:
+    """Audit Gate G4 freeze register and pre-registration specification in sequence (Task P5-01)."""
+    import json
+
+    from smogsense.evaluation.freeze import (
+        FreezeVerificationError,
+        audit_confirmatory_lockdown,
+        format_confirmatory_audit_table,
+    )
+    from smogsense.evaluation.registration import PreRegistrationVerificationError
+
+    try:
+        result = audit_confirmatory_lockdown(
+            freeze_register_path=freeze_register_path,
+            pre_registration_path=pre_registration_path,
+            configs_dir=configs_dir,
+            registry_path=registry_path,
+            models_dir=models_dir,
+            strict=strict,
+        )
+        if json_output:
+            print(json.dumps(result.to_dict(), indent=2))
+        else:
+            print(format_confirmatory_audit_table(result))
+
+        if not result.is_valid:
+            safe_exit(30)
+        safe_exit(0)
+    except (FreezeVerificationError, PreRegistrationVerificationError) as exc:
+        if json_output:
+            print(json.dumps({"status": "failed", "error": str(exc), "exit_code": exc.exit_code}))
+        else:
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                res = audit_confirmatory_lockdown(
+                    freeze_register_path=freeze_register_path,
+                    pre_registration_path=pre_registration_path,
+                    configs_dir=configs_dir,
+                    registry_path=registry_path,
+                    models_dir=models_dir,
+                    strict=False,
+                )
+                print(format_confirmatory_audit_table(res))
+            print(f"\n[FAIL] Confirmatory lockdown audit failed: {exc}\n")
+        safe_exit(exc.exit_code)
+    except Exception as exc:
+        print(f"\n[ERROR] Confirmatory audit aborted: {exc}\n")
+        safe_exit(30)
+
+
+@app_eval.command("verify-all")
+def eval_verify_all_alias_cmd(
+    freeze_register_path: str = typer.Option(
+        ".state/freeze_register.json",
+        "--freeze-register",
+        "-f",
+        help="Path to Gate G4 freeze register JSON",
+    ),
+    pre_registration_path: str = typer.Option(
+        ".state/pre_registration.json",
+        "--pre-registration",
+        "-p",
+        help="Path to Gate G4 pre-registration JSON state",
+    ),
+    configs_dir: str = typer.Option(
+        "configs",
+        "--configs-dir",
+        "-c",
+        help="Directory containing configuration files",
+    ),
+    registry_path: str = typer.Option(
+        "data/registry/registry_lahore.parquet",
+        "--registry-path",
+        help="Path to station registry Parquet file",
+    ),
+    models_dir: str = typer.Option(
+        "data/processed/models",
+        "--models-dir",
+        help="Directory containing model checkpoints",
+    ),
+    strict: bool = typer.Option(
+        True,
+        "--strict/--no-strict",
+        help="Whether to raise error and exit with code 30 on drift or tampering",
+    ),
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Output audit result as JSON",
+    ),
+) -> None:
+    """Alias for eval audit."""
+    eval_audit_cmd(
+        freeze_register_path=freeze_register_path,
+        pre_registration_path=pre_registration_path,
+        configs_dir=configs_dir,
+        registry_path=registry_path,
+        models_dir=models_dir,
+        strict=strict,
+        json_output=json_output,
+    )
+
+
 @app_preprocess.command("low-cost-correction")
 def preprocess_low_cost_correction_cmd(
     domain: str = typer.Option("lahore", "--domain", help="Target domain (default: lahore)"),
