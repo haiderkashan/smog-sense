@@ -565,23 +565,108 @@ def state_verify_cmd(
 
 @app_site.command("build")
 def site_build_cmd(
+    bulletin_path: str | None = typer.Option(
+        None, "--bulletin", "-b", help="Path to bulletin JSON file"
+    ),
     stale: bool = typer.Option(
         False, "--stale", "--expired", help="Render static expiry notice (stale forecast)"
     ),
     state_dir: str = typer.Option(".state", "--state-dir", help="Path to state directory"),
     out_dir: str = typer.Option("site", "--out-dir", help="Output directory for site"),
+    configs_dir: str = typer.Option("configs", "--configs-dir", help="Configs directory"),
+    base_url: str | None = typer.Option(None, "--base-url", help="Canonical site URL"),
+    validate: bool = typer.Option(
+        True, "--validate/--no-validate", help="Run site validation after build"
+    ),
 ) -> None:
-    """Build the static website (with optional --stale expiry notice) (Task P1-23)."""
-    from smogsense.publishing.site import render_expired_site
+    """Build the static website, fingerprint assets, and render cards (Task P4-04)."""
+    import json
+    from typing import Any
 
-    res = render_expired_site(state_dir=Path(state_dir), out_dir=Path(out_dir))
+    from smogsense.publishing.deploy import BudgetBreachError
+    from smogsense.publishing.site import build_site, render_expired_site
+
     if stale:
+        res = render_expired_site(state_dir=Path(state_dir), out_dir=Path(out_dir))
         print(
             f"Rendered expired static site into {out_dir} (valid until {res.get('valid_until_utc')})"
         )
+        safe_exit(0)
+
+    # Resolve bulletin
+    bulletin: dict[str, Any] | None = None
+    if bulletin_path:
+        b_p = Path(bulletin_path)
+        if b_p.is_file():
+            try:
+                with b_p.open("r", encoding="utf-8") as f:
+                    bulletin = json.load(f)
+            except Exception as err:
+                print(f"::error::Failed to load bulletin from {bulletin_path}: {err}")
+                safe_exit(50)
+        else:
+            print(f"::error::Bulletin file not found at {bulletin_path}")
+            safe_exit(50)
     else:
-        print(f"Built site at {out_dir}")
-    safe_exit(0)
+        candidates = [
+            Path(state_dir) / "site_json" / "forecast" / "latest.json",
+            Path(state_dir) / "site_json" / "latest.json",
+            Path(out_dir) / "forecast" / "latest.json",
+            Path(out_dir) / "latest.json",
+            Path(".state/bulletins/latest.json"),
+            Path("tests/fixtures/bulletin_valid_example.json"),
+        ]
+        for cand in candidates:
+            if cand.is_file():
+                with contextlib.suppress(Exception), cand.open("r", encoding="utf-8") as f:
+                    bulletin = json.load(f)
+                    break
+
+    if bulletin is None:
+        print("::error::No bulletin found to build site. Provide --bulletin <path>.")
+        safe_exit(50)
+
+    try:
+        res = build_site(
+            bulletin=bulletin,
+            output_dir=Path(out_dir),
+            configs_dir=Path(configs_dir),
+            base_url=base_url,
+            expired=stale,
+            validate=validate,
+        )
+        print(f"Successfully built static site in {res['out_dir']} (build_id={res['build_id']})")
+        safe_exit(0)
+    except BudgetBreachError as err:
+        print(f"::error::Site build failed performance or accessibility budget check:\n{err}")
+        safe_exit(30)
+    except Exception as err:
+        print(f"::error::Site build failed: {err}")
+        safe_exit(50)
+
+
+@app_site.command("validate")
+def site_validate_cmd(
+    site_dir: str = typer.Option("site", "--site-dir", help="Path to static site directory"),
+    configs_dir: str = typer.Option("configs", "--configs-dir", help="Configs directory"),
+) -> None:
+    """Validate static site against performance budgets, CSP, and accessibility (Task P4-04)."""
+    from smogsense.publishing.deploy import format_violations_table, validate_site
+
+    violations = validate_site(
+        site_dir=Path(site_dir),
+        configs_dir=Path(configs_dir),
+        raise_on_breach=False,
+    )
+    if violations:
+        print(f"::error::Site validation failed with {len(violations)} violation(s):")
+        print(format_violations_table(violations))
+        safe_exit(30)
+    else:
+        print(
+            f"Site validation passed: {site_dir} satisfies all performance, CSP, and accessibility budgets."
+        )
+        safe_exit(0)
 
 
 def _execute_render_cards(
