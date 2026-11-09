@@ -9,6 +9,7 @@ import os
 import sys
 from datetime import UTC
 from pathlib import Path
+from typing import NoReturn
 
 import typer
 
@@ -17,7 +18,7 @@ from smogsense.errors import SmogSenseError
 faulthandler.enable()
 
 
-def safe_exit(code: int) -> None:
+def safe_exit(code: int) -> NoReturn:
     """Exit cleanly, bypassing C-extension teardown corruption on standalone execution."""
     sys.stdout.flush()
     sys.stderr.flush()
