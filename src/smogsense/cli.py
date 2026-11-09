@@ -618,7 +618,7 @@ def site_build_cmd(
             f"Rendered expired static site into {out_dir} (valid until {res.get('valid_until_utc')})"
         )
         safe_exit(0)
-    else:
+    elif bulletin is None:
         candidates = [
             Path(state_dir) / "site_json" / "forecast" / "latest.json",
             Path(state_dir) / "site_json" / "latest.json",

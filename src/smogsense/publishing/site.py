@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import os
+import urllib.parse
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ class SiteContext:
         manifest: dict[str, str] | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.base_path = urllib.parse.urlparse(self.base_url).path.rstrip("/")
         self.build_id = (
             build_id
             if build_id is not None
@@ -57,11 +59,11 @@ class SiteContext:
         if clean.startswith("assets/"):
             clean = clean[7:]
 
-        if clean in self._manifest:
-            return self._manifest[clean]
+        path = self._manifest.get(clean, f"/assets/{clean}")
 
-        # Fallback if unmanifested
-        return f"/assets/{clean}"
+        if self.base_path and not path.startswith(self.base_path):
+            path = f"{self.base_path}{path}"
+        return path
 
 
 def copy_and_fingerprint_assets(

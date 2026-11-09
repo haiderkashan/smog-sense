@@ -62,7 +62,7 @@ jobs:
       SMOGSENSE_MODE: ${{ inputs.mode || 'live' }}
       ISSUANCE: ${{ inputs.issuance || 'latest' }}
       SMOGSENSE_FORCE: ${{ inputs.force && '1' || '0' }}
-      SITE_BASE_URL: ${{ vars.SITE_BASE_URL }}
+      SITE_BASE_URL: ${{ vars.SITE_BASE_URL || 'https://haiderkashan.github.io/smog-sense' }}
       OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
       ADS_API_KEY: ${{ secrets.ADS_API_KEY }}
       CDS_API_KEY: ${{ secrets.CDS_API_KEY }}

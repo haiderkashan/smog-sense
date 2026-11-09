@@ -52,6 +52,13 @@ def test_site_context_asset_resolution() -> None:
     # Unmanifested path fallback
     assert ctx.asset("images/logo.png") == "/assets/images/logo.png"
 
+    # Subpath base_url (e.g. GitHub Pages repo root)
+    ctx_subpath = SiteContext(
+        base_url="https://haiderkashan.github.io/smog-sense", manifest=manifest
+    )
+    assert ctx_subpath.asset("css/base.css") == "/smog-sense/assets/css/base.a1b2c3d4.css"
+    assert ctx_subpath.asset("images/logo.png") == "/smog-sense/assets/images/logo.png"
+
 
 def test_copy_and_fingerprint_assets(tmp_path: Path) -> None:
     """Verify SHA-256 fingerprinting of static assets and manifest.json emission."""

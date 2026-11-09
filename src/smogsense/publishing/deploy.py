@@ -257,6 +257,8 @@ def validate_site(
         asset_bytes = 0
         for ref in set(css_hrefs + js_srcs):
             clean_ref = ref.lstrip("/").split("?")[0]
+            if "assets/" in clean_ref:
+                clean_ref = clean_ref[clean_ref.find("assets/") :]
             cand = root / clean_ref
             if cand.is_file():
                 asset_bytes += cand.stat().st_size
