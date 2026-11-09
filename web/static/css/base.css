@@ -172,6 +172,10 @@ body {
   color: var(--fg);
 }
 
+.expiry-banner[hidden] {
+  display: none !important;
+}
+
 .expiry-banner__inner {
   display: flex;
   align-items: center;

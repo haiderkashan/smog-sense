@@ -35,10 +35,10 @@
       </div>
     </div>
 
-    {% if h.probabilities and h.probabilities.exceed %}
+    {% if h.probabilities and h.probabilities.get('exceed') %}
     <div class="horizon-card__exceedances">
       <ul class="exceed-list">
-        {% for exc in h.probabilities.exceed %}
+        {% for exc in h.probabilities.get('exceed') %}
           {% set p = exc.probability %}
           <li class="exceed-item">
             {% if p < 0.05 %}

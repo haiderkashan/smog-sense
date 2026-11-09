@@ -22,7 +22,7 @@
       const nowEpoch = Date.now();
 
       if (!isNaN(validUntilEpoch) && nowEpoch > validUntilEpoch) {
-        banner.style.display = 'block';
+        banner.removeAttribute('hidden');
         banner.setAttribute('data-expired', 'true');
       }
     } catch (err) {

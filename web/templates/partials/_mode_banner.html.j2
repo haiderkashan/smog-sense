@@ -10,7 +10,7 @@
     {% elif bulletin.mode == 'baseline_only' %}
       {{ t('mode_banner.baseline_only') }}
     {% else %}
-      {{ bulletin.mode_reason or "Simplified forecast mode active." }}
+      {{ bulletin.get('mode_reason') or "Simplified forecast mode active." }}
     {% endif %}
   </div>
 </aside>
