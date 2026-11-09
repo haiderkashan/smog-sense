@@ -54,6 +54,8 @@ def generate_bulletin_json(
 ) -> dict[str, Any]:
     """Generate the bulletin dictionary conforming to bulletin.schema.json."""
 
+    if issuance_utc.tzinfo is None:
+        issuance_utc = issuance_utc.replace(tzinfo=UTC)
     now_utc = datetime.now(UTC)
     valid_until = issuance_utc + timedelta(hours=30)
 
@@ -256,11 +258,17 @@ def generate_bulletin_json(
 
     bulletin = {
         "schema_version": "1.0",
-        "issuance_utc": issuance_utc.isoformat(timespec="seconds"),
-        "generated_at_utc": now_utc.isoformat(timespec="seconds"),
-        "data_cutoff_utc": data_cutoff_utc.isoformat(timespec="seconds")
-        if data_cutoff_utc
-        else None,
+        "issuance_utc": issuance_utc.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "generated_at_utc": now_utc.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "data_cutoff_utc": (
+            data_cutoff_utc.replace(tzinfo=UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+            if data_cutoff_utc and data_cutoff_utc.tzinfo is None
+            else (
+                data_cutoff_utc.isoformat(timespec="seconds").replace("+00:00", "Z")
+                if data_cutoff_utc
+                else None
+            )
+        ),
         "domain": {
             "id": domain,
             "name": {"en": "Lahore", "ur": "لاہور"},

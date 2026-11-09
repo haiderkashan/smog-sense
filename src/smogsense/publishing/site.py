@@ -499,37 +499,40 @@ def render_expired_site(
     state_dir: Path = Path(".state"),
     out_dir: Path = Path("site"),
     now_utc: datetime | None = None,
+    bulletin: dict[str, Any] | None = None,
+    validate: bool = False,
 ) -> dict[str, Any]:
-    """Render and publish static expiry notice using the last known bulletin."""
+    """Render and publish static expiry notice using the provided or last known bulletin."""
     if now_utc is None:
         now_utc = datetime.now(UTC)
 
     st_path = Path(state_dir)
     site_path = Path(out_dir)
 
-    bulletin: dict[str, Any] | None = None
+    target_bulletin: dict[str, Any] | None = dict(bulletin) if bulletin is not None else None
 
-    candidate_paths = [
-        st_path / "site_json" / "forecast" / "latest.json",
-        st_path / "site_json" / "latest.json",
-        site_path / "forecast" / "latest.json",
-        site_path / "latest.json",
-    ]
+    if target_bulletin is None:
+        candidate_paths = [
+            st_path / "site_json" / "forecast" / "latest.json",
+            st_path / "site_json" / "latest.json",
+            site_path / "forecast" / "latest.json",
+            site_path / "latest.json",
+        ]
 
-    for p in candidate_paths:
-        if p.exists():
-            try:
-                with p.open("r", encoding="utf-8") as f:
-                    bulletin = json.load(f)
-                break
-            except (json.JSONDecodeError, OSError):
-                pass
+        for p in candidate_paths:
+            if p.exists():
+                try:
+                    with p.open("r", encoding="utf-8") as f:
+                        target_bulletin = json.load(f)
+                    break
+                except (json.JSONDecodeError, OSError):
+                    pass
 
-    if bulletin is None:
+    if target_bulletin is None:
         yesterday = (now_utc - timedelta(days=1)).strftime("%Y-%m-%d")
         day2 = now_utc.strftime("%Y-%m-%d")
         day3 = (now_utc + timedelta(days=1)).strftime("%Y-%m-%d")
-        bulletin = {
+        target_bulletin = {
             "schema_version": "1.0",
             "issuance_utc": f"{yesterday}T00:00:00Z",
             "generated_at_utc": f"{yesterday}T00:26:00Z",
@@ -641,13 +644,13 @@ def render_expired_site(
             ],
         }
 
-    bulletin["expired"] = True
-    build_site(bulletin=bulletin, output_dir=site_path, expired=True, validate=False)
+    target_bulletin["expired"] = True
+    build_site(bulletin=target_bulletin, output_dir=site_path, expired=True, validate=validate)
 
     return {
         "status": "ok",
         "expired": True,
         "out_dir": str(site_path),
-        "issuance_utc": bulletin.get("issuance_utc"),
-        "valid_until_utc": bulletin.get("valid_until_utc"),
+        "issuance_utc": target_bulletin.get("issuance_utc"),
+        "valid_until_utc": target_bulletin.get("valid_until_utc"),
     }

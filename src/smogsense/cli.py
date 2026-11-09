@@ -587,14 +587,7 @@ def site_build_cmd(
     from smogsense.publishing.deploy import BudgetBreachError
     from smogsense.publishing.site import build_site, render_expired_site
 
-    if stale:
-        res = render_expired_site(state_dir=Path(state_dir), out_dir=Path(out_dir))
-        print(
-            f"Rendered expired static site into {out_dir} (valid until {res.get('valid_until_utc')})"
-        )
-        safe_exit(0)
-
-    # Resolve bulletin
+    # Resolve bulletin if explicitly provided
     bulletin: dict[str, Any] | None = None
     if bulletin_path:
         b_p = Path(bulletin_path)
@@ -608,6 +601,18 @@ def site_build_cmd(
         else:
             print(f"::error::Bulletin file not found at {bulletin_path}")
             safe_exit(50)
+
+    if stale:
+        res = render_expired_site(
+            state_dir=Path(state_dir),
+            out_dir=Path(out_dir),
+            bulletin=bulletin,
+            validate=validate,
+        )
+        print(
+            f"Rendered expired static site into {out_dir} (valid until {res.get('valid_until_utc')})"
+        )
+        safe_exit(0)
     else:
         candidates = [
             Path(state_dir) / "site_json" / "forecast" / "latest.json",

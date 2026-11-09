@@ -24,6 +24,13 @@
       if (!isNaN(validUntilEpoch) && nowEpoch > validUntilEpoch) {
         banner.removeAttribute('hidden');
         banner.setAttribute('data-expired', 'true');
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(
+            new CustomEvent('smogsense:expired', {
+              detail: { validUntil: validUntilIso, expiredAt: nowEpoch },
+            })
+          );
+        }
       }
     } catch (err) {
       // Graceful fallback: do not interrupt user experience
