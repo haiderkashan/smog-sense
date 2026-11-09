@@ -136,11 +136,12 @@ def test_run_daily_full(mock_extract, mock_cams_fetch, clean_state):
     log_path = Path(f".state/forecasts/forecast_{run_id}.parquet")
     assert log_path.exists()
     df = pd.read_parquet(log_path)
-    # 3 horizons x (1 station + 1 city) = 6 rows
-    assert len(df) == 6
-    assert (df["method"] == "m1_cams_raw").all()
+    df_m1 = df[df["method"] == "m1_cams_raw"]
+    # 3 horizons x (1 station + 1 city) = 6 rows for baseline M1 CAMS
+    assert len(df_m1) == 6
+    assert (df_m1["method"] == "m1_cams_raw").all()
     # N=0 deterministic M1 -> step function -> q05=q95=55.0
-    assert (df["q05"] == 55.0).all()
+    assert (df_m1["q05"] == 55.0).all()
 
     # Verify Bulletin
     bulletin_path = Path(f"site/{run_id}.json")

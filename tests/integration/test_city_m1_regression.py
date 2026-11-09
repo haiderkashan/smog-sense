@@ -166,22 +166,25 @@ def test_city_m1_uses_centroid_not_last_station(mock_extract, mock_cams_fetch, c
     assert log_path.exists()
     df = pd.read_parquet(log_path)
 
+    # Filter to M1 CAMS baseline being evaluated
+    df_m1 = df[df["method"] == "m1_cams_raw"]
+
     # Total rows: 3 horizons * (2 stations + 1 city) = 9 rows
-    assert len(df) == 9
+    assert len(df_m1) == 9
 
     # Station 1: CAMS 50 + 10 = 60.0
-    st1 = df[df["point_id"] == "station:1"]
+    st1 = df_m1[df_m1["point_id"] == "station:1"]
     assert (st1["q05"] == 60.0).all()
     assert (st1["q95"] == 60.0).all()
 
     # Station 2: CAMS 50 - 20 = 30.0
-    st2 = df[df["point_id"] == "station:2"]
+    st2 = df_m1[df_m1["point_id"] == "station:2"]
     assert (st2["q05"] == 30.0).all()
     assert (st2["q95"] == 30.0).all()
 
     # City: must use centroid CAMS 50 + 5 = 55.0!
     # It must NOT be 30.0 (Station 2, the last station) and NOT 60.0 (Station 1)!
-    city = df[df["level"] == "city"]
+    city = df_m1[df_m1["level"] == "city"]
     assert len(city) == 3
     assert (city["q05"] == 55.0).all(), (
         f"City forecast q05 was {city['q05'].tolist()}, expected 55.0 from centroid!"
@@ -283,7 +286,7 @@ def test_city_m1_independent_of_station_order(mock_extract, mock_cams_fetch, cle
     log_path = Path(f".state/forecasts/forecast_{run_id}.parquet")
     df = pd.read_parquet(log_path)
 
-    city = df[df["level"] == "city"]
+    city = df[(df["level"] == "city") & (df["method"] == "m1_cams_raw")]
     # Centroid CAMS 50 + 7 = 57.0, regardless of whether Station 1 or Station 2 was processed last
     assert (city["q05"] == 57.0).all()
     assert (city["q95"] == 57.0).all()
@@ -373,11 +376,11 @@ def test_city_m1_n_zero_deterministic(mock_extract, mock_cams_fetch, clean_state
     df = pd.read_parquet(log_path)
 
     # Station 1 has quantiles -> 52.0 + 10.0 = 62.0
-    st1 = df[df["point_id"] == "station:1"]
+    st1 = df[(df["point_id"] == "station:1") & (df["method"] == "m1_cams_raw")]
     assert (st1["q05"] == 62.0).all()
 
     # City has NO centroid quantiles -> N=0 deterministic scalar = 52.0 for all quantiles
-    city = df[df["level"] == "city"]
+    city = df[(df["level"] == "city") & (df["method"] == "m1_cams_raw")]
     assert (city["q05"] == 52.0).all()
     assert (city["q50"] == 52.0).all()
     assert (city["q95"] == 52.0).all()

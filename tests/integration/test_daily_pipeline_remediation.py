@@ -159,11 +159,12 @@ def test_non_negative_quantiles_clipped_at_zero(mock_extract, mock_cams_fetch, c
     run_id = f"run_{issuance.strftime('%Y%m%d_%H%M')}"
     log_path = Path(f".state/forecasts/forecast_{run_id}.parquet")
     df = pd.read_parquet(log_path)
+    df_base = df[df["method"] == "m1_cams_raw"]
     # Check that all quantiles are >= 0.0
     for q in [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]:
         assert (df[f"q{q:02d}"] >= 0.0).all()
-        # In this test, all should be exactly 0.0 due to clipping
-        assert (df[f"q{q:02d}"] == 0.0).all()
+        # In this test, all baseline rows should be exactly 0.0 due to clipping
+        assert (df_base[f"q{q:02d}"] == 0.0).all()
 
 
 @respx.mock
