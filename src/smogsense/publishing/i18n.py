@@ -19,7 +19,6 @@ import jinja2
 import yaml
 
 from smogsense.errors import SmogSenseError
-from smogsense.visualization.fan_chart import compute_fan_chart_geometry
 
 PKT_TZ = ZoneInfo("Asia/Karachi")
 
@@ -257,6 +256,8 @@ def create_jinja_env(
     env.filters["fmt_ugm3"] = fmt_ugm3
     env.filters["local_time"] = local_time
     env.filters["category_name"] = lambda c: category_name(c, lang=lang)
+
+    from smogsense.visualization.fan_chart import compute_fan_chart_geometry
 
     # Register global functions and context
     env.globals["t"] = translator
