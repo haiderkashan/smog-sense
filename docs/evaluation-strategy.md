@@ -12,7 +12,7 @@
 | RQ3 | Does meta-learning add value over simple fine-tuning of a Delhi-pretrained model? |
 | RQ4 | Are the intervals honest (calibrated), and do they hold up prospectively? |
 
-**Pre-registered hypotheses** (thresholds mirror `configs/evaluation.yaml`; "CRPSS" = $1-\mathrm{CRPS}_{\rm model}/\mathrm{CRPS}_{\rm ref}$; HM = headline model, [ML architecture §10](ml-architecture.md#10-model-ladder-and-ablations)). The thresholds are **provisional until the freeze register is committed** (Fri 4 Dec 2026); after that they change only through a dated verification-log entry.
+**Pre-registered hypotheses** (thresholds mirror `configs/evaluation.yaml`; "CRPSS" = $1-\mathrm{CRPS}_{\rm model}/\mathrm{CRPS}_{\rm ref}$; HM = headline model, [ML architecture §10](ml-architecture.md#10-model-ladder-and-ablations)). The thresholds were **provisional until the freeze register was committed** (originally planned for Fri 4 Dec 2026; committed and locked ahead of schedule on 8–9 Nov 2026); after that they change only through a dated verification-log entry.
 
 | ID | Statement | Tier | Window | Pass condition |
 |---|---|---|---|---|

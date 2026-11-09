@@ -136,14 +136,14 @@ Six hypotheses with numeric thresholds are fixed *before* the season ([evaluatio
 
 Dates assume the capstone started in early October 2026 and are built backwards from the **smog season** (late October–January), not from the defence date.
 
-| Phase | Window (2026–27) | Outcome |
-|---|---|---|
-| 0 Scaffolding | 5–9 Oct | Repo, container, CI green, credentials, `uv.lock` — **specification and configuration delivered** |
-| 1 Zero-cost ETL | 12–30 Oct | Ingestion, QC, baselines and the **shadow ledger running from 19 Oct** (fallback 26 Oct) |
-| 2 Features + transfer | 2–27 Nov | Backfill, feature store, Delhi pre-training, meta-learning |
-| 3 Probabilistic engine | 23 Nov–18 Dec | LightGBM quantile ensemble, CRPS and sparsity evaluation, challenger in shadow from 7 Dec |
-| 4 Delivery | 16 Nov–22 Dec | Bilingual site, cards, Telegram, expert review, public launch 22 Dec |
-| 5 Shadow season and defence | 19 Oct–31 Jan live; February onward analysis | Prospective verification, H1–H6 verdicts, thesis |
+| Phase | Planned Window | Actual Achieved | Outcome & Status |
+|---|---|---|---|
+| 0 Scaffolding | 5–9 Oct 2026 | **9 Oct 2026** (On schedule) | Repo, container, CI green, credentials, `uv.lock` — delivered |
+| 1 Zero-cost ETL | 10 Oct–6 Nov 2026 | **2 Nov 2026** (4 days ahead) | Ingestion, QC, baselines, shadow ledger running live from 12 Oct (Gate G1), G2 passed |
+| 2 Features + transfer | 2–27 Nov 2026 | **5 Nov 2026** (22 days ahead) | Multi-year backfills, feature store, Delhi pre-training, Meta-SGD GRU residual, Gate G3 passed |
+| 3 Probabilistic engine | 23 Nov–18 Dec 2026 | **8 Nov 2026** (26–40 days ahead) | LightGBM quantile ensemble, CRPS/sparsity evaluation, Gate G4 freeze, Gate G5 promotion |
+| 4 Delivery | 16 Nov–22 Dec 2026 | **9 Nov 2026** (43 days ahead) | Bilingual static site, Pillow+Raqm cards, review gates (G-SCI, G-LANG, G-HLTH, G-UX), Gate G6 public release |
+| 5 Live shadow season & defence | 19 Oct 2026–31 Jan 2027 live; Feb 2027 analysis | **Active / Underway** (P5-01 locked 9 Nov) | Prospective daily operations, Gate G7 analysis freeze 8 Feb 2027, thesis defence |
 
 The plan is deliberately tight (≈ 400 working hours); the roadmap defines the minimum viable capstone and the order in which scope is cut if time runs out.
 

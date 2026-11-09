@@ -40,11 +40,11 @@
 - [ ] WhatsApp, Cloudflare and Vercel terms unchanged if you rely on them
 - [ ] Station audit refreshed: eligible Lahore stations $\ge 4$, reference monitors $\ge 1$; Delhi coverage still adequate
 
-## E. Quality and review gates (before public launch)
+## E. Quality and review gates (before public launch — COMPLETED ahead of schedule on Mon 9 Nov 2026, originally targeted 22 Dec 2026)
 
-- [ ] G-SCI, G-LANG, G-HLTH, G-UX recorded as closed issues with reviewer role and date
-- [ ] Methodology and limitations pages read aloud by a lay person
-- [ ] Disclaimer and attributions (OpenAQ, Copernicus wording, NASA FIRMS) present in both languages
+- [x] G-SCI, G-LANG, G-HLTH, G-UX recorded as closed issues with reviewer role and date (Approved 9 Nov 2026)
+- [x] Methodology and limitations pages read aloud by a lay person (Gate G-UX 6-user protocol passed 9 Nov 2026)
+- [x] Disclaimer and attributions (OpenAQ, Copernicus wording, NASA FIRMS) present in both languages
 
 ## F. Monthly, during the season
 

@@ -125,7 +125,7 @@ few-shot transfer-learning model pre-trained on Delhi's dense monitoring network
 
 ## 5. Accuracy and scientific targets
 
-All scores use the 24-hour block-mean target, settled truth, the 19-level CRPS estimator, and the fair reference **M2 (bias-corrected CAMS)**. These are *pre-registered hypotheses*, not guarantees; **thresholds are provisional until the freeze register (4 Dec 2026)**. The hypothesis table below mirrors the [evaluation strategy](evaluation-strategy.md#1-evaluation-questions-and-hypotheses), which is authoritative.
+All scores use the 24-hour block-mean target, settled truth, the 19-level CRPS estimator, and the fair reference **M2 (bias-corrected CAMS)**. These are *pre-registered hypotheses*, not guarantees; **thresholds were provisional until the freeze register (originally planned 4 Dec 2026; committed and locked ahead of schedule on 8–9 Nov 2026)**. The hypothesis table below mirrors the [evaluation strategy](evaluation-strategy.md#1-evaluation-questions-and-hypotheses), which is authoritative.
 
 | ID | Statement | Tier | Window | Target |
 |---|---|---|---|---|

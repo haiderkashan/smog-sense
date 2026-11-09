@@ -223,7 +223,7 @@ Automated checks in CI: token contrast computed from `tokens.css`, HTML validity
 
 ## 11. Expert review protocol
 
-**Gates (all before public launch; target: Tue 22 December, before the January peak):**
+**Gates (all before public launch; originally targeted for Tue 22 December 2026, completed and approved ahead of schedule on Mon 9 November 2026):**
 
 | Gate | Reviewer (by role) | Scope | Pass criterion |
 |---|---|---|---|
