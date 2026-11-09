@@ -1,33 +1,59 @@
 {# Server-rendered fan chart SVG container and accessible screen-reader table #}
+{% set geo = geometry if (geometry is defined and geometry is not none) else compute_fan_chart_geometry(bulletin) %}
 <div class="fan-chart-container" aria-labelledby="fanchart-title">
-  <svg class="fan-chart" viewBox="0 0 720 320" role="img" aria-labelledby="fanchart-title fanchart-desc" xmlns="http://www.w3.org/2000/svg">
+  <svg class="fan-chart" viewBox="0 0 {{ geo.width | int }} {{ geo.height | int }}" role="img" aria-labelledby="fanchart-title fanchart-desc" xmlns="http://www.w3.org/2000/svg">
     <title id="fanchart-title">{{ t('a11y.chart_alt') }}</title>
     <desc id="fanchart-desc">{{ t('uncertainty.explain_short') }}</desc>
 
-    <!-- Category Bands -->
-    <rect x="60" y="260" width="600" height="40" fill="var(--aqi-good-bg)" opacity="0.15" />
-    <rect x="60" y="220" width="600" height="40" fill="var(--aqi-moderate-bg)" opacity="0.15" />
-    <rect x="60" y="180" width="600" height="40" fill="var(--aqi-usg-bg)" opacity="0.15" />
-    <rect x="60" y="140" width="600" height="40" fill="var(--aqi-unhealthy-bg)" opacity="0.15" />
-    <rect x="60" y="90" width="600" height="50" fill="var(--aqi-very-unhealthy-bg)" opacity="0.15" />
-    <rect x="60" y="20" width="600" height="70" fill="var(--aqi-hazardous-bg)" opacity="0.15" />
+    <defs>
+      <!-- Non-colour cue patterns for red-ish categories (WCAG 2.2 AA non-colour requirement) -->
+      <pattern id="pattern-unhealthy" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+        <line x1="0" y1="0" x2="0" y2="10" stroke="var(--aqi-unhealthy-bg, #ff0000)" stroke-width="2.5" stroke-opacity="0.35" />
+      </pattern>
+      <pattern id="pattern-very-unhealthy" width="12" height="12" patternUnits="userSpaceOnUse">
+        <path d="M 0 0 L 12 12 M 12 0 L 0 12" stroke="var(--aqi-very-unhealthy-bg, #8f3f97)" stroke-width="2" stroke-opacity="0.4" />
+      </pattern>
+      <pattern id="pattern-hazardous" width="8" height="8" patternUnits="userSpaceOnUse">
+        <circle cx="4" cy="4" r="1.5" fill="var(--aqi-hazardous-bg, #7e0023)" fill-opacity="0.5" />
+      </pattern>
+    </defs>
 
-    <!-- Grid / Axis Lines -->
-    <line x1="60" y1="300" x2="660" y2="300" stroke="var(--rule)" stroke-width="1" />
-    <line x1="60" y1="20" x2="60" y2="300" stroke="var(--rule)" stroke-width="1" />
+    <!-- 1. Category Bands & Accessibility Patterns -->
+    <g class="fanchart-bands">
+      {% for band in geo.category_bands %}
+        <rect class="band-rect band-rect--{{ band.category_id }}" x="{{ band.x }}" y="{{ band.y_top }}" width="{{ band.width }}" height="{{ band.height }}" fill="var(--aqi-{{ band.category_id }}-bg, {{ band.bg }})" fill-opacity="0.15" />
+        {% if band.pattern_id %}
+          <rect class="band-pattern band-pattern--{{ band.category_id }}" x="{{ band.x }}" y="{{ band.y_top }}" width="{{ band.width }}" height="{{ band.height }}" fill="url(#{{ band.pattern_id }})" />
+        {% endif %}
+        <text class="band-label" x="{{ band.x + band.width - 12 }}" y="{{ band.y_top + band.height / 2 + 4 }}" text-anchor="end" font-size="11" font-weight="600" fill="var(--fg-muted, #5b5650)">{{ band.category_id | category_name }}</text>
+      {% endfor %}
+    </g>
 
-    <!-- 3-Day Columns -->
+    <!-- 2. Grid & Boundary Lines -->
+    <g class="fanchart-grid">
+      {% for tick in geo.ticks %}
+        <line x1="{{ tick.x1 }}" y1="{{ tick.y }}" x2="{{ tick.x2 }}" y2="{{ tick.y }}" stroke="var(--rule, #d9d3ca)" stroke-width="1" stroke-dasharray="3 3" />
+        <text class="axis-tick-label" x="{{ tick.x1 - 8 }}" y="{{ tick.y + 4 }}" text-anchor="end" font-size="11" fill="var(--fg-muted, #5b5650)">{{ tick.label }}</text>
+      {% endfor %}
+      <text class="axis-unit-label" x="{{ geo.plot_x - 8 }}" y="{{ geo.plot_y - 12 }}" text-anchor="end" font-size="11" font-weight="700" fill="var(--fg-muted, #5b5650)">{{ t('units.ugm3') }}</text>
+    </g>
+
+    <!-- 3. Median Connecting Line -->
+    {% if geo.median_line_path %}
+      <path class="median-line" d="{{ geo.median_line_path }}" fill="none" stroke="var(--fg-muted, #5b5650)" stroke-width="1.5" stroke-dasharray="4 4" stroke-opacity="0.65" />
+    {% endif %}
+
+    <!-- 4. Forecast Columns -->
     <g class="fanchart-columns">
-      {% for h in bulletin.horizons %}
-        {% set col_x = 160 + loop.index0 * 200 %}
-        <!-- Horizon {{ h.lead_h }}h -->
-        <line x1="{{ col_x }}" y1="40" x2="{{ col_x }}" y2="280" stroke="var(--rule)" stroke-dasharray="3 3" />
-        <rect x="{{ col_x - 30 }}" y="60" width="60" height="160" rx="8" fill="var(--band-80)" />
-        <rect x="{{ col_x - 20 }}" y="90" width="40" height="100" rx="6" fill="var(--band-50)" />
-        <!-- Median Tick -->
-        <circle cx="{{ col_x }}" cy="140" r="6" fill="var(--median)" />
-        <!-- X Axis Label -->
-        <text x="{{ col_x }}" y="315" text-anchor="middle" font-size="14" fill="var(--fg)">+{{ h.lead_h }}h</text>
+      {% for col in geo.columns %}
+        <!-- Column +{{ col.lead_h }}h -->
+        <line x1="{{ col.x_center }}" y1="{{ geo.plot_y }}" x2="{{ col.x_center }}" y2="{{ geo.plot_y + geo.plot_height }}" stroke="var(--rule, #d9d3ca)" stroke-width="1" stroke-dasharray="2 2" stroke-opacity="0.5" />
+        <rect class="bar-80" x="{{ col.bar_80.x }}" y="{{ col.bar_80.y }}" width="{{ col.bar_80.width }}" height="{{ col.bar_80.height }}" rx="{{ col.bar_80.rx }}" fill="var(--band-80)" />
+        <rect class="bar-50" x="{{ col.bar_50.x }}" y="{{ col.bar_50.y }}" width="{{ col.bar_50.width }}" height="{{ col.bar_50.height }}" rx="{{ col.bar_50.rx }}" fill="var(--band-50)" />
+        <line class="median-tick" x1="{{ col.median.tick_x1 }}" y1="{{ col.median.y }}" x2="{{ col.median.tick_x2 }}" y2="{{ col.median.y }}" stroke="var(--median, #1b1f2a)" stroke-width="3.5" stroke-linecap="round" />
+        <circle class="median-dot" cx="{{ col.x_center }}" cy="{{ col.median.y }}" r="3.5" fill="var(--median, #1b1f2a)" />
+        <text class="col-lead-label" x="{{ col.x_center }}" y="{{ geo.plot_y + geo.plot_height + 25 }}" text-anchor="middle" font-size="13" font-weight="700" fill="var(--fg, #1b1f2a)">+{{ col.lead_h }}h</text>
+        <text class="col-median-label" x="{{ col.x_center }}" y="{{ geo.plot_y + geo.plot_height + 44 }}" text-anchor="middle" font-size="12" fill="var(--fg-muted, #5b5650)">{{ col.median.value | fmt_ugm3 }} {{ t('units.ugm3') }}</text>
       {% endfor %}
     </g>
   </svg>
@@ -46,7 +72,7 @@
     <tbody>
       {% for h in bulletin.horizons %}
       <tr>
-        <td>+{{ h.lead_h }}h</td>
+        <td>+{{ h.lead_h }}h ({{ h.window_start_utc | local_time('%a %d %b') }})</td>
         <td>{{ h.quantiles_ugm3.q50 | fmt_ugm3 }} {{ t('units.ugm3') }}</td>
         <td>{{ h.quantiles_ugm3.q10 | fmt_ugm3 }} – {{ h.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</td>
         <td>{{ h.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</td>
