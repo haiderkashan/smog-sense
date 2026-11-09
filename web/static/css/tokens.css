@@ -59,37 +59,75 @@
   --space-4: 1.5rem;
   --space-5: 2.5rem;
   --radius: 14px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
   --measure: 62ch;
+  --container-max: 1100px;
   --focus: 3px solid var(--ravi-700);
   --motion: 160ms;
+
+  /* surfaces and elevation (light theme) */
+  --surface: #ffffff;
+  --surface-subtle: #f8fafc;
+  --surface-raised: #ffffff;
+  --border: rgba(27, 31, 42, 0.08);
+  --border-subtle: rgba(27, 31, 42, 0.04);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 14px -2px rgba(27, 31, 42, 0.06), 0 2px 6px -1px rgba(27, 31, 42, 0.03);
+  --shadow-lg: 0 12px 28px -4px rgba(27, 31, 42, 0.08), 0 4px 10px -2px rgba(27, 31, 42, 0.03);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #14171f;
+    --bg: #11141c;
     --fg: #ece8e1;
     --fg-muted: #a8a29a;
-    --rule: #2c313d;
+    --rule: #252b38;
     --accent: var(--ravi-300);
-    --accent-contrast: #14171f;
+    --accent-contrast: #11141c;
     --median: #ece8e1;
     --band-80: color-mix(in srgb, var(--ravi-300) 22%, transparent);
     --band-50: color-mix(in srgb, var(--ravi-300) 40%, transparent);
     --focus: 3px solid var(--ravi-300);
+
+    /* surfaces and elevation (dark theme) */
+    --surface: #181d2a;
+    --surface-subtle: #131722;
+    --surface-raised: #1f2536;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-subtle: rgba(255, 255, 255, 0.04);
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.55);
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #14171f;
+  --bg: #11141c;
   --fg: #ece8e1;
   --fg-muted: #a8a29a;
-  --rule: #2c313d;
+  --rule: #252b38;
   --accent: var(--ravi-300);
-  --accent-contrast: #14171f;
+  --accent-contrast: #11141c;
   --median: #ece8e1;
   --band-80: color-mix(in srgb, var(--ravi-300) 22%, transparent);
   --band-50: color-mix(in srgb, var(--ravi-300) 40%, transparent);
   --focus: 3px solid var(--ravi-300);
+
+  /* surfaces and elevation (dark theme) */
+  --surface: #181d2a;
+  --surface-subtle: #131722;
+  --surface-raised: #1f2536;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.55);
 }
 
 @media (prefers-reduced-motion: reduce) {

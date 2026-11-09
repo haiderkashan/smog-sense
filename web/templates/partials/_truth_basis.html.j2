@@ -1,7 +1,10 @@
 {# Truth-basis and provenance statement partial #}
 {% if bulletin.get('basis') %}
 <section class="truth-basis" aria-labelledby="truth-heading">
-  <h2 id="truth-heading" class="section-heading">{{ t('nav.methodology') }}</h2>
+  <div class="truth-basis__header">
+    <span class="truth-badge" aria-hidden="true">🔬 {{ t('methodology.badge') }}</span>
+    <h2 id="truth-heading" class="section-heading">{{ t('nav.methodology') }}</h2>
+  </div>
   <p class="truth-statement">
     {{ t('methodology.truth', n=bulletin.basis.n_panel, ref=bulletin.basis.n_reference, lc=bulletin.basis.n_lowcost) }}
   </p>
@@ -10,4 +13,3 @@
   </p>
 </section>
 {% endif %}
-

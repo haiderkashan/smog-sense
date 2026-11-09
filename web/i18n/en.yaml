@@ -31,6 +31,9 @@ horizon:
   day1: Next 24 hours
   day2: 24 to 48 hours ahead
   day3: 48 to 72 hours ahead
+  chart_heading: Forecast trajectory
+  lead_trajectory: 3-day daily mean trajectory
+  exceed_title: Exceedance risks
 units:
   ugm3: µg/m³
 uncertainty:
@@ -41,7 +44,12 @@ uncertainty:
   upper_label: Bad case (1 day in 10 is worse)
   chance_exceed: "Chance of exceeding {threshold} µg/m³: {pct}%"
   explain_short: "This is a forecast, not a promise. Real levels fall inside the range on about 8 days out of 10, and rise above its upper end on about 1 day in 10."
+  badge: Probabilistic interpretation
+  median_desc: The central forecast (50th percentile) where actual levels are as likely to fall above as below.
+  range_desc: "The 80% central interval: on approximately 8 days out of 10, observations fall within this span."
+  upper_desc: "The 90th percentile: severe smog peaks occur above this level on approximately 1 day out of 10."
 advice:
+  badge: Health advisory
   good:
     headline: Air quality is good.
     actions:
@@ -84,6 +92,7 @@ mode_banner:
   observations_only: "Reduced accuracy: satellite and model inputs were unavailable; this forecast uses recent sensor readings only."
   baseline_only: "Simplified forecast: the learning model was unavailable today, so a simpler method was used."
 methodology:
+  badge: Scientific provenance
   truth: "Forecasts are checked against hourly PM2.5 readings from the OpenAQ network in Lahore. Where a reference monitor and low-cost sensors are at the same place, the reference monitor is used; otherwise the middle value of the corrected low-cost sensors. The city value is the average of {n} stations ({ref} reference, {lc} low-cost)."
   short: "SmogSense combines recent sensor readings, satellite fire detections and atmospheric model forecasts. A learning model, first trained on Delhi's dense monitoring network and then adapted to Lahore's few sensors, estimates a range of likely PM2.5 levels."
 disclaimer: "SmogSense is a research project, not an official forecast. Do not rely on it alone for medical or emergency decisions. Follow guidance from the official health and environmental authorities."
@@ -95,6 +104,7 @@ card:
   bad_case: Bad case (1 in 10)
   source_line: SmogSense · research forecast
   share_cta: Share this forecast
+  share_desc: Help friends and family in Lahore prepare for smog exposure with verified daily forecasts.
   whatsapp_text: "Lahore smog forecast {date}: most likely {category} ({median} µg/m³). Details: {url}"
 a11y:
   skip_to_forecast: Skip to the forecast

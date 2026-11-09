@@ -10,21 +10,27 @@
   {% include "partials/_expiry_notice.html.j2" %}
 
   <div class="forecast-metadata">
-    <p class="forecast-metadata__valid-until">
-      <strong>{{ t('status.valid_until', time=bulletin.valid_until_utc | local_time) }}</strong>
-    </p>
+    <div class="forecast-metadata__status-badge">
+      <span class="forecast-metadata__icon" aria-hidden="true">🕒</span>
+      <p class="forecast-metadata__valid-until">
+        <strong>{{ t('status.valid_until', time=bulletin.valid_until_utc | local_time) }}</strong>
+      </p>
+    </div>
     <p class="forecast-metadata__timing">
-      <span>{{ t('status.issued', time=bulletin.generated_at_utc | local_time) }}</span>
+      <span class="timing-item">{{ t('status.issued', time=bulletin.generated_at_utc | local_time) }}</span>
       <span class="timing-divider">·</span>
-      <span>{{ t('status.data_cutoff', time=bulletin.data_cutoff_utc | local_time) }}</span>
+      <span class="timing-item">{{ t('status.data_cutoff', time=bulletin.data_cutoff_utc | local_time) }}</span>
     </p>
   </div>
 
   {# 3. Hero Section (Next 24h Headline Outlook) #}
   {% set h1 = bulletin.horizons[0] %}
-  <section class="hero-section" aria-labelledby="hero-title">
+  <section class="hero-section hero-section--{{ h1.category.median_q50 }}" data-category="{{ h1.category.median_q50 }}" aria-labelledby="hero-title">
     <div class="hero-section__header">
-      <h1 id="hero-title" class="hero-title">{{ t('horizon.day1') }}</h1>
+      <div class="hero-section__title-group">
+        <span class="hero-badge">⚡ {{ t('horizon.day1') }}</span>
+        <h1 id="hero-title" class="hero-title">{{ t('horizon.day1') }}</h1>
+      </div>
       <div class="hero-chip-container">
         {% with category_id=h1.category.median_q50, label=h1.category.median_q50 | category_name %}
           {% include "partials/_aqi_chip.html.j2" %}
@@ -35,32 +41,44 @@
     <div class="hero-body">
       <div class="hero-metric">
         <span class="hero-metric__number">{{ h1.quantiles_ugm3.q50 | fmt_ugm3 }}</span>
-        <span class="hero-metric__unit">{{ t('units.ugm3') }}</span>
-        <span class="hero-metric__label">{{ t('uncertainty.median_label') }}</span>
+        <div class="hero-metric__subtext">
+          <span class="hero-metric__unit">{{ t('units.ugm3') }}</span>
+          <span class="hero-metric__label">{{ t('uncertainty.median_label') }}</span>
+        </div>
       </div>
 
       <div class="hero-ranges">
-        <p class="hero-range">
-          <strong>{{ t('uncertainty.range_label') }}:</strong>
-          <span class="val">{{ h1.quantiles_ugm3.q10 | fmt_ugm3 }} – {{ h1.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</span>
-        </p>
-        <p class="hero-badcase">
-          <strong>{{ t('uncertainty.upper_label') }}:</strong>
-          <span class="val">{{ h1.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</span>
-        </p>
+        <div class="hero-range-box hero-range-box--range">
+          <p class="hero-range">
+            <span class="hero-box-label">{{ t('uncertainty.range_label') }}:</span>
+            <span class="hero-box-val val">{{ h1.quantiles_ugm3.q10 | fmt_ugm3 }} – {{ h1.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</span>
+          </p>
+        </div>
+        <div class="hero-range-box hero-range-box--badcase">
+          <p class="hero-badcase">
+            <span class="hero-box-label">{{ t('uncertainty.upper_label') }}:</span>
+            <span class="hero-box-val val">{{ h1.quantiles_ugm3.q90 | fmt_ugm3 }} {{ t('units.ugm3') }}</span>
+          </p>
+        </div>
       </div>
     </div>
   </section>
 
   {# 4. Fan Chart Visualization #}
   <section class="chart-section" aria-labelledby="chart-heading">
-    <h2 id="chart-heading" class="sr-only">{{ t('a11y.chart_alt') }}</h2>
+    <div class="chart-header">
+      <h2 id="chart-heading" class="section-heading">{{ t('horizon.chart_heading') }}</h2>
+      <span class="chart-subtitle">{{ t('a11y.chart_alt') }}</span>
+    </div>
     {% include "partials/_fan_chart.svg.j2" %}
   </section>
 
   {# 5. 3-Day Forecast Cards #}
   <section class="horizons-section" aria-labelledby="horizons-heading">
-    <h2 id="horizons-heading" class="section-heading">{{ t('nav.forecast') }} (72h)</h2>
+    <div class="horizons-section__header">
+      <h2 id="horizons-heading" class="section-heading">{{ t('nav.forecast') }} (72h)</h2>
+      <span class="section-lead-note">{{ t('horizon.lead_trajectory') }}</span>
+    </div>
     <div class="horizons-grid">
       {% for h in bulletin.horizons %}
         {% include "partials/_horizon_card.html.j2" %}
@@ -86,22 +104,29 @@
   {% set share_day = bulletin.issuance_utc | local_time('%Y%m%d') %}
 
   <section class="social-share" aria-labelledby="share-heading">
-    <h2 id="share-heading" class="sr-only">{{ t('card.share_cta') }}</h2>
-    <div class="share-actions">
-      <button type="button" class="btn btn--share" id="btn-share"
-              data-title="{{ page.title }}"
-              data-text="{{ share_text }}"
-              data-url="{{ share_url }}">
-        📤 {{ t('card.share_cta') }}
-      </button>
+    <div class="social-share__card">
+      <div class="social-share__text">
+        <h2 id="share-heading" class="social-share__title">{{ t('card.share_cta') }}</h2>
+        <p class="social-share__desc">{{ t('card.share_desc') }}</p>
+      </div>
+      <div class="share-actions">
+        <button type="button" class="btn btn--share" id="btn-share"
+                data-title="{{ page.title }}"
+                data-text="{{ share_text }}"
+                data-url="{{ share_url }}">
+          <span class="btn__icon" aria-hidden="true">📤</span>
+          <span>{{ t('card.share_cta') }}</span>
+        </button>
 
-      <a class="btn btn--whatsapp"
-         href="https://wa.me/?text={{ share_text | urlencode }}?d={{ share_day }}"
-         target="_blank"
-         rel="noopener noreferrer"
-         aria-label="Share via WhatsApp">
-        💬 WhatsApp
-      </a>
+        <a class="btn btn--whatsapp"
+           href="https://wa.me/?text={{ share_text | urlencode }}?d={{ share_day }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           aria-label="{{ t('card.share_cta') }} (WhatsApp)">
+          <span class="btn__icon" aria-hidden="true">💬</span>
+          <span>WhatsApp</span>
+        </a>
+      </div>
     </div>
   </section>
 

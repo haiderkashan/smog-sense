@@ -1,20 +1,23 @@
 {# Natural frequency uncertainty explainer partial #}
 <section class="uncertainty-legend" aria-labelledby="uncertainty-heading">
-  <h2 id="uncertainty-heading" class="section-heading">{{ t('uncertainty.range_label') }}</h2>
+  <div class="uncertainty-legend__header">
+    <span class="uncertainty-badge" aria-hidden="true">📊 {{ t('uncertainty.badge') }}</span>
+    <h2 id="uncertainty-heading" class="section-heading">{{ t('uncertainty.range_label') }}</h2>
+  </div>
   <p class="uncertainty-explainer-text">{{ t('uncertainty.explain_short') }}</p>
 
   <div class="legend-grid">
-    <div class="legend-card">
+    <div class="legend-card legend-card--median">
       <span class="legend-card__tag">{{ t('uncertainty.median_label') }}</span>
-      <p class="legend-card__desc">The central forecast (50th percentile) where actual levels are as likely to fall above as below.</p>
+      <p class="legend-card__desc">{{ t('uncertainty.median_desc') }}</p>
     </div>
-    <div class="legend-card">
+    <div class="legend-card legend-card--range">
       <span class="legend-card__tag">{{ t('uncertainty.range_label') }}</span>
-      <p class="legend-card__desc">The 80% central interval: on approximately 8 days out of 10, observations fall within this span.</p>
+      <p class="legend-card__desc">{{ t('uncertainty.range_desc') }}</p>
     </div>
-    <div class="legend-card">
+    <div class="legend-card legend-card--upper">
       <span class="legend-card__tag">{{ t('uncertainty.upper_label') }}</span>
-      <p class="legend-card__desc">The 90th percentile: severe smog peaks occur above this level on approximately 1 day out of 10.</p>
+      <p class="legend-card__desc">{{ t('uncertainty.upper_desc') }}</p>
     </div>
   </div>
 </section>

@@ -1,6 +1,8 @@
 {# Language switch partial with reciprocal hreflang and script label #}
 {% set target_lang = 'ur' if lang == 'en' else 'en' %}
 {% set target_dir = 'rtl' if target_lang == 'ur' else 'ltr' %}
-<a class="lang-switch" href="{{ page.alternate_lang_url }}" hreflang="{{ target_lang }}" lang="{{ target_lang }}" dir="{{ target_dir }}" aria-label="Switch language to {{ t('nav.switch_language') }}">
-  {{ t('nav.switch_language') }}
+{% set switch_url = 'ur/' if lang == 'en' else '../' %}
+<a class="lang-switch" href="{{ switch_url }}" hreflang="{{ target_lang }}" lang="{{ target_lang }}" dir="{{ target_dir }}" aria-label="Switch language to {{ t('nav.switch_language') }}">
+  <span class="lang-switch__icon" aria-hidden="true">🌐</span>
+  <span class="lang-switch__label">{{ t('nav.switch_language') }}</span>
 </a>

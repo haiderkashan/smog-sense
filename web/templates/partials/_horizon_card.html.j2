@@ -1,5 +1,6 @@
 {# Horizon card partial - 24h, 48h, or 72h forecast block #}
-<article class="horizon-card horizon-card--{{ h.category.median_q50 }}">
+<article class="horizon-card horizon-card--{{ h.category.median_q50 }}" data-category="{{ h.category.median_q50 }}">
+  <div class="horizon-card__accent-bar" aria-hidden="true"></div>
   <header class="horizon-card__header">
     <span class="horizon-card__lead-label">
       {% if h.lead_h == 24 %}{{ t('horizon.day1') }}
@@ -37,6 +38,7 @@
 
     {% if h.get('probabilities') and h.probabilities.get('exceed') %}
     <div class="horizon-card__exceedances">
+      <span class="exceedances-title">{{ t('horizon.exceed_title') }}</span>
       <ul class="exceed-list">
         {% for exc in h.probabilities.get('exceed') %}
           {% set p = exc.probability %}

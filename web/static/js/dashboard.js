@@ -71,15 +71,49 @@
   // --------------------------------------------------------------------------
   // 3. Theme & Preference Persistence (Wrapped in try/catch)
   // --------------------------------------------------------------------------
+  function updateThemeButtonIcon(theme) {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    const iconSpan = btn.querySelector('.theme-toggle__icon');
+    if (iconSpan) {
+      iconSpan.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+    btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+  }
+
   function initPreferences() {
     try {
       const savedTheme = localStorage.getItem('smogsense_theme');
       if (savedTheme) {
         document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeButtonIcon(savedTheme);
+      } else {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        updateThemeButtonIcon(prefersDark ? 'dark' : 'light');
       }
     } catch (e) {
       // localStorage may be disabled in restricted/private browsing modes
     }
+  }
+
+  function setupThemeToggle() {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+      const currentTheme = document.documentElement.getAttribute('data-theme') ||
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      updateThemeButtonIcon(nextTheme);
+
+      try {
+        localStorage.setItem('smogsense_theme', nextTheme);
+      } catch (e) {
+        // Ignored in private browsing
+      }
+    });
   }
 
   // --------------------------------------------------------------------------
@@ -87,6 +121,7 @@
   // --------------------------------------------------------------------------
   function init() {
     initPreferences();
+    setupThemeToggle();
     checkForecastExpiry();
     setupShareButton();
 

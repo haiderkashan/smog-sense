@@ -1,6 +1,9 @@
 {# Protective health advisory block partial #}
-<section class="advisory-block" aria-labelledby="advisory-heading">
-  <h2 id="advisory-heading" class="section-heading">{{ t('advice.' ~ bulletin.advisory.category ~ '.headline') }}</h2>
+<section class="advisory-block advisory-block--{{ bulletin.advisory.category }}" aria-labelledby="advisory-heading">
+  <div class="advisory-block__header">
+    <span class="advisory-badge" aria-hidden="true">🛡️ {{ t('advice.badge') }}</span>
+    <h2 id="advisory-heading" class="section-heading">{{ t('advice.' ~ bulletin.advisory.category ~ '.headline') }}</h2>
+  </div>
 
   <ul class="advisory-actions">
     {% for action in t('advice.' ~ bulletin.advisory.category ~ '.actions') %}

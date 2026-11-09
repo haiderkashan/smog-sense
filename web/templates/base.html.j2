@@ -37,10 +37,20 @@
   <header class="site-header" role="banner">
     <div class="site-header__container">
       <div class="brand">
-        <span class="brand__title">{{ t('meta.site_title') }}</span>
+        <div class="brand__title-row">
+          <span class="brand__icon" aria-hidden="true">
+            <svg class="brand__logo-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            </svg>
+          </span>
+          <span class="brand__title">{{ t('meta.site_title') }}</span>
+        </div>
         <span class="brand__tagline">{{ t('meta.tagline') }}</span>
       </div>
       <nav class="site-nav" aria-label="Main Navigation">
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Toggle dark/light theme">
+          <span class="theme-toggle__icon" aria-hidden="true">🌓</span>
+        </button>
         {% include "partials/_language_switch.html.j2" %}
       </nav>
     </div>

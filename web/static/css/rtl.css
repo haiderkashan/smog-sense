@@ -36,7 +36,8 @@ html[dir="rtl"] h2,
 html[dir="rtl"] h3,
 html[dir="rtl"] .brand__title,
 html[dir="rtl"] .hero-title,
-html[dir="rtl"] .section-heading {
+html[dir="rtl"] .section-heading,
+html[dir="rtl"] .social-share__title {
   font-weight: 400;
   letter-spacing: normal !important;
   font-style: normal !important;
@@ -60,7 +61,8 @@ bdi,
 .metric-unit,
 .timing-divider,
 .horizon-card__window,
-.forecast-metadata__timing {
+.forecast-metadata__timing,
+.hero-box-val {
   direction: ltr;
   unicode-bidi: isolate;
   display: inline-block;
@@ -88,5 +90,14 @@ html[dir="rtl"] .hero-metric {
 }
 
 html[dir="rtl"] .advisory-action-item {
-  padding-block: var(--space-1);
+  padding-block: var(--space-2);
+}
+
+html[dir="rtl"] .hero-badge,
+html[dir="rtl"] .advisory-badge,
+html[dir="rtl"] .truth-badge,
+html[dir="rtl"] .uncertainty-badge,
+html[dir="rtl"] .exceedances-title {
+  font-size: 0.8125rem;
+  letter-spacing: normal;
 }
