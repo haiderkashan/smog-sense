@@ -47,6 +47,7 @@ app_preprocess = typer.Typer(no_args_is_help=True)
 app_registry = typer.Typer(no_args_is_help=True)
 app_replay = typer.Typer(no_args_is_help=True)
 app_models = typer.Typer(no_args_is_help=True)
+app_cards = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -66,6 +67,7 @@ app.add_typer(app_audit, name="audit")
 app.add_typer(app_preprocess, name="preprocess")
 app.add_typer(app_registry, name="registry")
 app.add_typer(app_models, name="models")
+app.add_typer(app_cards, name="cards")
 
 
 @app.command()
@@ -580,6 +582,137 @@ def site_build_cmd(
     else:
         print(f"Built site at {out_dir}")
     safe_exit(0)
+
+
+def _execute_render_cards(
+    bulletin_path: str | None,
+    output_dir: str,
+    format_choice: str,
+    lang_choice: str,
+) -> None:
+    import json
+
+    from smogsense.visualization.cards import FORMAT_SPECS, CardFormat, render_card, save_card
+
+    # Resolve bulletin
+    b_path: Path | None = None
+    if bulletin_path:
+        b_path = Path(bulletin_path)
+    else:
+        for candidate in [
+            Path("site/forecast/latest.json"),
+            Path(".state/bulletins/latest.json"),
+            Path("tests/fixtures/bulletin_valid_example.json"),
+        ]:
+            if candidate.is_file():
+                b_path = candidate
+                break
+
+    if not b_path or not b_path.is_file():
+        print(f"Error: Bulletin file not found at {bulletin_path or 'default paths'}")
+        safe_exit(50)
+
+    try:
+        with b_path.open("r", encoding="utf-8") as f:
+            bulletin_data = json.load(f)
+    except Exception as err:
+        print(f"Error loading bulletin {b_path}: {err}")
+        safe_exit(50)
+
+    # Determine formats
+    fmt_lower = format_choice.strip().lower()
+    if fmt_lower in ["post", "whatsapp_post", "whatsapp"]:
+        target_formats = [CardFormat.WHATSAPP_POST]
+    elif fmt_lower in ["og", "open_graph"]:
+        target_formats = [CardFormat.OPEN_GRAPH]
+    elif fmt_lower in ["all", "both"]:
+        target_formats = [CardFormat.WHATSAPP_POST, CardFormat.OPEN_GRAPH]
+    else:
+        print(f"Error: Unknown format '{format_choice}'. Choose from post, og, all.")
+        safe_exit(50)
+
+    # Determine languages
+    lang_lower = lang_choice.strip().lower()
+    if lang_lower in ["en", "english"]:
+        target_langs = ["en"]
+    elif lang_lower in ["ur", "urdu"]:
+        target_langs = ["ur"]
+    elif lang_lower in ["all", "both"]:
+        target_langs = ["en", "ur"]
+    else:
+        print(f"Error: Unknown language '{lang_choice}'. Choose from en, ur, all.")
+        safe_exit(50)
+
+    out_root = Path(output_dir)
+    latest_dir = out_root / "latest"
+    latest_dir.mkdir(parents=True, exist_ok=True)
+
+    issuance_raw = bulletin_data.get(
+        "issuance_utc",
+        bulletin_data.get("generated_at_utc", "2026-01-01T00:00:00Z"),
+    )
+    date_tag = issuance_raw[:10]
+    dated_dir = out_root / date_tag
+    dated_dir.mkdir(parents=True, exist_ok=True)
+
+    budget_breach = False
+
+    for lang in target_langs:
+        for fmt in target_formats:
+            spec = FORMAT_SPECS[fmt]
+            prefix = "whatsapp" if fmt == CardFormat.WHATSAPP_POST else "og"
+            filename = f"lahore-{prefix}-{lang}.png"
+
+            try:
+                card_img = render_card(bulletin_data, lang=lang, format=fmt)
+                path_latest = latest_dir / filename
+                path_dated = dated_dir / filename
+
+                bytes_latest = save_card(card_img, path_latest)
+                save_card(card_img, path_dated)
+
+                kb_size = bytes_latest / 1024.0
+                print(
+                    f"Rendered {filename} -> {path_latest} ({kb_size:.1f} KB / max {spec.max_kb} KB)"
+                )
+
+                if kb_size > spec.max_kb:
+                    print(f"ERROR: {filename} exceeds budget ({kb_size:.1f} KB > {spec.max_kb} KB)")
+                    budget_breach = True
+            except Exception as err:
+                print(f"Fatal error rendering {filename}: {err}")
+                safe_exit(50)
+
+    if budget_breach:
+        safe_exit(30)
+
+    safe_exit(0)
+
+
+@app_site.command("render-cards")
+def site_render_cards_cmd(
+    bulletin: str | None = typer.Option(None, "--bulletin", help="Path to bulletin JSON file"),
+    output_dir: str = typer.Option(
+        "site/cards", "--output-dir", help="Output directory for card images"
+    ),
+    format: str = typer.Option("all", "--format", help="Card format: post, og, or all"),
+    lang: str = typer.Option("all", "--lang", help="Language: en, ur, or all"),
+) -> None:
+    """Render WhatsApp post and Open Graph cards with Pillow + Raqm (Task P4-03)."""
+    _execute_render_cards(bulletin, output_dir, format, lang)
+
+
+@app_cards.command("render")
+def cards_render_cmd(
+    bulletin: str | None = typer.Option(None, "--bulletin", help="Path to bulletin JSON file"),
+    output_dir: str = typer.Option(
+        "site/cards", "--output-dir", help="Output directory for card images"
+    ),
+    format: str = typer.Option("all", "--format", help="Card format: post, og, or all"),
+    lang: str = typer.Option("all", "--lang", help="Language: en, ur, or all"),
+) -> None:
+    """Render social card assets (alias for site render-cards) (Task P4-03)."""
+    _execute_render_cards(bulletin, output_dir, format, lang)
 
 
 @app_run.command("seed-history")
