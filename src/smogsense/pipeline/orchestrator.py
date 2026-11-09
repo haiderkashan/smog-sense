@@ -1367,6 +1367,7 @@ async def run_daily_pipeline_async(
             model_version=published_model_version,
             adaptation_status=published_adaptation_status,
             calibrated=published_calibrated,
+            is_rerun=is_rerun,
         )
         print("[DEBUG-TRACE] orchestrator: STEP 9: generate_bulletin_json completed", flush=True)
 

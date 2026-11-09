@@ -51,12 +51,22 @@ def generate_bulletin_json(
     model_version: str | None = None,
     calibrated: bool | None = None,
     adaptation_status: str | None = None,
+    generated_at_utc: datetime | None = None,
+    is_rerun: bool = False,
 ) -> dict[str, Any]:
     """Generate the bulletin dictionary conforming to bulletin.schema.json."""
 
     if issuance_utc.tzinfo is None:
         issuance_utc = issuance_utc.replace(tzinfo=UTC)
-    now_utc = datetime.now(UTC)
+
+    if generated_at_utc is not None:
+        if generated_at_utc.tzinfo is None:
+            now_utc = generated_at_utc.replace(tzinfo=UTC)
+        else:
+            now_utc = generated_at_utc.astimezone(UTC)
+    else:
+        now_utc = datetime.now(UTC)
+
     valid_until = issuance_utc + timedelta(hours=30)
 
     # Filter forecast_df by method == model if method column exists
@@ -239,7 +249,14 @@ def generate_bulletin_json(
             else "unadapted"
         )
 
-    resolved_mode_reason = mode_reason or "Automated pipeline run"
+    effective_is_rerun = is_rerun or (
+        "is_rerun" in df_model.columns and not df_model.empty and bool(df_model["is_rerun"].iloc[0])
+    )
+    resolved_mode_reason = mode_reason
+    if resolved_mode_reason is None:
+        resolved_mode_reason = (
+            "Automated pipeline rerun" if effective_is_rerun else "Automated pipeline run"
+        )
 
     # Advisory policy: base category is day-1 (24h) median
     # Escalate 1 level if probability of next-worse category >= 0.35 (configs/bulletin.yaml)
