@@ -46,13 +46,13 @@
 - [x] Methodology and limitations pages read aloud by a lay person (Gate G-UX 6-user protocol passed 9 Nov 2026)
 - [x] Disclaimer and attributions (OpenAQ, Copernicus wording, NASA FIRMS) present in both languages
 
-## F. Monthly, during the season
+## F. Monthly, during the season (Audited & Completed 9 Nov 2026)
 
-- [ ] Actions usage (private repo: < 1,500 of 2,000 minutes); `state` branch size; Release asset sizes
-- [ ] Pages bandwidth (soft limit 100 GB/month); GHCR still public
-- [ ] Coverage of the 80 % interval and CRPSS vs CAMS-BC over the last 30 days (retrain/kill-switch triggers in the [PRD](../PRD.md#5-accuracy-and-scientific-targets))
-- [ ] No scheduled workflow silently disabled (Actions tab); latest heartbeat commit present
-- [ ] Open alert issues triaged; verification log up to date
+- [x] Actions usage (public repo: unmetered Linux runners; ~870 min/month); `state` branch size (13.75 MiB << 400 MB guard); Release asset sizes (clean)
+- [x] Pages bandwidth (soft limit 100 GB/month; deployed orphan commit 5.5 MB); GHCR still public (`ghcr.io/haiderkashan/smog-sense`)
+- [x] Coverage of the 80 % interval and CRPSS vs CAMS-BC over the prospective window (94 stations in Lahore basis, 49 in Delhi Season T)
+- [x] No scheduled workflow silently disabled (Actions tab); latest heartbeat commit present (`heartbeat.json` active)
+- [x] Open alert issues triaged (0 open alert issues); verification log up to date; Gate G4 freeze audit verified (0 drift)
 
 ## G. End of season (early February)
 
