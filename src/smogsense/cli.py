@@ -50,6 +50,7 @@ app_replay = typer.Typer(no_args_is_help=True)
 app_models = typer.Typer(no_args_is_help=True)
 app_cards = typer.Typer(no_args_is_help=True)
 app_review_gates = typer.Typer(no_args_is_help=True)
+app_release = typer.Typer(no_args_is_help=True)
 
 app.add_typer(app_ingest, name="ingest")
 app.add_typer(app_features, name="features")
@@ -72,6 +73,7 @@ app.add_typer(app_models, name="models")
 app.add_typer(app_cards, name="cards")
 app.add_typer(app_review_gates, name="review-gates")
 app.add_typer(app_review_gates, name="review")
+app.add_typer(app_release, name="release")
 
 
 @app.command()
@@ -3078,6 +3080,124 @@ def review_gates_check_cmd(
 ) -> None:
     """Alias for smogsense review-gates audit."""
     review_gates_audit_cmd(reviews_dir=reviews_dir, format=format)
+
+
+@app_release.command("audit")
+def release_audit_cmd(
+    site_dir: str = typer.Option(
+        "site", "--site-dir", help="Path to compiled static site directory"
+    ),
+    bulletin_path: str = typer.Option(
+        "site/forecast/latest.json", "--bulletin", help="Path to public bulletin JSON"
+    ),
+    reviews_dir: str = typer.Option(
+        "docs/reviews", "--reviews-dir", help="Path to review dossiers"
+    ),
+    i18n_dir: str = typer.Option("web/i18n", "--i18n-dir", help="Path to message catalogs"),
+    json_output: bool = typer.Option(False, "--json", help="Output audit results as JSON"),
+) -> None:
+    """Run comprehensive Gate G6 pre-launch verification checklist."""
+    import json
+
+    from smogsense.publishing.release import PreLaunchChecklist, format_prelaunch_audit_table
+
+    checklist = PreLaunchChecklist(
+        reviews_dir=reviews_dir,
+        site_dir=site_dir,
+        bulletin_path=bulletin_path,
+        i18n_dir=i18n_dir,
+    )
+    result = checklist.run_all_checks()
+
+    if json_output:
+        print(json.dumps(result.to_dict(), indent=2))
+    else:
+        print(format_prelaunch_audit_table(result))
+
+    if not result.all_passed:
+        safe_exit(31)
+
+
+@app_release.command("notes")
+def release_notes_cmd(
+    version: str = typer.Option("v1.0.0-rc1", "--version", "-v", help="Release version tag"),
+    date: str = typer.Option("2026-12-15", "--date", "-d", help="Target release date (YYYY-MM-DD)"),
+    out: str | None = typer.Option(
+        None, "--out", "-o", help="Optional output path for markdown file"
+    ),
+    reviews_dir: str = typer.Option(
+        "docs/reviews", "--reviews-dir", help="Path to review dossiers"
+    ),
+) -> None:
+    """Generate formal markdown release notes for launch candidate or release."""
+    from smogsense.publishing.release import generate_release_notes
+
+    notes = generate_release_notes(version=version, target_date=date, reviews_dir=reviews_dir)
+
+    if out:
+        out_path = Path(out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(notes, encoding="utf-8")
+        print(f"Release notes written to {out_path}")
+    else:
+        print(notes)
+
+
+@app_release.command("tag-candidate")
+def release_tag_candidate_cmd(
+    version: str = typer.Option("v1.0.0-rc1", "--version", "-v", help="Release candidate tag"),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--execute",
+        help="Simulate tag creation without running git tag",
+    ),
+    site_dir: str = typer.Option(
+        "site", "--site-dir", help="Path to compiled static site directory"
+    ),
+    bulletin_path: str = typer.Option(
+        "site/forecast/latest.json", "--bulletin", help="Path to public bulletin JSON"
+    ),
+    reviews_dir: str = typer.Option(
+        "docs/reviews", "--reviews-dir", help="Path to review dossiers"
+    ),
+) -> None:
+    """Validate release readiness and tag launch candidate in git."""
+    from smogsense.publishing.release import PreLaunchChecklist, format_prelaunch_audit_table
+
+    checklist = PreLaunchChecklist(
+        reviews_dir=reviews_dir,
+        site_dir=site_dir,
+        bulletin_path=bulletin_path,
+    )
+    result = checklist.run_all_checks()
+
+    if not result.all_passed:
+        print(format_prelaunch_audit_table(result))
+        print(f"\n[BLOCKED] Cannot tag candidate '{version}': Pre-launch checklist failed.")
+        safe_exit(31)
+
+    tag_cmd = f'git tag -a {version} -m "SmogSense {version} Release Candidate"'
+    if dry_run:
+        print(format_prelaunch_audit_table(result))
+        print("\n[DRY-RUN] Pre-launch audit passed. To tag this release candidate, execute:")
+        print(f"  {tag_cmd}")
+        print(f"  git push origin {version}")
+    else:
+        import shutil
+        import subprocess
+
+        git_bin = shutil.which("git") or "git"
+        proc = subprocess.run(  # noqa: S603
+            [git_bin, "tag", "-a", version, "-m", f"SmogSense {version} Release Candidate"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            print(f"[ERROR] Failed to create git tag: {proc.stderr}")
+            safe_exit(50)
+        print(f"[SUCCESS] Tagged release candidate '{version}'.")
+        print(f"To publish the tag to remote: git push origin {version}")
 
 
 def main() -> None:

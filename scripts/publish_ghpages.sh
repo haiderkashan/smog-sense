@@ -5,8 +5,11 @@
 # The history of bulletins is preserved in the `state` branch (JSON/Parquet), not here.
 # Usage: scripts/publish_ghpages.sh [site_dir]
 set -euo pipefail
-# shellcheck source=scripts/_git_auth.sh
-source "$(dirname "$0")/_git_auth.sh"
+
+if [[ "${DRY_RUN:-0}" != "1" ]]; then
+  # shellcheck source=scripts/_git_auth.sh
+  source "$(dirname "$0")/_git_auth.sh"
+fi
 
 site="${1:-site}"
 [[ -f "${site}/index.html" ]] || { echo "refusing to publish: ${site}/index.html missing" >&2; exit 1; }
@@ -23,6 +26,11 @@ trap 'rm -rf "${tmp}"' EXIT
 cp -a "${site}/." "${tmp}/"
 touch "${tmp}/.nojekyll"          # skip Jekyll processing; we ship plain static files
 
+if [[ "${DRY_RUN:-0}" == "1" ]]; then
+  echo "gh-pages dry-run: validated ${site} (${size_mb} MB <= 200 MB budget), staged to temporary directory with .nojekyll"
+  exit 0
+fi
+
 git init --quiet -b gh-pages "${tmp}"
 git_identity "${tmp}"
 git -C "${tmp}" remote add origin "${REPO_URL}"
@@ -30,3 +38,4 @@ git -C "${tmp}" add -A
 git -C "${tmp}" commit --quiet -m "deploy $(date -u +%Y-%m-%dT%H:%MZ) from ${GITHUB_SHA:-local}"
 gh_git -C "${tmp}" push --quiet --force origin HEAD:gh-pages
 echo "gh-pages: published ${size_mb} MB"
+
