@@ -334,6 +334,52 @@ def build_site(
     if expired:
         bulletin_copy["expired"] = True
 
+    # Normalize minimal or legacy bulletin dictionaries for safe template rendering
+    bulletin_copy.setdefault(
+        "basis",
+        {"n_panel": 1, "n_reference": 1, "n_lowcost": 0, "aggregation": "mean"},
+    )
+    bulletin_copy.setdefault("domain", {"id": "lahore", "name": {"en": "Lahore", "ur": "لاہور"}})
+    bulletin_copy.setdefault("stations", [])
+    bulletin_copy.setdefault("advisory", {"category": "moderate", "notes": []})
+    bulletin_copy.setdefault(
+        "model",
+        {
+            "id": "m1_cams_raw",
+            "version": "1.0",
+            "git_sha": "dev",
+            "calibrated": False,
+            "adaptation_status": "skipped_n0",
+        },
+    )
+
+    issuance_default = str(
+        bulletin_copy.get("issuance_utc", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    )
+    valid_default = str(
+        bulletin_copy.get("valid_until_utc", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    )
+
+    if "horizons" in bulletin_copy and isinstance(bulletin_copy["horizons"], list):
+        for h in bulletin_copy["horizons"]:
+            if isinstance(h, dict):
+                h.setdefault("window_start_utc", issuance_default)
+                h.setdefault("window_end_utc", valid_default)
+                h.setdefault("probabilities", {"by_category": {}, "exceed": []})
+                h.setdefault(
+                    "category",
+                    {
+                        "lower_q10": "moderate",
+                        "median_q50": "moderate",
+                        "upper_q90": "moderate",
+                    },
+                )
+                if "quantiles_ugm3" in h and isinstance(h["quantiles_ugm3"], dict):
+                    q_map = h["quantiles_ugm3"]
+                    q50 = q_map.get("q50", 50.0)
+                    for k in ["q05", "q10", "q25", "q50", "q75", "q90", "q95"]:
+                        q_map.setdefault(k, q50)
+
     # 1. Assets pipeline & content-hash fingerprinting
     assets_dir = out_root / "assets"
     manifest = copy_and_fingerprint_assets(static_dir=static_dir, output_assets_dir=assets_dir)
