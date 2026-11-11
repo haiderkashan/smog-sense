@@ -1,0 +1,161 @@
+{
+  "candidate_calibrator_sha256": "cda76200533985b86fb2c8c09ae7349d6ab3ab69e19f695cef2e751dc23bab7b",
+  "config_hash": "4a907bee381036b4a4f472cf9be7985574c0e118327876f0f521ff60ab200dcd",
+  "created_at_utc": "2026-11-09T12:11:30.643839+00:00",
+  "data_integrity_invariants": {
+    "cams_lead_offset_h": 12,
+    "embargo_hours": 72,
+    "grad_clip": 1.0,
+    "inner_steps_j": 3,
+    "min_valid_hours": 18,
+    "no_retroactive_rescoring": true,
+    "point_in_time_enforcement": "available_at <= T",
+    "residual_bound_rho_99": 0.36245196908712385,
+    "settlement_delay_hours": 96
+  },
+  "evaluation_calendar": {
+    "analysis_freeze_gate_g7": "2027-02-08",
+    "confirmatory_shadow_window": "2026-12-07 to 2027-01-31",
+    "dev_history_end": "2026-10-18",
+    "dev_replay_window": "2026-10-19 to 2026-12-06",
+    "gate_g4_freeze_date": "2026-12-04",
+    "settlement_delay_hours": 96
+  },
+  "freeze_register_digest": "36563dc7f2911b76cfd95336daee46311d273a698e5a49a7f5714a56991975e7",
+  "git_commit_sha": "0709f9daffdbf65c42272b137132c67811c90af8",
+  "git_release_tag": "v0.3.0-gate-g4",
+  "headline_model": "m7_hybrid_maml",
+  "hypotheses": [
+    {
+      "comparison_operator": ">=",
+      "descriptive_if_days_under": 35,
+      "domain": "lahore",
+      "horizon_h": 24,
+      "hypothesis_id": "H1",
+      "metric": "crpss_vs_m2",
+      "multiplicity_family": "family_1_lahore",
+      "n_available": 5,
+      "statement": "M7 beats CAMS-BC at 24 h with N=5 available stations",
+      "target_population": "Lahore City Panel (leave-stations-out, N=5)",
+      "threshold_value": 0.15,
+      "tier": "tier_1_indicative"
+    },
+    {
+      "comparison_operator": ">=",
+      "descriptive_if_days_under": 35,
+      "domain": "lahore",
+      "horizon_h": 72,
+      "hypothesis_id": "H2",
+      "metric": "crpss_vs_m2",
+      "multiplicity_family": "family_1_lahore",
+      "n_available": 5,
+      "statement": "M7 beats CAMS-BC at 72 h with N=5 available stations",
+      "target_population": "Lahore City Panel (leave-stations-out, N=5)",
+      "threshold_value": 0.1,
+      "tier": "tier_1_indicative"
+    },
+    {
+      "comparison_operator": ">=",
+      "descriptive_if_days_under": 35,
+      "domain": "lahore",
+      "horizon_h": "all",
+      "hypothesis_id": "H3",
+      "metric": "crpss_vs_m1",
+      "multiplicity_family": "family_1_lahore",
+      "n_available": 5,
+      "statement": "M7 beats raw CAMS at every horizon",
+      "target_population": "Lahore City Panel (leave-stations-out, N=5)",
+      "threshold_value": 0.25,
+      "tier": "tier_1_indicative"
+    },
+    {
+      "comparison_operator": ">=",
+      "descriptive_if_days_under": 35,
+      "domain": "lahore",
+      "horizon_h": 24,
+      "hypothesis_id": "H4",
+      "metric": "crpss_vs_m2",
+      "multiplicity_family": "family_1_lahore",
+      "n_available": 0,
+      "statement": "Transfer alone (N=0) still adds skill over CAMS-BC; otherwise report negative transfer",
+      "target_population": "Lahore City Panel (pure zero-shot / sensor-free mode, N=0)",
+      "threshold_value": 0.05,
+      "tier": "tier_1_indicative"
+    },
+    {
+      "comparison_operator": "<=",
+      "descriptive_if_days_under": 0,
+      "domain": "delhi",
+      "horizon_h": "all",
+      "hypothesis_id": "H5",
+      "metric": "crps_ratio_m7_over_m6",
+      "multiplicity_family": "family_2_delhi_h5",
+      "n_available": [
+        1,
+        2
+      ],
+      "statement": "Meta-learning adds value over plain fine-tuning at N in {1,2}",
+      "target_population": "Delhi Season T Regulatory Monitors (>= 20 stations)",
+      "threshold_value": 0.97,
+      "tier": "tier_1_powered"
+    },
+    {
+      "comparison_operator": "+/-0.05",
+      "descriptive_if_days_under": 0,
+      "domain": "lahore",
+      "horizon_h": "all",
+      "hypothesis_id": "H6",
+      "metric": "coverage_80",
+      "multiplicity_family": "unadjusted_h6",
+      "n_available": 0,
+      "statement": "Calibration: pooled coverage of [q10,q90] within +/-0.05 of 0.80; P(y<=q50) within 0.07 of 0.50",
+      "target_population": "Pooled Spatial-Temporal City Panel",
+      "threshold_value": 0.8,
+      "tier": "tier_2_descriptive"
+    }
+  ],
+  "multiplicity_protocol": {
+    "family_1_lahore": {
+      "description": "Step-down Holm-Bonferroni correction over Lahore confirmatory hypotheses",
+      "fwer_alpha": 0.05,
+      "hypotheses": [
+        "H1",
+        "H2",
+        "H3(24)",
+        "H3(48)",
+        "H3(72)",
+        "H4"
+      ],
+      "method": "holm_bonferroni"
+    },
+    "family_2_delhi_h5": {
+      "description": "Independent confirmatory test on Delhi Season T regulatory network",
+      "fwer_alpha": 0.05,
+      "hypotheses": [
+        "H5"
+      ],
+      "method": "single_hypothesis_unadjusted"
+    },
+    "unadjusted_h6": {
+      "description": "Descriptive calibration diagnostics without hypothesis rejection penalties",
+      "fwer_alpha": null,
+      "hypotheses": [
+        "H6"
+      ],
+      "method": "descriptive_coverage_interval"
+    }
+  },
+  "registration_date": "2026-12-04",
+  "schema_version": 1,
+  "shared_physics_base_sha256": "be0f18fbf0d02d51cf03e30b247daa678461b4b6146fe57cf52a8986da1a60c5",
+  "statistical_power_note": {
+    "effective_sample_size": 8.0,
+    "eligible_stations": 49,
+    "h5_domain": "delhi",
+    "lahore_field_power_note": "Confirmatory window spans 56 days (7 Dec 2026 - 31 Jan 2027). Under AR(1) temporal autocorrelation rho_1 \u2248 0.5, effective sample size is n_eff \u2248 19 - 28. Tests H1-H4 are evaluated as indicative with Holm-Bonferroni FWER control, and degrade to descriptive if fewer than 35 valid days are observed or n_eff < 25.",
+    "observed_log_ratio_sd": 0.0004,
+    "season": "2025-2026",
+    "statistical_power": 100.0
+  },
+  "title": "SmogSense Gate G4 Confirmatory Pre-Registration: Probabilistic 72-Hour PM2.5 Transfer Forecasting"
+}

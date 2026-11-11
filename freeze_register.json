@@ -1,0 +1,148 @@
+{
+  "base_sha256": "be0f18fbf0d02d51cf03e30b247daa678461b4b6146fe57cf52a8986da1a60c5",
+  "bundle_sha256": "cda76200533985b86fb2c8c09ae7349d6ab3ab69e19f695cef2e751dc23bab7b",
+  "city_panel": [
+    {
+      "colocated_group_id": null,
+      "elevation_m": 215.0,
+      "is_reference": true,
+      "lat": 31.5601,
+      "location_id": 8664,
+      "lon": 74.3359,
+      "name": "US Consulate General Lahore",
+      "provider": "StateAir Lahore",
+      "sensor_model": "Regulatory CAAQMS"
+    },
+    {
+      "colocated_group_id": null,
+      "elevation_m": 215.0,
+      "is_reference": false,
+      "lat": 31.5659,
+      "location_id": 4527035,
+      "lon": 74.2994,
+      "name": "Civil Secretariat",
+      "provider": "AirGradient",
+      "sensor_model": "Optical Low-Cost"
+    },
+    {
+      "colocated_group_id": null,
+      "elevation_m": 215.0,
+      "is_reference": false,
+      "lat": 31.4572,
+      "location_id": 4527402,
+      "lon": 74.4107,
+      "name": "HBFC Society, DHA Phase 5",
+      "provider": "AirGradient",
+      "sensor_model": "Optical Low-Cost"
+    },
+    {
+      "colocated_group_id": null,
+      "elevation_m": 215.0,
+      "is_reference": false,
+      "lat": 31.4917,
+      "location_id": 4568423,
+      "lon": 74.3133,
+      "name": "Model Town",
+      "provider": "AirGradient",
+      "sensor_model": "Optical Low-Cost"
+    },
+    {
+      "colocated_group_id": null,
+      "elevation_m": 215.0,
+      "is_reference": false,
+      "lat": 31.5081,
+      "location_id": 4618814,
+      "lon": 74.3375,
+      "name": "Gulberg III",
+      "provider": "AirGradient",
+      "sensor_model": "Optical Low-Cost"
+    }
+  ],
+  "config_hash": "4a907bee381036b4a4f472cf9be7985574c0e118327876f0f521ff60ab200dcd",
+  "confirmatory_window_end": "2027-01-31",
+  "confirmatory_window_start": "2026-12-07",
+  "created_at_utc": "2026-11-09T12:11:08.330111+00:00",
+  "freeze_date": "2026-12-04",
+  "git_commit_sha": "0709f9daffdbf65c42272b137132c67811c90af8",
+  "git_tag": "v0.3.0-gate-g4",
+  "headline_model": "m7_hybrid_maml",
+  "hypotheses": [
+    {
+      "comparison_op": ">=",
+      "horizon_h": 24,
+      "hypothesis_id": "H1",
+      "metric": "crpss_vs_m2",
+      "n_available": 5,
+      "statement": "M7 beats CAMS-BC at 24 h with N=5 available stations",
+      "target_threshold": 0.15
+    },
+    {
+      "comparison_op": ">=",
+      "horizon_h": 72,
+      "hypothesis_id": "H2",
+      "metric": "crpss_vs_m2",
+      "n_available": 5,
+      "statement": "M7 beats CAMS-BC at 72 h with N=5 available stations",
+      "target_threshold": 0.1
+    },
+    {
+      "comparison_op": ">=",
+      "horizon_h": "all",
+      "hypothesis_id": "H3",
+      "metric": "crpss_vs_m1",
+      "n_available": 5,
+      "statement": "M7 beats raw CAMS at every horizon",
+      "target_threshold": 0.25
+    },
+    {
+      "comparison_op": ">=",
+      "horizon_h": 24,
+      "hypothesis_id": "H4",
+      "metric": "crpss_vs_m2",
+      "n_available": 0,
+      "statement": "Transfer alone (N=0) still adds skill over CAMS-BC; otherwise report negative transfer",
+      "target_threshold": 0.05
+    },
+    {
+      "comparison_op": "<=",
+      "horizon_h": "all",
+      "hypothesis_id": "H5",
+      "metric": "crps_ratio_m7_over_m6",
+      "n_available": [
+        1,
+        2
+      ],
+      "statement": "Meta-learning adds value over plain fine-tuning at N in {1,2}",
+      "target_threshold": 0.97
+    },
+    {
+      "comparison_op": "+/-0.05",
+      "horizon_h": "all",
+      "hypothesis_id": "H6",
+      "metric": "coverage_80",
+      "n_available": 0,
+      "statement": "Calibration: pooled coverage of [q10,q90] within +/-0.05 of 0.80; P(y<=q50) within 0.07 of 0.50",
+      "target_threshold": 0.8
+    }
+  ],
+  "invariants": {
+    "calibrator_params_count": 47577,
+    "cams_lead_offset_h": 12,
+    "embargo_hours": 72,
+    "grad_clip": 1.0,
+    "horizons_h": [
+      24,
+      48,
+      72
+    ],
+    "inner_alpha": 0.01,
+    "inner_steps_j": 3,
+    "metasgd_step_sizes_count": 14,
+    "min_valid_hours": 18,
+    "quantiles_count": 19,
+    "rh_mask_enabled": false,
+    "rho_99": 0.36245196908712385
+  },
+  "promoted_bundle_tag": "none",
+  "schema_version": 1
+}
