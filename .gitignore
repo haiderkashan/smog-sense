@@ -79,6 +79,7 @@ data/external/**
 *.parquet
 !tests/fixtures/**/*.parquet
 !tests/fixtures/**/*.csv.gz
+!data/registry/*.parquet
 
 # Local working copy of the orphan `state` branch (separate git checkout)
 .state/

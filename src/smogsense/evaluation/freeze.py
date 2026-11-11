@@ -334,7 +334,16 @@ def load_city_panel_stations(
     """
     p = Path(registry_path)
     if not p.is_file():
-        raise FileNotFoundError(f"Station registry file not found: {p}")
+        # Fallback for standard registry paths if not yet generated or checked out
+        if p.as_posix() in ("data/registry/registry_lahore.parquet", "data/registry/registry_delhi.parquet"):
+            try:
+                from scripts.build_registries import main as build_regs_main
+
+                build_regs_main()
+            except Exception:
+                pass
+        if not p.is_file():
+            raise FileNotFoundError(f"Station registry file not found: {p}")
 
     df = pd.read_parquet(p)
     eligible_df = df[df["eligible"].fillna(False).astype(bool)] if "eligible" in df.columns else df
