@@ -1,7 +1,7 @@
 {
-  "run_id": "run_20261111_0000",
+  "run_id": "run_20261111_0000_rerun_20261111_131651",
   "issued_at_utc": "2026-11-11T00:00:00+00:00",
-  "is_rerun": false,
+  "is_rerun": true,
   "published": true,
   "adaptation_status": "skipped_n0",
   "observed_latency": 0.0,
