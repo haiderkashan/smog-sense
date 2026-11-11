@@ -568,7 +568,10 @@ def verify_freeze_register(
         FileNotFoundError: If register file does not exist.
         FreezeVerificationError: If strict is True and drift is detected.
     """
-    reg = FreezeRegister.load(register_path)
+    reg_p = Path(register_path)
+    if str(register_path) == ".state/freeze_register.json" and not reg_p.is_file() and (Path(configs_dir) / "freeze_register.json").is_file():
+        reg_p = Path(configs_dir) / "freeze_register.json"
+    reg = FreezeRegister.load(reg_p)
     drift_messages: list[str] = []
 
     # 1. Configuration Hash Verification
@@ -920,6 +923,10 @@ def audit_confirmatory_lockdown(
 
     f_path = Path(freeze_register_path)
     p_path = Path(pre_registration_path)
+    if str(freeze_register_path) == ".state/freeze_register.json" and not f_path.is_file() and (Path(configs_dir) / "freeze_register.json").is_file():
+        f_path = Path(configs_dir) / "freeze_register.json"
+    if str(pre_registration_path) == ".state/pre_registration.json" and not p_path.is_file() and (Path(configs_dir) / "pre_registration.json").is_file():
+        p_path = Path(configs_dir) / "pre_registration.json"
 
     # 1. Freeze register verification
     freeze_valid, freeze_msgs = verify_freeze_register(

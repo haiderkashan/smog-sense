@@ -635,6 +635,8 @@ def verify_pre_registration(
 ) -> tuple[bool, list[str]]:
     """Audit active state against the Gate G4 pre-registration specification."""
     p_path = Path(pre_registration_path)
+    if str(pre_registration_path) == str(DEFAULT_PRE_REGISTRATION_STATE) and not p_path.is_file() and (Path(configs_dir) / "pre_registration.json").is_file():
+        p_path = Path(configs_dir) / "pre_registration.json"
     if not p_path.is_file():
         msg = f"Pre-registration document not found: {p_path}"
         if strict:
@@ -655,6 +657,8 @@ def verify_pre_registration(
 
     # 2. Freeze Register Digest
     f_path = Path(freeze_register_path)
+    if str(freeze_register_path) == ".state/freeze_register.json" and not f_path.is_file() and (Path(configs_dir) / "freeze_register.json").is_file():
+        f_path = Path(configs_dir) / "freeze_register.json"
     if f_path.is_file():
         current_freeze_digest = compute_file_sha256(f_path)
         if (
