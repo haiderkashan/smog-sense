@@ -1,0 +1,22 @@
+{
+  "run_id": "run_20261112_0000",
+  "issued_at_utc": "2026-11-12T00:00:00+00:00",
+  "is_rerun": false,
+  "published": true,
+  "adaptation_status": "skipped_n0",
+  "observed_latency": 0.0,
+  "degradation_mode": "baseline_only",
+  "degradation_level": 2,
+  "exit_code": 10,
+  "git_sha": "unknown",
+  "config_hash": "4a907bee381036b4a4f472cf9be7985574c0e118327876f0f521ff60ab200dcd",
+  "challenger": {
+    "enabled": true,
+    "method": "m7_hybrid_maml",
+    "model_version": "challenger-dev",
+    "adaptation_status": "skipped_insufficient_support",
+    "n_available_stations": 56,
+    "base_sha256": "m5_canonical_sha256",
+    "calibrated": false
+  }
+}
