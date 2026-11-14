@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://haiderkashan.github.io/smog-sense/sitemap.xml
