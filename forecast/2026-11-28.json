@@ -1,0 +1,3795 @@
+{
+  "schema_version": "1.0",
+  "issuance_utc": "2026-11-28T00:00:00Z",
+  "generated_at_utc": "2026-11-28T07:55:55Z",
+  "data_cutoff_utc": "2026-11-27T19:00:00Z",
+  "domain": {
+    "id": "lahore",
+    "name": {
+      "en": "Lahore",
+      "ur": "لاہور"
+    },
+    "centroid": {
+      "lat": 31.5204,
+      "lon": 74.3587
+    },
+    "timezone": "Asia/Karachi"
+  },
+  "mode": "baseline_only",
+  "mode_reason": "Automated pipeline run",
+  "model": {
+    "id": "m1_cams_raw",
+    "version": "baseline",
+    "git_sha": "unknown",
+    "calibrated": false,
+    "adaptation_status": "skipped_n0"
+  },
+  "aqi_scheme": "us_epa_2024_pm25_24h",
+  "horizons": [
+    {
+      "lead_h": 24,
+      "window_start_utc": "2026-11-28T00:00:00Z",
+      "window_end_utc": "2026-11-29T00:00:00Z",
+      "window_start_local": "2026-11-28T05:00:00+05:00",
+      "window_end_local": "2026-11-29T05:00:00+05:00",
+      "quantiles_ugm3": {
+        "q05": 189.85542657978985,
+        "q10": 189.85542657978985,
+        "q25": 189.85542657978985,
+        "q50": 189.85542657978985,
+        "q75": 189.85542657978985,
+        "q90": 189.85542657978985,
+        "q95": 189.85542657978985
+      },
+      "category": {
+        "lower_q10": "very_unhealthy",
+        "median_q50": "very_unhealthy",
+        "upper_q90": "very_unhealthy"
+      },
+      "probabilities": {
+        "by_category": {
+          "good": 0.0,
+          "moderate": 0.0,
+          "usg": 0.0,
+          "unhealthy": 0.0,
+          "very_unhealthy": 1.0,
+          "hazardous": 0.0
+        },
+        "exceed": [
+          {
+            "threshold_ugm3": 55.5,
+            "probability": 1.0
+          },
+          {
+            "threshold_ugm3": 125.5,
+            "probability": 1.0
+          },
+          {
+            "threshold_ugm3": 225.5,
+            "probability": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "lead_h": 48,
+      "window_start_utc": "2026-11-29T00:00:00Z",
+      "window_end_utc": "2026-11-30T00:00:00Z",
+      "window_start_local": "2026-11-29T05:00:00+05:00",
+      "window_end_local": "2026-11-30T05:00:00+05:00",
+      "quantiles_ugm3": {
+        "q05": 154.60807417741,
+        "q10": 154.60807417741,
+        "q25": 154.60807417741,
+        "q50": 154.60807417741,
+        "q75": 154.60807417741,
+        "q90": 154.60807417741,
+        "q95": 154.60807417741
+      },
+      "category": {
+        "lower_q10": "very_unhealthy",
+        "median_q50": "very_unhealthy",
+        "upper_q90": "very_unhealthy"
+      },
+      "probabilities": {
+        "by_category": {
+          "good": 0.0,
+          "moderate": 0.0,
+          "usg": 0.0,
+          "unhealthy": 0.0,
+          "very_unhealthy": 1.0,
+          "hazardous": 0.0
+        },
+        "exceed": [
+          {
+            "threshold_ugm3": 55.5,
+            "probability": 1.0
+          },
+          {
+            "threshold_ugm3": 125.5,
+            "probability": 1.0
+          },
+          {
+            "threshold_ugm3": 225.5,
+            "probability": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "lead_h": 72,
+      "window_start_utc": "2026-11-30T00:00:00Z",
+      "window_end_utc": "2026-12-01T00:00:00Z",
+      "window_start_local": "2026-11-30T05:00:00+05:00",
+      "window_end_local": "2026-12-01T05:00:00+05:00",
+      "quantiles_ugm3": {
+        "q05": 143.36403823995818,
+        "q10": 143.36403823995818,
+        "q25": 143.36403823995818,
+        "q50": 143.36403823995818,
+        "q75": 143.36403823995818,
+        "q90": 143.36403823995818,
+        "q95": 143.36403823995818
+      },
+      "category": {
+        "lower_q10": "very_unhealthy",
+        "median_q50": "very_unhealthy",
+        "upper_q90": "very_unhealthy"
+      },
+      "probabilities": {
+        "by_category": {
+          "good": 0.0,
+          "moderate": 0.0,
+          "usg": 0.0,
+          "unhealthy": 0.0,
+          "very_unhealthy": 1.0,
+          "hazardous": 0.0
+        },
+        "exceed": [
+          {
+            "threshold_ugm3": 55.5,
+            "probability": 1.0
+          },
+          {
+            "threshold_ugm3": 125.5,
+            "probability": 1.0
+          },
+          {
+            "threshold_ugm3": 225.5,
+            "probability": 0.0
+          }
+        ]
+      }
+    }
+  ],
+  "stations": [
+    {
+      "point_id": "station:8664",
+      "name": "US Diplomatic Post: Lahore",
+      "lat": 31.560078,
+      "lon": 74.33589,
+      "is_reference": true,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.8985915725683,
+          "q50": 187.8985915725683,
+          "q90": 187.8985915725683,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.25788328665445,
+          "q50": 152.25788328665445,
+          "q90": 152.25788328665445,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.27162996265932,
+          "q50": 141.27162996265932,
+          "q90": 141.27162996265932,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:1894641",
+      "name": "Lahore",
+      "lat": 31.54815,
+      "lon": 74.34396,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.5727032342627,
+          "q50": 188.5727032342627,
+          "q90": 188.5727032342627,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.98253514531257,
+          "q50": 152.98253514531257,
+          "q90": 152.98253514531257,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.91517393436152,
+          "q50": 141.91517393436152,
+          "q90": 141.91517393436152,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4515157",
+      "name": "Barki, Lahore",
+      "lat": 31.4591591,
+      "lon": 74.5396309,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.91743642352796,
+          "q50": 184.91743642352796,
+          "q90": 184.91743642352796,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.48300598568272,
+          "q50": 153.48300598568272,
+          "q90": 153.48300598568272,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.22284441009342,
+          "q50": 144.22284441009342,
+          "q90": 144.22284441009342,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4527035",
+      "name": "Civil Secretariat",
+      "lat": 31.565942,
+      "lon": 74.2993626,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.28221832374706,
+          "q50": 185.28221832374706,
+          "q90": 185.28221832374706,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.00310322620837,
+          "q50": 151.00310322620837,
+          "q90": 151.00310322620837,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 140.22506972494344,
+          "q50": 140.22506972494344,
+          "q90": 140.22506972494344,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4527173",
+      "name": "Learning Alliance Intl. DHA",
+      "lat": 31.525621,
+      "lon": 74.436078,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.68813775152626,
+          "q50": 190.68813775152626,
+          "q90": 190.68813775152626,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.48408566765272,
+          "q50": 154.48408566765272,
+          "q90": 154.48408566765272,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.65750989936342,
+          "q50": 143.65750989936342,
+          "q90": 143.65750989936342,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4527306",
+      "name": "FOOT & MOUTH DISEASE RESEARCH CENTRE",
+      "lat": 31.53574,
+      "lon": 74.43538,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.66042111402257,
+          "q50": 190.66042111402257,
+          "q90": 190.66042111402257,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.05968202286058,
+          "q50": 154.05968202286058,
+          "q90": 154.05968202286058,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.26232106020282,
+          "q50": 143.26232106020282,
+          "q90": 143.26232106020282,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4527402",
+      "name": "HBFC Society, DHA Phase 5 (Hussainy House)",
+      "lat": 31.4571645,
+      "lon": 74.4106586,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 192.66226769408266,
+          "q50": 192.66226769408266,
+          "q90": 192.66226769408266,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 158.47936634328573,
+          "q50": 158.47936634328573,
+          "q90": 158.47936634328573,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.91963265248862,
+          "q50": 146.91963265248862,
+          "q90": 146.91963265248862,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4535267",
+      "name": "Gajju Matta (Kahna)",
+      "lat": 31.377378,
+      "lon": 74.350574,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.57849782463305,
+          "q50": 190.57849782463305,
+          "q90": 190.57849782463305,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 160.38223845305643,
+          "q50": 160.38223845305643,
+          "q90": 160.38223845305643,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 148.71149530600357,
+          "q50": 148.71149530600357,
+          "q90": 148.71149530600357,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4554729",
+      "name": "Sandha Road",
+      "lat": 31.562302,
+      "lon": 74.3027031,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.5502545350007,
+          "q50": 185.5502545350007,
+          "q90": 185.5502545350007,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.23344355815087,
+          "q50": 151.23344355815087,
+          "q90": 151.23344355815087,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 140.42872394627906,
+          "q50": 140.42872394627906,
+          "q90": 140.42872394627906,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4555745",
+      "name": "Ravi Road",
+      "lat": 31.602875,
+      "lon": 74.300927,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.01336848896597,
+          "q50": 185.01336848896597,
+          "q90": 185.01336848896597,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 149.6463358253817,
+          "q50": 149.6463358253817,
+          "q90": 149.6463358253817,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 138.9939649196094,
+          "q50": 138.9939649196094,
+          "q90": 138.9939649196094,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4557686",
+      "name": "Shalimar Town",
+      "lat": 31.574289,
+      "lon": 74.447898,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.74728401060528,
+          "q50": 189.74728401060528,
+          "q90": 189.74728401060528,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.98075409220226,
+          "q50": 151.98075409220226,
+          "q90": 151.98075409220226,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.56438676821168,
+          "q50": 141.56438676821168,
+          "q90": 141.56438676821168,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4565933",
+      "name": "IEEE, Punjab University, LHR",
+      "lat": 31.495322,
+      "lon": 74.295056,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.63510528327757,
+          "q50": 185.63510528327757,
+          "q90": 185.63510528327757,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.50093934705748,
+          "q50": 153.50093934705748,
+          "q90": 153.50093934705748,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.5735569947732,
+          "q50": 142.5735569947732,
+          "q90": 142.5735569947732,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4566427",
+      "name": "Johar Town",
+      "lat": 31.460056,
+      "lon": 74.280672,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.9596665628161,
+          "q50": 184.9596665628161,
+          "q90": 184.9596665628161,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.26764679600538,
+          "q50": 154.26764679600538,
+          "q90": 154.26764679600538,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.35373015957944,
+          "q50": 143.35373015957944,
+          "q90": 143.35373015957944,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4568423",
+      "name": "Model Town",
+      "lat": 31.491676,
+      "lon": 74.313288,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.94224197678614,
+          "q50": 186.94224197678614,
+          "q90": 186.94224197678614,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.2678653864966,
+          "q50": 154.2678653864966,
+          "q90": 154.2678653864966,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.2150502415082,
+          "q50": 143.2150502415082,
+          "q90": 143.2150502415082,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4605119",
+      "name": "College Road",
+      "lat": 31.421799,
+      "lon": 74.274837,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.91125279106186,
+          "q50": 184.91125279106186,
+          "q90": 184.91125279106186,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.39500493329376,
+          "q50": 155.39500493329376,
+          "q90": 155.39500493329376,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.44067406563974,
+          "q50": 144.44067406563974,
+          "q90": 144.44067406563974,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4608421",
+      "name": "Assistant Commissioner Office, Allama Iqbal ",
+      "lat": 31.47188,
+      "lon": 74.239512,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 181.97823350832314,
+          "q50": 181.97823350832314,
+          "q90": 181.97823350832314,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.34356403148684,
+          "q50": 152.34356403148684,
+          "q90": 152.34356403148684,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.73187637339677,
+          "q50": 141.73187637339677,
+          "q90": 141.73187637339677,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4609261",
+      "name": "Pajian, Raiwind",
+      "lat": 31.299695,
+      "lon": 74.22505,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 182.61987356770155,
+          "q50": 182.61987356770155,
+          "q90": 182.61987356770155,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 157.0852053438333,
+          "q50": 157.0852053438333,
+          "q90": 157.0852053438333,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.34465438541415,
+          "q50": 146.34465438541415,
+          "q90": 146.34465438541415,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4609353",
+      "name": "Kahna Hospital ",
+      "lat": 31.371023502439286,
+      "lon": 74.36487268127355,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.6268839408314,
+          "q50": 191.6268839408314,
+          "q90": 191.6268839408314,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 161.30509761454272,
+          "q50": 161.30509761454272,
+          "q90": 161.30509761454272,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 149.49422960486825,
+          "q50": 149.49422960486825,
+          "q90": 149.49422960486825,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4618814",
+      "name": "Gulberg III",
+      "lat": 31.508051,
+      "lon": 74.337544,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.48744943861297,
+          "q50": 188.48744943861297,
+          "q90": 188.48744943861297,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.43722435561423,
+          "q50": 154.43722435561423,
+          "q90": 154.43722435561423,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.28029162720523,
+          "q50": 143.28029162720523,
+          "q90": 143.28029162720523,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4698865",
+      "name": "Cantonment",
+      "lat": 31.539422,
+      "lon": 74.413792,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.82066742332123,
+          "q50": 191.82066742332123,
+          "q90": 191.82066742332123,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.5945663286466,
+          "q50": 154.5945663286466,
+          "q90": 154.5945663286466,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.42874790585006,
+          "q50": 143.42874790585006,
+          "q90": 143.42874790585006,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4699919",
+      "name": "Pak Arab",
+      "lat": 31.418387,
+      "lon": 74.345283,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.84033951452503,
+          "q50": 189.84033951452503,
+          "q90": 189.84033951452503,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 158.43289194059122,
+          "q50": 158.43289194059122,
+          "q90": 158.43289194059122,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.9383578184177,
+          "q50": 146.9383578184177,
+          "q90": 146.9383578184177,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4700982",
+      "name": "Samanabad",
+      "lat": 31.541983,
+      "lon": 74.298065,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.41309413796762,
+          "q50": 185.41309413796762,
+          "q90": 185.41309413796762,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.86173535332932,
+          "q50": 151.86173535332932,
+          "q90": 151.86173535332932,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.03102821619737,
+          "q50": 141.03102821619737,
+          "q90": 141.03102821619737,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:4757305",
+      "name": "Forman Christian College & Chartered University",
+      "lat": 31.521146,
+      "lon": 74.333954,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.11724510527475,
+          "q50": 188.11724510527475,
+          "q90": 188.11724510527475,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.78585408144707,
+          "q50": 153.78585408144707,
+          "q90": 153.78585408144707,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.6909341799807,
+          "q50": 142.6909341799807,
+          "q90": 142.6909341799807,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:5371017",
+      "name": "Thokar Niaz Baig",
+      "lat": 31.473135638585408,
+      "lon": 74.23981655978756,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 181.98752376617207,
+          "q50": 181.98752376617207,
+          "q90": 181.98752376617207,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.31453750481236,
+          "q50": 152.31453750481236,
+          "q90": 152.31453750481236,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.70275028630547,
+          "q50": 141.70275028630547,
+          "q90": 141.70275028630547,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6093552",
+      "name": "Test Device",
+      "lat": 31.485304,
+      "lon": 74.341333,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.95869975881112,
+          "q50": 188.95869975881112,
+          "q90": 188.95869975881112,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.5031008766815,
+          "q50": 155.5031008766815,
+          "q90": 155.5031008766815,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.25076536652924,
+          "q50": 144.25076536652924,
+          "q90": 144.25076536652924,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6125629",
+      "name": "ARC, Lahore",
+      "lat": 31.522056,
+      "lon": 74.314944,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.77875909830672,
+          "q50": 186.77875909830672,
+          "q90": 186.77875909830672,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.14342898340757,
+          "q50": 153.14342898340757,
+          "q90": 153.14342898340757,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.16358618891738,
+          "q50": 142.16358618891738,
+          "q90": 142.16358618891738,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135289",
+      "name": "Bedian Thethar Rd LHE",
+      "lat": 31.4139,
+      "lon": 74.4581,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.0363239828166,
+          "q50": 190.0363239828166,
+          "q90": 190.0363239828166,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 158.51258810867137,
+          "q50": 158.51258810867137,
+          "q90": 158.51258810867137,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 147.61774082435352,
+          "q50": 147.61774082435352,
+          "q90": 147.61774082435352,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135293",
+      "name": "B Block, Phase 5, DHA",
+      "lat": 31.4646,
+      "lon": 74.4204,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 192.0213247647238,
+          "q50": 192.0213247647238,
+          "q90": 192.0213247647238,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 157.7706804051883,
+          "q50": 157.7706804051883,
+          "q90": 157.7706804051883,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.41459221846526,
+          "q50": 146.41459221846526,
+          "q90": 146.41459221846526,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135295",
+      "name": "Pakistan Engineering Services (Pvt) Ltd.",
+      "lat": 31.4671,
+      "lon": 74.4169,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 192.21049052889234,
+          "q50": 192.21049052889234,
+          "q90": 192.21049052889234,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 157.78854525845114,
+          "q50": 157.78854525845114,
+          "q90": 157.78854525845114,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.38055446759054,
+          "q50": 146.38055446759054,
+          "q90": 146.38055446759054,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135299",
+      "name": "Yani Home",
+      "lat": 31.4788,
+      "lon": 74.4726,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.850969226581,
+          "q50": 188.850969226581,
+          "q90": 188.850969226581,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.21517626103218,
+          "q50": 155.21517626103218,
+          "q90": 155.21517626103218,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.84492283032932,
+          "q50": 144.84492283032932,
+          "q90": 144.84492283032932,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135301",
+      "name": "Grand Charter School",
+      "lat": 31.4721,
+      "lon": 74.3192,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.53463426598162,
+          "q50": 187.53463426598162,
+          "q90": 187.53463426598162,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.24195509305903,
+          "q50": 155.24195509305903,
+          "q90": 155.24195509305903,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.0961652503618,
+          "q50": 144.0961652503618,
+          "q90": 144.0961652503618,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135306",
+      "name": "Askari 10",
+      "lat": 31.5353,
+      "lon": 74.4172,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.66553713003978,
+          "q50": 191.66553713003978,
+          "q90": 191.66553713003978,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.67209127881225,
+          "q50": 154.67209127881225,
+          "q90": 154.67209127881225,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.54987984817458,
+          "q50": 143.54987984817458,
+          "q90": 143.54987984817458,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135309",
+      "name": "Scarsdale International School",
+      "lat": 31.4637,
+      "lon": 74.3749,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.49484679164993,
+          "q50": 191.49484679164993,
+          "q90": 191.49484679164993,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 157.64603913319365,
+          "q50": 157.64603913319365,
+          "q90": 157.64603913319365,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.0955240920413,
+          "q50": 146.0955240920413,
+          "q90": 146.0955240920413,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135313",
+      "name": "Ghazi Road Interchange",
+      "lat": 31.489402,
+      "lon": 74.4176706,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.9929845851217,
+          "q50": 191.9929845851217,
+          "q90": 191.9929845851217,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 156.7449891892969,
+          "q50": 156.7449891892969,
+          "q90": 156.7449891892969,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 145.4423991551926,
+          "q50": 145.4423991551926,
+          "q90": 145.4423991551926,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135316",
+      "name": "FF Pakistan",
+      "lat": 31.4714,
+      "lon": 74.2879,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.3578734611542,
+          "q50": 185.3578734611542,
+          "q90": 185.3578734611542,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.12624309941245,
+          "q50": 154.12624309941245,
+          "q90": 154.12624309941245,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.18874986051955,
+          "q50": 143.18874986051955,
+          "q90": 143.18874986051955,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135318",
+      "name": "WWF-PAKISTAN",
+      "lat": 31.4853,
+      "lon": 74.3415,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.97039456621465,
+          "q50": 188.97039456621465,
+          "q90": 188.97039456621465,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.50915151676688,
+          "q50": 155.50915151676688,
+          "q90": 155.50915151676688,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.25571857536923,
+          "q50": 144.25571857536923,
+          "q90": 144.25571857536923,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135319",
+      "name": "Revenue Employees Coop Housing Society",
+      "lat": 31.4485,
+      "lon": 74.288,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.57798188845126,
+          "q50": 185.57798188845126,
+          "q90": 185.57798188845126,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.9637706143542,
+          "q50": 154.9637706143542,
+          "q90": 154.9637706143542,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.9724929623556,
+          "q50": 143.9724929623556,
+          "q90": 143.9724929623556,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135320",
+      "name": "Model Town A LHE",
+      "lat": 31.4784,
+      "lon": 74.3238,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.79785979573316,
+          "q50": 187.79785979573316,
+          "q90": 187.79785979573316,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.15944164776374,
+          "q50": 155.15944164776374,
+          "q90": 155.15944164776374,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.00102196953202,
+          "q50": 144.00102196953202,
+          "q90": 144.00102196953202,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135323",
+      "name": "Gurumangat Rd B LHE",
+      "lat": 31.5047,
+      "lon": 74.358,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.94772066148744,
+          "q50": 189.94772066148744,
+          "q90": 189.94772066148744,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.25883176964024,
+          "q50": 155.25883176964024,
+          "q90": 155.25883176964024,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.96494971731386,
+          "q50": 143.96494971731386,
+          "q90": 143.96494971731386,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135324",
+      "name": "Shadman Market B LHE",
+      "lat": 31.5406,
+      "lon": 74.331,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.73318622543601,
+          "q50": 187.73318622543601,
+          "q90": 187.73318622543601,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.90590451241553,
+          "q50": 152.90590451241553,
+          "q90": 152.90590451241553,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.88698404476042,
+          "q50": 141.88698404476042,
+          "q90": 141.88698404476042,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135326",
+      "name": "Ferozepur Rd A LHE",
+      "lat": 31.4766,
+      "lon": 74.344,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.22374469827398,
+          "q50": 189.22374469827398,
+          "q90": 189.22374469827398,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.95903373497995,
+          "q50": 155.95903373497995,
+          "q90": 155.95903373497995,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.6613877899887,
+          "q50": 144.6613877899887,
+          "q90": 144.6613877899887,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135328",
+      "name": "Honda Gateway",
+      "lat": 31.4515,
+      "lon": 74.2098,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 180.10246913625065,
+          "q50": 180.10246913625065,
+          "q90": 180.10246913625065,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.85464073181186,
+          "q50": 151.85464073181186,
+          "q90": 151.85464073181186,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.42056135640829,
+          "q50": 141.42056135640829,
+          "q90": 141.42056135640829,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135329",
+      "name": "LAS Lahore",
+      "lat": 31.5466,
+      "lon": 74.3538,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.27635430203938,
+          "q50": 189.27635430203938,
+          "q90": 189.27635430203938,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.3380702544757,
+          "q50": 153.3380702544757,
+          "q90": 153.3380702544757,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.21146319938848,
+          "q50": 142.21146319938848,
+          "q90": 142.21146319938848,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135330",
+      "name": "University of Central Punjab",
+      "lat": 31.4469,
+      "lon": 74.2677,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.17914096774356,
+          "q50": 184.17914096774356,
+          "q90": 184.17914096774356,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.2346681169379,
+          "q50": 154.2346681169379,
+          "q90": 154.2346681169379,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.38401112786707,
+          "q50": 143.38401112786707,
+          "q90": 143.38401112786707,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135333",
+      "name": "Trinity School Lahore",
+      "lat": 31.4746,
+      "lon": 74.2786,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.67928153641913,
+          "q50": 184.67928153641913,
+          "q90": 184.67928153641913,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.67281795121608,
+          "q50": 153.67281795121608,
+          "q90": 153.67281795121608,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.8047414976708,
+          "q50": 142.8047414976708,
+          "q90": 142.8047414976708,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135336",
+      "name": "Syed Maratib Ali Road",
+      "lat": 31.5287712,
+      "lon": 74.3454402,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.85189623777046,
+          "q50": 188.85189623777046,
+          "q90": 188.85189623777046,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.8345313006512,
+          "q50": 153.8345313006512,
+          "q90": 153.8345313006512,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.69628611960442,
+          "q50": 142.69628611960442,
+          "q90": 142.69628611960442,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135340",
+      "name": "Tufail Road near Rahat Bakery",
+      "lat": 31.5298,
+      "lon": 74.3776,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.09402333578245,
+          "q50": 191.09402333578245,
+          "q90": 191.09402333578245,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.79284149809408,
+          "q50": 154.79284149809408,
+          "q90": 154.79284149809408,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.4719364721589,
+          "q50": 143.4719364721589,
+          "q90": 143.4719364721589,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135343",
+      "name": "Powerzone head office",
+      "lat": 31.393,
+      "lon": 74.2408,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 182.8186567629057,
+          "q50": 182.8186567629057,
+          "q90": 182.8186567629057,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.91913964315074,
+          "q50": 154.91913964315074,
+          "q90": 154.91913964315074,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.1754385746619,
+          "q50": 144.1754385746619,
+          "q90": 144.1754385746619,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135344",
+      "name": "Kickstart MM Alam",
+      "lat": 31.5051,
+      "lon": 74.3486,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.28707169467597,
+          "q50": 189.28707169467597,
+          "q90": 189.28707169467597,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.92759644721562,
+          "q50": 154.92759644721562,
+          "q90": 154.92759644721562,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.6931691067854,
+          "q50": 143.6931691067854,
+          "q90": 143.6931691067854,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135348",
+      "name": "HC - Askari 10",
+      "lat": 31.5307,
+      "lon": 74.4115,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 192.01697007873167,
+          "q50": 192.01697007873167,
+          "q90": 192.01697007873167,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.06930466949598,
+          "q50": 155.06930466949598,
+          "q90": 155.06930466949598,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.8268947792244,
+          "q50": 143.8268947792244,
+          "q90": 143.8268947792244,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135349",
+      "name": "Diamond Paint industries PVT LTD.",
+      "lat": 31.4598,
+      "lon": 74.329,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.3304675066914,
+          "q50": 188.3304675066914,
+          "q90": 188.3304675066914,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 156.09370952150053,
+          "q50": 156.09370952150053,
+          "q90": 156.09370952150053,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.8455966397892,
+          "q50": 144.8455966397892,
+          "q90": 144.8455966397892,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135350",
+      "name": "NPPMCL",
+      "lat": 31.5182,
+      "lon": 74.3508,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.32255745634407,
+          "q50": 189.32255745634407,
+          "q90": 189.32255745634407,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.44813378535395,
+          "q50": 154.44813378535395,
+          "q90": 154.44813378535395,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.24366131180957,
+          "q50": 143.24366131180957,
+          "q90": 143.24366131180957,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135351",
+      "name": "Hiking & Mountaineering Club GCU Lahore",
+      "lat": 31.5741,
+      "lon": 74.308,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.81307562250973,
+          "q50": 185.81307562250973,
+          "q90": 185.81307562250973,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 150.93106346396385,
+          "q50": 150.93106346396385,
+          "q90": 150.93106346396385,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 140.1296041985697,
+          "q50": 140.1296041985697,
+          "q90": 140.1296041985697,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135353",
+      "name": "The University of Lahore",
+      "lat": 31.3912,
+      "lon": 74.2414,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 182.87742231874094,
+          "q50": 182.87742231874094,
+          "q90": 182.87742231874094,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.00319797840868,
+          "q50": 155.00319797840868,
+          "q90": 155.00319797840868,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.25188090796806,
+          "q50": 144.25188090796806,
+          "q90": 144.25188090796806,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135356",
+      "name": "W.R",
+      "lat": 31.4761,
+      "lon": 74.405,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 192.84115857197813,
+          "q50": 192.84115857197813,
+          "q90": 192.84115857197813,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 157.81678021618777,
+          "q50": 157.81678021618777,
+          "q90": 157.81678021618777,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.23437188988274,
+          "q50": 146.23437188988274,
+          "q90": 146.23437188988274,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135357",
+      "name": "VTS",
+      "lat": 31.5083,
+      "lon": 74.321,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.32854521724084,
+          "q50": 187.32854521724084,
+          "q90": 187.32854521724084,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.87911676963915,
+          "q50": 153.87911676963915,
+          "q90": 153.87911676963915,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.82433070208558,
+          "q50": 142.82433070208558,
+          "q90": 142.82433070208558,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135360",
+      "name": "Allama Iqbal Town B LHE",
+      "lat": 31.5169,
+      "lon": 74.2849,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.72452570170807,
+          "q50": 184.72452570170807,
+          "q90": 184.72452570170807,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.37286554745268,
+          "q50": 152.37286554745268,
+          "q90": 152.37286554745268,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.55879830288757,
+          "q50": 141.55879830288757,
+          "q90": 141.55879830288757,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135364",
+      "name": "CERP Office",
+      "lat": 31.5236,
+      "lon": 74.3524,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.3857648542062,
+          "q50": 189.3857648542062,
+          "q90": 189.3857648542062,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.27091968714703,
+          "q50": 154.27091968714703,
+          "q90": 154.27091968714703,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.07498610561717,
+          "q50": 143.07498610561717,
+          "q90": 143.07498610561717,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135366",
+      "name": "Phase8-DHA",
+      "lat": 31.52903121887204,
+      "lon": 74.4381257796822,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.55213772512218,
+          "q50": 190.55213772512218,
+          "q90": 190.55213772512218,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.2656905383088,
+          "q50": 154.2656905383088,
+          "q90": 154.2656905383088,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.48952697410232,
+          "q50": 143.48952697410232,
+          "q90": 143.48952697410232,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135368",
+      "name": "FF Pakistan - 1",
+      "lat": 31.4551,
+      "lon": 74.437,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.09384553179515,
+          "q50": 191.09384553179515,
+          "q90": 191.09384553179515,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 157.56500096772422,
+          "q50": 157.56500096772422,
+          "q90": 157.56500096772422,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.46476570665106,
+          "q50": 146.46476570665106,
+          "q90": 146.46476570665106,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135370",
+      "name": "Burki Rd B LHE",
+      "lat": 31.5332,
+      "lon": 74.4504,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.84714073631372,
+          "q50": 189.84714073631372,
+          "q90": 189.84714073631372,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.67992503771447,
+          "q50": 153.67992503771447,
+          "q90": 153.67992503771447,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.139007211732,
+          "q50": 143.139007211732,
+          "q90": 143.139007211732,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135373",
+      "name": "Climate Finance Pakistan (PakAirQuality)",
+      "lat": 31.5378,
+      "lon": 74.3441,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.67628138100224,
+          "q50": 188.67628138100224,
+          "q90": 188.67628138100224,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.4171444828395,
+          "q50": 153.4171444828395,
+          "q90": 153.4171444828395,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.31571828532878,
+          "q50": 142.31571828532878,
+          "q90": 142.31571828532878,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135374",
+      "name": "Near Ada Plot, Raiwind Road",
+      "lat": 31.3766,
+      "lon": 74.2379,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 182.77364910536176,
+          "q50": 182.77364910536176,
+          "q90": 182.77364910536176,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.313558124288,
+          "q50": 155.313558124288,
+          "q90": 155.313558124288,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.56808811108078,
+          "q50": 144.56808811108078,
+          "q90": 144.56808811108078,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135377",
+      "name": "Johar Town B LHE",
+      "lat": 31.47,
+      "lon": 74.2611,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 183.50176594011916,
+          "q50": 183.50176594011916,
+          "q90": 183.50176594011916,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.19488797172295,
+          "q50": 153.19488797172295,
+          "q90": 153.19488797172295,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.43478947461395,
+          "q50": 142.43478947461395,
+          "q90": 142.43478947461395,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135421",
+      "name": "Model Town B LHE",
+      "lat": 31.4824,
+      "lon": 74.308,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.6584439552457,
+          "q50": 186.6584439552457,
+          "q90": 186.6584439552457,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.43952402394032,
+          "q50": 154.43952402394032,
+          "q90": 154.43952402394032,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.39603448777441,
+          "q50": 143.39603448777441,
+          "q90": 143.39603448777441,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135457",
+      "name": "GENERATION Pvt ltd",
+      "lat": 31.4081,
+      "lon": 74.3584,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.84472801488937,
+          "q50": 190.84472801488937,
+          "q90": 190.84472801488937,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 159.417631021754,
+          "q50": 159.417631021754,
+          "q90": 159.417631021754,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 147.78840335322306,
+          "q50": 147.78840335322306,
+          "q90": 147.78840335322306,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135458",
+      "name": "Valancia Town Lahore",
+      "lat": 31.4096,
+      "lon": 74.2617,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.11277571136262,
+          "q50": 184.11277571136262,
+          "q90": 184.11277571136262,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.26961555355186,
+          "q50": 155.26961555355186,
+          "q90": 155.26961555355186,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.39080508264257,
+          "q50": 144.39080508264257,
+          "q90": 144.39080508264257,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135466",
+      "name": "The Bank of Punjab, Head Office, BOP Tower, Gulberg III.",
+      "lat": 31.508051,
+      "lon": 74.337544,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.48744943861297,
+          "q50": 188.48744943861297,
+          "q90": 188.48744943861297,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.43722435561423,
+          "q50": 154.43722435561423,
+          "q90": 154.43722435561423,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.28029162720523,
+          "q50": 143.28029162720523,
+          "q90": 143.28029162720523,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135473",
+      "name": "BAM,  Civil Secretariat",
+      "lat": 31.565942,
+      "lon": 74.299363,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.28224639074253,
+          "q50": 185.28224639074253,
+          "q90": 185.28224639074253,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.0031143446918,
+          "q50": 151.0031143446918,
+          "q90": 151.0031143446918,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 140.22507876142308,
+          "q50": 140.22507876142308,
+          "q90": 140.22507876142308,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135476",
+      "name": "AC OFFICE NISHTAR, GAJUMATA",
+      "lat": 31.377378,
+      "lon": 74.350574,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.57849782463305,
+          "q50": 190.57849782463305,
+          "q90": 190.57849782463305,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 160.38223845305643,
+          "q50": 160.38223845305643,
+          "q90": 160.38223845305643,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 148.71149530600357,
+          "q50": 148.71149530600357,
+          "q90": 148.71149530600357,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135493",
+      "name": "Samanabad",
+      "lat": 31.541983,
+      "lon": 74.298065,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.41309413796762,
+          "q50": 185.41309413796762,
+          "q90": 185.41309413796762,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.86173535332932,
+          "q50": 151.86173535332932,
+          "q90": 151.86173535332932,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.03102821619737,
+          "q50": 141.03102821619737,
+          "q90": 141.03102821619737,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135496",
+      "name": "SOS Johar Town LHR",
+      "lat": 31.4544,
+      "lon": 74.2825,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.13985676271682,
+          "q50": 185.13985676271682,
+          "q90": 185.13985676271682,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.5394123726228,
+          "q50": 154.5394123726228,
+          "q90": 154.5394123726228,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.60026329075137,
+          "q50": 143.60026329075137,
+          "q90": 143.60026329075137,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135507",
+      "name": "Model Town, CD Ground",
+      "lat": 31.491676,
+      "lon": 74.313288,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.94224197678614,
+          "q50": 186.94224197678614,
+          "q90": 186.94224197678614,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.2678653864966,
+          "q50": 154.2678653864966,
+          "q90": 154.2678653864966,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.2150502415082,
+          "q50": 143.2150502415082,
+          "q90": 143.2150502415082,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135528",
+      "name": "Abdullah Khokhar, House Johar Town",
+      "lat": 31.460056,
+      "lon": 74.280672,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.9596665628161,
+          "q50": 184.9596665628161,
+          "q90": 184.9596665628161,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.26764679600538,
+          "q50": 154.26764679600538,
+          "q90": 154.26764679600538,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.35373015957944,
+          "q50": 143.35373015957944,
+          "q90": 143.35373015957944,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6135533",
+      "name": "University of Management and Technology",
+      "lat": 31.4515,
+      "lon": 74.2943,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.9889329290573,
+          "q50": 185.9889329290573,
+          "q90": 185.9889329290573,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.0962083454414,
+          "q50": 155.0962083454414,
+          "q90": 155.0962083454414,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.0675598578961,
+          "q50": 144.0675598578961,
+          "q90": 144.0675598578961,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6236626",
+      "name": "Bahria Town ",
+      "lat": 31.378524,
+      "lon": 74.183937,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 179.01351429749195,
+          "q50": 179.01351429749195,
+          "q90": 179.01351429749195,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.81871703185368,
+          "q50": 152.81871703185368,
+          "q90": 152.81871703185368,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.51888421052024,
+          "q50": 142.51888421052024,
+          "q90": 142.51888421052024,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6318813",
+      "name": "Upper Mall Road LHR",
+      "lat": 31.5418,
+      "lon": 74.3541,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.34065258079045,
+          "q50": 189.34065258079045,
+          "q90": 189.34065258079045,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.55102285658677,
+          "q50": 153.55102285658677,
+          "q90": 153.55102285658677,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.40655152377687,
+          "q50": 142.40655152377687,
+          "q90": 142.40655152377687,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6318816",
+      "name": "Burki Rd Paragon B LHE",
+      "lat": 31.5332,
+      "lon": 74.4504,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.84714073631372,
+          "q50": 189.84714073631372,
+          "q90": 189.84714073631372,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.67992503771447,
+          "q50": 153.67992503771447,
+          "q90": 153.67992503771447,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.139007211732,
+          "q50": 143.139007211732,
+          "q90": 143.139007211732,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6318817",
+      "name": "DHA Phase 6 B LHE",
+      "lat": 31.4698,
+      "lon": 74.4471,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.40009816116716,
+          "q50": 190.40009816116716,
+          "q90": 190.40009816116716,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 156.53994157539975,
+          "q50": 156.53994157539975,
+          "q90": 156.53994157539975,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 145.67960933326216,
+          "q50": 145.67960933326216,
+          "q90": 145.67960933326216,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6318826",
+      "name": "Model Town Link Rd B LHE",
+      "lat": 31.4638,
+      "lon": 74.3154,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.34581729329125,
+          "q50": 187.34581729329125,
+          "q90": 187.34581729329125,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.42663754785713,
+          "q50": 155.42663754785713,
+          "q90": 155.42663754785713,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.2834434573368,
+          "q50": 144.2834434573368,
+          "q90": 144.2834434573368,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6318842",
+      "name": "Muslim Town LHE B",
+      "lat": 31.5123,
+      "lon": 74.3074,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.34084199561676,
+          "q50": 186.34084199561676,
+          "q90": 186.34084199561676,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.27589483839407,
+          "q50": 153.27589483839407,
+          "q90": 153.27589483839407,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.31496051503564,
+          "q50": 142.31496051503564,
+          "q90": 142.31496051503564,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6346781",
+      "name": "Icchra Maqbool Rd LHE",
+      "lat": 31.5274,
+      "lon": 74.3113,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.47458705574374,
+          "q50": 186.47458705574374,
+          "q90": 186.47458705574374,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.82128473613417,
+          "q50": 152.82128473613417,
+          "q90": 152.82128473613417,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.87735505569393,
+          "q50": 141.87735505569393,
+          "q90": 141.87735505569393,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6346783",
+      "name": "Bahria Town B LHE",
+      "lat": 31.37,
+      "lon": 74.1702,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 178.14475535493588,
+          "q50": 178.14475535493588,
+          "q90": 178.14475535493588,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.4168789740928,
+          "q50": 152.4168789740928,
+          "q90": 152.4168789740928,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.22604390973567,
+          "q50": 142.22604390973567,
+          "q90": 142.22604390973567,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6346785",
+      "name": "Tajpura",
+      "lat": 31.5584,
+      "lon": 74.3998,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 192.39613055740134,
+          "q50": 192.39613055740134,
+          "q90": 192.39613055740134,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.14736035777085,
+          "q50": 154.14736035777085,
+          "q90": 154.14736035777085,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.81556397391878,
+          "q50": 142.81556397391878,
+          "q90": 142.81556397391878,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6472254",
+      "name": "Rehmanpura ",
+      "lat": 31.523668,
+      "lon": 74.319444,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.07886165710605,
+          "q50": 187.07886165710605,
+          "q90": 187.07886165710605,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.2233657759305,
+          "q50": 153.2233657759305,
+          "q90": 153.2233657759305,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.2214901013095,
+          "q50": 142.2214901013095,
+          "q90": 142.2214901013095,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6509914",
+      "name": "DHA Phase 8 Lahore",
+      "lat": 31.500497067407178,
+      "lon": 74.4319484308154,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.08915100111395,
+          "q50": 191.08915100111395,
+          "q90": 191.08915100111395,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.7391885649132,
+          "q50": 155.7391885649132,
+          "q90": 155.7391885649132,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.73590924689492,
+          "q50": 144.73590924689492,
+          "q90": 144.73590924689492,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551277",
+      "name": "Sina NGO,  Machar Colony",
+      "lat": 31.571931198356047,
+      "lon": 74.3165582549792,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.43380699539352,
+          "q50": 186.43380699539352,
+          "q90": 186.43380699539352,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.24719712360806,
+          "q50": 151.24719712360806,
+          "q90": 151.24719712360806,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 140.39628801013265,
+          "q50": 140.39628801013265,
+          "q90": 140.39628801013265,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551466",
+      "name": "Test Location 1",
+      "lat": 31.562349,
+      "lon": 74.333348,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.69960973534126,
+          "q50": 187.69960973534126,
+          "q90": 187.69960973534126,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.09364566758714,
+          "q50": 152.09364566758714,
+          "q90": 152.09364566758714,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.1277771849891,
+          "q50": 141.1277771849891,
+          "q90": 141.1277771849891,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551600",
+      "name": "QIE EMERGENCY SERVICE CENTER",
+      "lat": 31.44093,
+      "lon": 74.32252,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.05156856074834,
+          "q50": 188.05156856074834,
+          "q90": 188.05156856074834,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 156.5973564633748,
+          "q50": 156.5973564633748,
+          "q90": 156.5973564633748,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 145.33978891211183,
+          "q50": 145.33978891211183,
+          "q90": 145.33978891211183,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551611",
+      "name": "QIE Indus Plus Pvt. Ltd.",
+      "lat": 31.45346,
+      "lon": 74.3265,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.21414990189183,
+          "q50": 188.21414990189183,
+          "q90": 188.21414990189183,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 156.25311899570247,
+          "q50": 156.25311899570247,
+          "q90": 156.25311899570247,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 145.00365437862413,
+          "q50": 145.00365437862413,
+          "q90": 145.00365437862413,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551671",
+      "name": "service 1",
+      "lat": 31.56238,
+      "lon": 74.33362,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.71840869954136,
+          "q50": 187.71840869954136,
+          "q90": 187.71840869954136,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.10003707193135,
+          "q50": 152.10003707193135,
+          "q90": 152.10003707193135,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.13283171765804,
+          "q50": 141.13283171765804,
+          "q90": 141.13283171765804,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551674",
+      "name": "welkin",
+      "lat": 31.56237,
+      "lon": 74.33361,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.71779823985125,
+          "q50": 187.71779823985125,
+          "q90": 187.71779823985125,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.10016206707448,
+          "q50": 152.10016206707448,
+          "q90": 152.10016206707448,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.13297884104946,
+          "q50": 141.13297884104946,
+          "q90": 141.13297884104946,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551675",
+      "name": "d83bda1b7edc",
+      "lat": 31.56237,
+      "lon": 74.33356,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.71429065388182,
+          "q50": 187.71429065388182,
+          "q90": 187.71429065388182,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.09875576791637,
+          "q50": 152.09875576791637,
+          "q90": 152.09875576791637,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.1318356503356,
+          "q50": 141.1318356503356,
+          "q90": 141.1318356503356,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551676",
+      "name": "welkinhitech.com ",
+      "lat": 31.56237,
+      "lon": 74.33361,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.71779823985125,
+          "q50": 187.71779823985125,
+          "q90": 187.71779823985125,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.10016206707448,
+          "q50": 152.10016206707448,
+          "q90": 152.10016206707448,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.13297884104946,
+          "q50": 141.13297884104946,
+          "q90": 141.13297884104946,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551847",
+      "name": "Aga Khan University City Campus",
+      "lat": 31.57002999083784,
+      "lon": 74.32870326274707,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.30366596376845,
+          "q50": 187.30366596376845,
+          "q90": 187.30366596376845,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.65444137327648,
+          "q50": 151.65444137327648,
+          "q90": 151.65444137327648,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 140.73583350151543,
+          "q50": 140.73583350151543,
+          "q90": 140.73583350151543,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551896",
+      "name": "SAMA^Verte-1",
+      "lat": 31.471210029399433,
+      "lon": 74.36510342938885,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.74452690987962,
+          "q50": 190.74452690987962,
+          "q90": 190.74452690987962,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 156.9543322707955,
+          "q50": 156.9543322707955,
+          "q90": 156.9543322707955,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 145.49752072499396,
+          "q50": 145.49752072499396,
+          "q90": 145.49752072499396,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6551924",
+      "name": "Hunza - SAMA^Verte-2",
+      "lat": 31.512828080352932,
+      "lon": 74.37256265613674,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.89299369797752,
+          "q50": 190.89299369797752,
+          "q90": 190.89299369797752,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.38652563620823,
+          "q50": 155.38652563620823,
+          "q90": 155.38652563620823,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.0324238570571,
+          "q50": 144.0324238570571,
+          "q90": 144.0324238570571,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552049",
+      "name": " Johar Town",
+      "lat": 31.46011,
+      "lon": 74.280806,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.96850207104023,
+          "q50": 184.96850207104023,
+          "q90": 184.96850207104023,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.27075094432902,
+          "q50": 154.27075094432902,
+          "q90": 154.27075094432902,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.35602881468762,
+          "q50": 143.35602881468762,
+          "q90": 143.35602881468762,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552051",
+      "name": "NOVATEX Industry",
+      "lat": 31.46011,
+      "lon": 74.280806,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.96850207104023,
+          "q50": 184.96850207104023,
+          "q90": 184.96850207104023,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.27075094432902,
+          "q50": 154.27075094432902,
+          "q90": 154.27075094432902,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.35602881468762,
+          "q50": 143.35602881468762,
+          "q90": 143.35602881468762,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552086",
+      "name": " Johar Town",
+      "lat": 31.459972723856787,
+      "lon": 74.28338092060379,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.14925526033457,
+          "q50": 185.14925526033457,
+          "q90": 185.14925526033457,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.3724228069889,
+          "q50": 154.3724228069889,
+          "q90": 154.3724228069889,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.4396292355245,
+          "q50": 143.4396292355245,
+          "q90": 143.4396292355245,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552128",
+      "name": "Cantonment",
+      "lat": 31.538416131298508,
+      "lon": 74.41397438628991,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.81863916266863,
+          "q50": 191.81863916266863,
+          "q90": 191.81863916266863,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.63470010090347,
+          "q50": 154.63470010090347,
+          "q90": 154.63470010090347,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.46798634938725,
+          "q50": 143.46798634938725,
+          "q90": 143.46798634938725,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552135",
+      "name": "College Road",
+      "lat": 31.422751,
+      "lon": 74.274247,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.861311203618,
+          "q50": 184.861311203618,
+          "q90": 184.861311203618,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.3372965496999,
+          "q50": 155.3372965496999,
+          "q90": 155.3372965496999,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.38939601320112,
+          "q50": 144.38939601320112,
+          "q90": 144.38939601320112,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552136",
+      "name": "Samanabad",
+      "lat": 31.541572,
+      "lon": 74.299352,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.50706821183496,
+          "q50": 185.50706821183496,
+          "q90": 185.50706821183496,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.91575265001916,
+          "q50": 151.91575265001916,
+          "q90": 151.91575265001916,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.0768253329569,
+          "q50": 141.0768253329569,
+          "q90": 141.0768253329569,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552188",
+      "name": "Naseeruddin Road",
+      "lat": 31.56686493372204,
+      "lon": 74.30095432557411,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.38536861740508,
+          "q50": 185.38536861740508,
+          "q90": 185.38536861740508,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.0126358734764,
+          "q50": 151.0126358734764,
+          "q90": 151.0126358734764,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 140.2286493329598,
+          "q50": 140.2286493329598,
+          "q90": 140.2286493329598,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552189",
+      "name": "DHA Phase 8",
+      "lat": 31.524091123393298,
+      "lon": 74.43520833009752,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 190.74669976276087,
+          "q50": 190.74669976276087,
+          "q90": 190.74669976276087,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.58074668693612,
+          "q50": 154.58074668693612,
+          "q90": 154.58074668693612,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.73242597052024,
+          "q50": 143.73242597052024,
+          "q90": 143.73242597052024,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552190",
+      "name": "DHA Phase 5 (Hussainy House)",
+      "lat": 31.455554,
+      "lon": 74.409436,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 192.74892044343144,
+          "q50": 192.74892044343144,
+          "q90": 192.74892044343144,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 158.60024995664438,
+          "q50": 158.60024995664438,
+          "q90": 158.60024995664438,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 147.0121729782599,
+          "q50": 147.0121729782599,
+          "q90": 147.0121729782599,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552191",
+      "name": "Sandha Road",
+      "lat": 31.562576,
+      "lon": 74.302177,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.51081486587472,
+          "q50": 185.51081486587472,
+          "q90": 185.51081486587472,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.20830718041452,
+          "q50": 151.20830718041452,
+          "q90": 151.20830718041452,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 140.40705422420027,
+          "q50": 140.40705422420027,
+          "q90": 140.40705422420027,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552192",
+      "name": "Ravi Road",
+      "lat": 31.602327,
+      "lon": 74.299983,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.9594975526846,
+          "q50": 184.9594975526846,
+          "q90": 184.9594975526846,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 149.6461022459427,
+          "q50": 149.6461022459427,
+          "q90": 149.6461022459427,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 138.9890119806518,
+          "q50": 138.9890119806518,
+          "q90": 138.9890119806518,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552193",
+      "name": "Model Town",
+      "lat": 31.49285614271978,
+      "lon": 74.31337382669469,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.93738452254502,
+          "q50": 186.93738452254502,
+          "q90": 186.93738452254502,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.22510150950816,
+          "q50": 154.22510150950816,
+          "q90": 154.22510150950816,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.174953955561,
+          "q50": 143.174953955561,
+          "q90": 143.174953955561,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552194",
+      "name": "College Road",
+      "lat": 31.42059,
+      "lon": 74.273646,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 184.83977008961992,
+          "q50": 184.83977008961992,
+          "q90": 184.83977008961992,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 155.3884723720384,
+          "q50": 155.3884723720384,
+          "q90": 155.3884723720384,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 144.44056145058255,
+          "q50": 144.44056145058255,
+          "q90": 144.44056145058255,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552195",
+      "name": "Gulberg III",
+      "lat": 31.507035646313753,
+      "lon": 74.33861687959352,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 188.57167968504004,
+          "q50": 188.57167968504004,
+          "q90": 188.57167968504004,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.51449813415715,
+          "q50": 154.51449813415715,
+          "q90": 154.51449813415715,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 143.34780981530665,
+          "q50": 143.34780981530665,
+          "q90": 143.34780981530665,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552196",
+      "name": "Cantonment",
+      "lat": 31.54580215057569,
+      "lon": 74.37949611242556,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 191.08429536859816,
+          "q50": 191.08429536859816,
+          "q90": 191.08429536859816,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 154.13400242604024,
+          "q50": 154.13400242604024,
+          "q90": 154.13400242604024,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.8626749670557,
+          "q50": 142.8626749670557,
+          "q90": 142.8626749670557,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552197",
+      "name": "Sherwani Town",
+      "lat": 31.421338655580513,
+      "lon": 74.34755665864442,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.971699992504,
+          "q50": 189.971699992504,
+          "q90": 189.971699992504,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 158.40335391841543,
+          "q50": 158.40335391841543,
+          "q90": 158.40335391841543,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.9012757233839,
+          "q50": 146.9012757233839,
+          "q90": 146.9012757233839,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552198",
+      "name": "Thokar Niaz Baig",
+      "lat": 31.471944,
+      "lon": 74.237377,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 181.8287024762053,
+          "q50": 181.8287024762053,
+          "q90": 181.8287024762053,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.26364739297097,
+          "q50": 152.26364739297097,
+          "q90": 152.26364739297097,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.66638260036797,
+          "q50": 141.66638260036797,
+          "q90": 141.66638260036797,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552199",
+      "name": "Rehmanpura Colony",
+      "lat": 31.52117257202131,
+      "lon": 74.31511958189674,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 186.79916164615443,
+          "q50": 186.79916164615443,
+          "q90": 186.79916164615443,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.18340169777733,
+          "q50": 153.18340169777733,
+          "q90": 153.18340169777733,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.20008935127444,
+          "q50": 142.20008935127444,
+          "q90": 142.20008935127444,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552222",
+      "name": "Shalimar Town",
+      "lat": 31.575102480512136,
+      "lon": 74.45149215601434,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 189.5534452380351,
+          "q50": 189.5534452380351,
+          "q90": 189.5534452380351,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 151.8384374093035,
+          "q50": 151.8384374093035,
+          "q90": 151.8384374093035,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 141.48928572928978,
+          "q50": 141.48928572928978,
+          "q90": 141.48928572928978,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552223",
+      "name": "IEEE, Punjab University, LHR",
+      "lat": 31.497152,
+      "lon": 74.29615,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 185.6945612448103,
+          "q50": 185.6945612448103,
+          "q90": 185.6945612448103,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 153.470466937182,
+          "q50": 153.470466937182,
+          "q90": 153.470466937182,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.54063704503886,
+          "q50": 142.54063704503886,
+          "q90": 142.54063704503886,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552224",
+      "name": "Raiwind",
+      "lat": 31.297816,
+      "lon": 74.22313,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 182.505434798486,
+          "q50": 182.505434798486,
+          "q90": 182.505434798486,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 157.04181027024524,
+          "q50": 157.04181027024524,
+          "q90": 157.04181027024524,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 146.31702559552807,
+          "q50": 146.31702559552807,
+          "q90": 146.31702559552807,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552245",
+      "name": "Bahria Town ",
+      "lat": 31.377717942856773,
+      "lon": 74.18643681875244,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 179.1947155702875,
+          "q50": 179.1947155702875,
+          "q90": 179.1947155702875,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 152.95325003425992,
+          "q50": 152.95325003425992,
+          "q90": 152.95325003425992,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 142.63234898758705,
+          "q50": 142.63234898758705,
+          "q90": 142.63234898758705,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    },
+    {
+      "point_id": "station:6552252",
+      "name": "Depot Road",
+      "lat": 31.443307974589764,
+      "lon": 74.32146974842902,
+      "is_reference": false,
+      "horizons": [
+        {
+          "lead_h": 24,
+          "q10": 187.95667384405635,
+          "q50": 187.95667384405635,
+          "q90": 187.95667384405635,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 48,
+          "q10": 156.46210315884073,
+          "q50": 156.46210315884073,
+          "q90": 156.46210315884073,
+          "category_median": "very_unhealthy"
+        },
+        {
+          "lead_h": 72,
+          "q10": 145.21889207078448,
+          "q50": 145.21889207078448,
+          "q90": 145.21889207078448,
+          "category_median": "very_unhealthy"
+        }
+      ]
+    }
+  ],
+  "advisory": {
+    "category": "very_unhealthy",
+    "notes": [
+      "mask_note"
+    ]
+  },
+  "provenance": {
+    "sources": [
+      {
+        "id": "openaq",
+        "status": "ok",
+        "as_of_utc": null
+      },
+      {
+        "id": "cams_global",
+        "status": "ok",
+        "as_of_utc": "2026-11-27T12:00:00+00:00"
+      }
+    ]
+  },
+  "disclaimer_key": "research_only",
+  "valid_until_utc": "2026-11-29T06:00:00Z",
+  "basis": {
+    "n_panel": 120,
+    "n_reference": 1,
+    "n_lowcost": 119,
+    "aggregation": "mean"
+  }
+}
